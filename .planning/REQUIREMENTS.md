@@ -131,51 +131,51 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| DAEMON-01 | — | Pending |
-| DAEMON-02 | — | Pending |
-| DAEMON-03 | — | Pending |
-| DAEMON-04 | — | Pending |
-| DAEMON-05 | — | Pending |
-| SESS-01 | — | Pending |
-| SESS-02 | — | Pending |
-| SESS-03 | — | Pending |
-| SESS-04 | — | Pending |
-| OFFICE-01 | — | Pending |
-| OFFICE-02 | — | Pending |
-| OFFICE-03 | — | Pending |
-| OFFICE-04 | — | Pending |
-| OPS-01 | — | Pending |
-| OPS-02 | — | Pending |
-| OPS-03 | — | Pending |
-| OPS-04 | — | Pending |
-| APPR-01 | — | Pending |
-| APPR-02 | — | Pending |
-| APPR-03 | — | Pending |
-| APPR-04 | — | Pending |
-| APPR-05 | — | Pending |
-| APPR-06 | — | Pending |
-| TIMELINE-01 | — | Pending |
-| TIMELINE-02 | — | Pending |
-| TIMELINE-03 | — | Pending |
-| TIMELINE-04 | — | Pending |
-| DIFF-01 | — | Pending |
-| DIFF-02 | — | Pending |
-| DIFF-03 | — | Pending |
-| MEM-01 | — | Pending |
-| MEM-02 | — | Pending |
-| MEM-03 | — | Pending |
-| MEM-04 | — | Pending |
-| COMP-01 | — | Pending |
-| NOTIF-01 | — | Pending |
-| NOTIF-02 | — | Pending |
-| HIST-01 | — | Pending |
-| HIST-02 | — | Pending |
+| DAEMON-01 | Phase 1 | Pending |
+| DAEMON-02 | Phase 1 | Pending |
+| DAEMON-03 | Phase 1 | Pending |
+| DAEMON-04 | Phase 2 | Pending |
+| DAEMON-05 | Phase 4 | Pending |
+| SESS-01 | Phase 3 | Pending |
+| SESS-02 | Phase 3 | Pending |
+| SESS-03 | Phase 3 | Pending |
+| SESS-04 | Phase 3 | Pending |
+| OFFICE-01 | Phase 9 | Pending |
+| OFFICE-02 | Phase 9 | Pending |
+| OFFICE-03 | Phase 9 | Pending |
+| OFFICE-04 | Phase 9 | Pending |
+| OPS-01 | Phase 3 | Pending |
+| OPS-02 | Phase 3 | Pending |
+| OPS-03 | Phase 3 | Pending |
+| OPS-04 | Phase 3 | Pending |
+| APPR-01 | Phase 2 | Pending |
+| APPR-02 | Phase 2 | Pending |
+| APPR-03 | Phase 2 | Pending |
+| APPR-04 | Phase 2 | Pending |
+| APPR-05 | Phase 2 | Pending |
+| APPR-06 | Phase 2 | Pending |
+| TIMELINE-01 | Phase 5 | Pending |
+| TIMELINE-02 | Phase 5 | Pending |
+| TIMELINE-03 | Phase 5 | Pending |
+| TIMELINE-04 | Phase 5 | Pending |
+| DIFF-01 | Phase 6 | Pending |
+| DIFF-02 | Phase 6 | Pending |
+| DIFF-03 | Phase 6 | Pending |
+| MEM-01 | Phase 7 | Pending |
+| MEM-02 | Phase 7 | Pending |
+| MEM-03 | Phase 7 | Pending |
+| MEM-04 | Phase 7 | Pending |
+| COMP-01 | Phase 8 | Pending |
+| NOTIF-01 | Phase 2 | Pending |
+| NOTIF-02 | Phase 2 | Pending |
+| HIST-01 | Phase 8 | Pending |
+| HIST-02 | Phase 8 | Pending |
 
 **Coverage:**
 - v1 requirements: 39 total
-- Mapped to phases: 0
-- Unmapped: 39 ⚠️ (to be filled by roadmapper)
+- Mapped to phases: 39
+- Unmapped: 0 ✓
 
 ---
 *Requirements defined: 2026-04-04*
-*Last updated: 2026-04-04 after initial definition*
+*Last updated: 2026-04-04 after roadmap creation — traceability complete*
