@@ -1,3 +1,19 @@
+---
+gsd_state_version: 1.0
+milestone: v1.0
+milestone_name: milestone
+status: executing
+stopped_at: Completed 01-daemon-core/01-02-PLAN.md — SQLite persistence layer with better-sqlite3
+last_updated: "2026-04-05T03:52:17.978Z"
+last_activity: "2026-04-05 — Plan 01-01 complete: pnpm monorepo scaffold and @cockpit/shared NormalizedEvent Zod schema"
+progress:
+  total_phases: 9
+  completed_phases: 0
+  total_plans: 3
+  completed_plans: 2
+  percent: 67
+---
+
 # Project State
 
 ## Project Reference
@@ -14,7 +30,7 @@ Plan: 1 of 3 in current phase
 Status: In progress
 Last activity: 2026-04-05 — Plan 01-01 complete: pnpm monorepo scaffold and @cockpit/shared NormalizedEvent Zod schema
 
-Progress: [█░░░░░░░░░] 4% (1/27 plans complete)
+Progress: [███████░░░] 67%
 
 ## Performance Metrics
 
@@ -34,6 +50,7 @@ Progress: [█░░░░░░░░░] 4% (1/27 plans complete)
 - Trend: —
 
 *Updated after each plan completion*
+| Phase 01-daemon-core P02 | 5min | 3 tasks | 11 files |
 
 ## Accumulated Context
 
@@ -50,6 +67,9 @@ Recent decisions affecting current work:
 - 01-01: NodeNext moduleResolution used throughout — requires .js extensions in TypeScript source imports
 - 01-01: sequenceNumber is optional on NormalizedEvent — adapters omit it, SQLite assigns on insert
 - 01-01: vitest.config.ts uses 'projects' field (not deprecated vitest.workspace.ts) per Vitest 3.2+ convention
+- [Phase 01-02]: WAL mode assertion skipped for :memory: databases — SQLite in-memory always uses 'memory' journal mode; WAL test uses os.tmpdir() temp file
+- [Phase 01-02]: INTEGER PRIMARY KEY without AUTOINCREMENT — rowid recycles after deletion; acceptable for append-only event log
+- [Phase 01-02]: pnpm onlyBuiltDependencies in pnpm-workspace.yaml is the correct way to allow native addon builds in pnpm v10
 
 ### Pending Todos
 
@@ -63,6 +83,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-05
-Stopped at: Completed 01-daemon-core/01-01-PLAN.md — monorepo scaffold and @cockpit/shared NormalizedEvent schema
+Last session: 2026-04-05T03:52:17.976Z
+Stopped at: Completed 01-daemon-core/01-02-PLAN.md — SQLite persistence layer with better-sqlite3
 Resume file: None
