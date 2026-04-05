@@ -32,9 +32,12 @@ export function getEventsSince(
   db: Database.Database,
   lastSeenSequence: number,
 ): Array<NormalizedEvent & { sequenceNumber: number }> {
-  const rows = db.prepare<[number], { payload: string }>(
-    'SELECT payload FROM events WHERE sequence_number > ? ORDER BY sequence_number ASC'
+  const rows = db.prepare<[number], { payload: string; sequence_number: number }>(
+    'SELECT payload, sequence_number FROM events WHERE sequence_number > ? ORDER BY sequence_number ASC'
   ).all(lastSeenSequence);
 
-  return rows.map((row) => JSON.parse(row.payload) as NormalizedEvent & { sequenceNumber: number });
+  return rows.map((row) => ({
+    ...(JSON.parse(row.payload) as NormalizedEvent),
+    sequenceNumber: row.sequence_number,
+  }));
 }
