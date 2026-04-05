@@ -69,7 +69,12 @@ Plans:
   4. The user can launch a new Claude or Codex session from the browser UI by selecting a repo and provider
   5. The user can attach to an already-running session and begin receiving its events without restarting the daemon
   6. Ops mode navigation between approval inbox, timeline, diff viewer, memory, and artifacts panels works; panels render empty states rather than errors when content is not yet available
-**Plans**: TBD
+**Plans**: 3 plans
+
+Plans:
+- [ ] 03-01-PLAN.md — Scaffold packages/ui: Vite+React+Zustand store, WebSocket hook, session event derivation (SESS-01, SESS-03)
+- [ ] 03-02-PLAN.md — Session filters + selectors + POST /api/sessions daemon endpoint + LaunchSessionModal (SESS-02, SESS-04)
+- [ ] 03-03-PLAN.md — Ops layout shell: SessionListPanel, SessionDetailPanel, panel tabs with empty states (OPS-01, OPS-02, OPS-03, OPS-04)
 
 ### Phase 4: Codex Adapter
 **Goal**: Codex sessions appear in the same session list and approval inbox as Claude sessions. The adapter handles stdio JSON-RPC, session resume, and Codex approval events without modifying the daemon core or the browser UI.
