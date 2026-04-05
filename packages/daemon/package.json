@@ -1,0 +1,25 @@
+{
+  "name": "@cockpit/daemon",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "tsx src/index.ts",
+    "dev": "tsx watch src/index.ts",
+    "test": "vitest",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@cockpit/shared": "workspace:*",
+    "better-sqlite3": "^12.8.0",
+    "ws": "^8.18.3",
+    "zod": "^4.0.0"
+  },
+  "devDependencies": {
+    "@types/better-sqlite3": "^7.6.13",
+    "@types/ws": "^8.18.1",
+    "typescript": "^5.0.0",
+    "vitest": "^3.0.0",
+    "tsx": "latest"
+  }
+}
