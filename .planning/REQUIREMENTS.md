@@ -12,7 +12,7 @@ Requirements for initial release. Each maps to roadmap phases.
 - [x] **DAEMON-01**: System has a normalized event schema with `schemaVersion` and `sequenceNumber` fields that all provider adapters emit to and all UI components consume from
 - [x] **DAEMON-02**: System persists all session data, events, approvals, and memory in a local SQLite database with WAL mode enabled and checkpoint scheduling configured at boot
 - [x] **DAEMON-03**: System provides a WebSocket server with sequence-based catch-up protocol so the browser can reconnect and replay missed events using `lastSeenSequence`
-- [ ] **DAEMON-04**: System includes a Claude adapter that ingests lifecycle hooks via an HTTP hook server, capturing session start/stop, tool calls, file changes, permission requests, subagent events, and memory read/write events
+- [x] **DAEMON-04**: System includes a Claude adapter that ingests lifecycle hooks via an HTTP hook server, capturing session start/stop, tool calls, file changes, permission requests, subagent events, and memory read/write events
 - [ ] **DAEMON-05**: System includes a Codex adapter that connects to `codex app-server` via stdio JSON-RPC, parsing item/turn events, handling approval requests in-band, and supporting session resume
 
 ### Session Management
@@ -39,7 +39,7 @@ Requirements for initial release. Each maps to roadmap phases.
 ### Approvals
 
 - [ ] **APPR-01**: User can see all pending approvals from Claude and Codex in a single unified inbox
-- [ ] **APPR-02**: User can see each approval classified by type (shell command, network access, file change, sandbox escalation, MCP tool call, user-input elicitation) and risk level
+- [x] **APPR-02**: User can see each approval classified by type (shell command, network access, file change, sandbox escalation, MCP tool call, user-input elicitation) and risk level
 - [ ] **APPR-03**: User can approve once, deny once, or always-allow a similar action within the session for each pending approval
 - [ ] **APPR-04**: User can inspect an approval in detail (proposed action, reason, affected files/host, "why risky" hint, last related event) before deciding
 - [ ] **APPR-05**: System auto-denies any approval that has not received a decision within its timeout window, unblocking the agent with a deny response
@@ -134,7 +134,7 @@ Which phases cover which requirements. Updated during roadmap creation.
 | DAEMON-01 | Phase 1 | Complete |
 | DAEMON-02 | Phase 1 | Complete |
 | DAEMON-03 | Phase 1 | Complete |
-| DAEMON-04 | Phase 2 | Pending |
+| DAEMON-04 | Phase 2 | Complete |
 | DAEMON-05 | Phase 4 | Pending |
 | SESS-01 | Phase 3 | Pending |
 | SESS-02 | Phase 3 | Pending |
@@ -149,7 +149,7 @@ Which phases cover which requirements. Updated during roadmap creation.
 | OPS-03 | Phase 3 | Pending |
 | OPS-04 | Phase 3 | Pending |
 | APPR-01 | Phase 2 | Pending |
-| APPR-02 | Phase 2 | Pending |
+| APPR-02 | Phase 2 | Complete |
 | APPR-03 | Phase 2 | Pending |
 | APPR-04 | Phase 2 | Pending |
 | APPR-05 | Phase 2 | Pending |

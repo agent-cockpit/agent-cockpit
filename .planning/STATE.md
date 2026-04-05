@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: executing
-stopped_at: Completed 01-daemon-core/01-03-PLAN.md — WebSocket catch-up server + daemon entrypoint
-last_updated: "2026-04-05T04:18:36.120Z"
+stopped_at: Completed 02-claude-adapter-approval-foundation/02-01-PLAN.md — Claude Code hook adapter
+last_updated: "2026-04-05T04:43:44.798Z"
 last_activity: "2026-04-05 — Plan 01-01 complete: pnpm monorepo scaffold and @cockpit/shared NormalizedEvent Zod schema"
 progress:
   total_phases: 9
   completed_phases: 1
-  total_plans: 3
-  completed_plans: 3
+  total_plans: 6
+  completed_plans: 4
   percent: 67
 ---
 
@@ -52,6 +52,7 @@ Progress: [███████░░░] 67%
 *Updated after each plan completion*
 | Phase 01-daemon-core P02 | 5min | 3 tasks | 11 files |
 | Phase 01-daemon-core P03 | 2min | 2 tasks | 6 files |
+| Phase 02-claude-adapter-approval-foundation P01 | 8 | 2 tasks | 5 files |
 
 ## Accumulated Context
 
@@ -73,6 +74,9 @@ Recent decisions affecting current work:
 - [Phase 01-02]: pnpm onlyBuiltDependencies in pnpm-workspace.yaml is the correct way to allow native addon builds in pnpm v10
 - [Phase 01-daemon-core]: getEventsSince selects sequence_number column and merges into parsed payload — payload JSON stored at insert time does not include sequenceNumber
 - [Phase 01-daemon-core]: Synchronous catch-up replay before live event subscription — better-sqlite3 sync + Node single-threaded ensures atomic replay with no ordering violations
+- [Phase 02-claude-adapter-approval-foundation]: Session ID cache is module-level Map — ensures same Claude session_id maps to same UUID within process lifetime
+- [Phase 02-claude-adapter-approval-foundation]: Claim-then-act for resolveApproval: delete from pendingApprovals before res.end() to prevent double-write race condition
+- [Phase 02-claude-adapter-approval-foundation]: res.resume() required in Node.js HTTP test clients — IncomingMessage starts in paused mode; without it, end event never fires
 
 ### Pending Todos
 
@@ -86,6 +90,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-05T03:56:06.898Z
-Stopped at: Completed 01-daemon-core/01-03-PLAN.md — WebSocket catch-up server + daemon entrypoint
+Last session: 2026-04-05T04:43:39.600Z
+Stopped at: Completed 02-claude-adapter-approval-foundation/02-01-PLAN.md — Claude Code hook adapter
 Resume file: None
