@@ -240,6 +240,7 @@ describe('hookServer', () => {
           },
         },
         (res) => {
+          res.resume(); // put in flowing mode so 'end' fires
           res.on('end', () => { responseResolved = true; resolve(); });
         },
       );

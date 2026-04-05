@@ -34,6 +34,28 @@ export function openDatabase(dbPath: string): Database.Database {
     );
     CREATE INDEX IF NOT EXISTS idx_events_session
       ON events (session_id, sequence_number);
+
+    CREATE TABLE IF NOT EXISTS approvals (
+      approval_id      TEXT PRIMARY KEY,
+      session_id       TEXT NOT NULL,
+      status           TEXT NOT NULL DEFAULT 'pending',
+      action_type      TEXT NOT NULL,
+      risk_level       TEXT NOT NULL,
+      proposed_action  TEXT NOT NULL,
+      affected_paths   TEXT,
+      why_risky        TEXT,
+      created_at       TEXT NOT NULL,
+      decided_at       TEXT,
+      decision_reason  TEXT
+    );
+
+    CREATE TABLE IF NOT EXISTS always_allow_rules (
+      id          INTEGER PRIMARY KEY,
+      session_id  TEXT NOT NULL,
+      tool_name   TEXT NOT NULL,
+      pattern     TEXT NOT NULL,
+      created_at  TEXT NOT NULL
+    );
   `);
 
   // Checkpoint scheduling: fires every 10s, non-blocking (unref so it doesn't keep process alive)
