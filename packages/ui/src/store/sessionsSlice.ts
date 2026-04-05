@@ -1,0 +1,77 @@
+import type { NormalizedEvent } from '@cockpit/shared'
+import type { AppStore, SessionRecord } from './index.js'
+
+/**
+ * Pure reducer: applies a single NormalizedEvent to the sessions map.
+ * Called by the Zustand store's applyEvent action.
+ *
+ * SESS-03 attach-to-running-session: When lastSeenSequence=0, the daemon
+ * replays ALL historical events from the beginning. This function is pure and
+ * replay-safe — replaying a sequence of events produces the same result as
+ * applying them in order from scratch.
+ */
+export function applyEventToSessions(
+  state: Pick<AppStore, 'sessions'>,
+  event: NormalizedEvent,
+): Pick<AppStore, 'sessions'> {
+  const sessions = { ...state.sessions }
+  const now = event.timestamp
+
+  switch (event.type) {
+    case 'session_start':
+      sessions[event.sessionId] = {
+        sessionId: event.sessionId,
+        provider: event.provider,
+        workspacePath: event.workspacePath,
+        startedAt: event.timestamp,
+        status: 'active',
+        lastEventAt: now,
+        pendingApprovals: 0,
+      }
+      break
+
+    case 'session_end':
+      if (sessions[event.sessionId]) {
+        sessions[event.sessionId] = {
+          ...sessions[event.sessionId]!,
+          status: 'ended',
+          lastEventAt: now,
+        }
+      }
+      // No-op for unknown sessionId — do not create phantom records
+      break
+
+    case 'approval_request':
+      if (sessions[event.sessionId]) {
+        sessions[event.sessionId] = {
+          ...sessions[event.sessionId]!,
+          pendingApprovals: (sessions[event.sessionId]!.pendingApprovals ?? 0) + 1,
+          lastEventAt: now,
+        }
+      }
+      break
+
+    case 'approval_resolved':
+      if (sessions[event.sessionId]) {
+        const prev = sessions[event.sessionId]!
+        sessions[event.sessionId] = {
+          ...prev,
+          pendingApprovals: Math.max(0, prev.pendingApprovals - 1),
+          lastEventAt: now,
+        }
+      }
+      break
+
+    default:
+      // All other event types: update lastEventAt only if session exists
+      if (sessions[event.sessionId]) {
+        sessions[event.sessionId] = {
+          ...sessions[event.sessionId]!,
+          lastEventAt: now,
+        }
+      }
+      break
+  }
+
+  return { sessions }
+}
