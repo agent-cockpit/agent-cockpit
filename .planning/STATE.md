@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: executing
-stopped_at: Completed 02-claude-adapter-approval-foundation/02-01-PLAN.md — Claude Code hook adapter
-last_updated: "2026-04-05T04:43:44.798Z"
+stopped_at: Completed 02-claude-adapter-approval-foundation/02-02-PLAN.md — Approval queue + round-trip
+last_updated: "2026-04-05T04:47:45.795Z"
 last_activity: "2026-04-05 — Plan 01-01 complete: pnpm monorepo scaffold and @cockpit/shared NormalizedEvent Zod schema"
 progress:
   total_phases: 9
   completed_phases: 1
   total_plans: 6
-  completed_plans: 4
+  completed_plans: 5
   percent: 67
 ---
 
@@ -53,6 +53,7 @@ Progress: [███████░░░] 67%
 | Phase 01-daemon-core P02 | 5min | 3 tasks | 11 files |
 | Phase 01-daemon-core P03 | 2min | 2 tasks | 6 files |
 | Phase 02-claude-adapter-approval-foundation P01 | 8 | 2 tasks | 5 files |
+| Phase 02-claude-adapter-approval-foundation P02 | 2 | 2 tasks | 4 files |
 
 ## Accumulated Context
 
@@ -77,6 +78,9 @@ Recent decisions affecting current work:
 - [Phase 02-claude-adapter-approval-foundation]: Session ID cache is module-level Map — ensures same Claude session_id maps to same UUID within process lifetime
 - [Phase 02-claude-adapter-approval-foundation]: Claim-then-act for resolveApproval: delete from pendingApprovals before res.end() to prevent double-write race condition
 - [Phase 02-claude-adapter-approval-foundation]: res.resume() required in Node.js HTTP test clients — IncomingMessage starts in paused mode; without it, end event never fires
+- [Phase 02-claude-adapter-approval-foundation]: pendingSet claim-then-act prevents double-resolution: delete approvalId before I/O to guard concurrent timeout + decide
+- [Phase 02-claude-adapter-approval-foundation]: pendingEvents Map stores full NormalizedEvent per approvalId to avoid extra DB read when constructing always_allow rules
+- [Phase 02-claude-adapter-approval-foundation]: approvalStore is pure data layer with no business logic; all orchestration lives in ApprovalQueue
 
 ### Pending Todos
 
@@ -90,6 +94,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-05T04:43:39.600Z
-Stopped at: Completed 02-claude-adapter-approval-foundation/02-01-PLAN.md — Claude Code hook adapter
+Last session: 2026-04-05T04:47:45.793Z
+Stopped at: Completed 02-claude-adapter-approval-foundation/02-02-PLAN.md — Approval queue + round-trip
 Resume file: None
