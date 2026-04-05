@@ -2,6 +2,7 @@ import { WebSocket } from 'ws';
 import type { IncomingMessage } from 'node:http';
 import type Database from 'better-sqlite3';
 import { getEventsSince } from '../db/queries.js';
+import { approvalQueue } from '../approvals/approvalQueue.js';
 
 export function handleConnection(
   ws: WebSocket,
@@ -26,8 +27,25 @@ export function handleConnection(
     }
   }
 
-  ws.on('message', (_data) => {
-    // Phase 1: no inbound messages processed (approval decisions come in Phase 2)
+  ws.on('message', (data) => {
+    let msg: unknown;
+    try {
+      msg = JSON.parse(data.toString());
+    } catch {
+      return;
+    }
+    if (!msg || typeof msg !== 'object') return;
+    const m = msg as Record<string, unknown>;
+    if (m['type'] === 'approval_decision') {
+      const approvalId = m['approvalId'];
+      const decision = m['decision'];
+      if (
+        typeof approvalId === 'string' &&
+        (decision === 'approve' || decision === 'deny' || decision === 'always_allow')
+      ) {
+        approvalQueue.decide(approvalId, decision, db);
+      }
+    }
   });
 
   ws.on('error', (err) => {

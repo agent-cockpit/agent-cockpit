@@ -140,16 +140,16 @@ describe('ApprovalQueue', () => {
     const busMod = await import('../eventBus.js');
     const { approvalQueue } = await import('../approvals/approvalQueue.js');
 
-    const insertSpy = vi.spyOn(storeMod, 'insertApproval');
-    const emitSpy = vi.spyOn(busMod.eventBus, 'emit');
     const callOrder: string[] = [];
-    insertSpy.mockImplementation((...args) => {
+    const originalInsert = storeMod.insertApproval;
+    const insertSpy = vi.spyOn(storeMod, 'insertApproval').mockImplementation((...args) => {
       callOrder.push('insert');
-      return (storeMod.insertApproval as (...a: unknown[]) => void)(...args);
+      return originalInsert(...(args as Parameters<typeof originalInsert>));
     });
-    emitSpy.mockImplementation((...args) => {
+    const originalEmit = busMod.eventBus.emit.bind(busMod.eventBus);
+    const emitSpy = vi.spyOn(busMod.eventBus, 'emit').mockImplementation((...args) => {
       callOrder.push('emit');
-      return busMod.eventBus.emit(...(args as Parameters<typeof busMod.eventBus.emit>));
+      return originalEmit(...(args as Parameters<typeof originalEmit>));
     });
 
     const approvalId = '00000000-0000-0000-0000-000000000011';
