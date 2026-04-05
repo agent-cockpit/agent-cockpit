@@ -1,0 +1,16 @@
+{
+  "name": "agent-cockpit",
+  "private": true,
+  "version": "0.0.0",
+  "scripts": {
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "build": "pnpm -r build",
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "typescript": "^5.0.0",
+    "vitest": "^3.0.0",
+    "tsx": "latest"
+  }
+}
