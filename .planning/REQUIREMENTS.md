@@ -31,10 +31,10 @@ Requirements for initial release. Each maps to roadmap phases.
 
 ### Ops Mode
 
-- [ ] **OPS-01**: User can see a session list panel in Ops mode showing all sessions with status indicators
-- [ ] **OPS-02**: User can select a session and see its detail panel with task, provider, repo/branch, start time, and current status
-- [ ] **OPS-03**: User can switch between sessions quickly without losing context or panel state
-- [ ] **OPS-04**: User can navigate between Ops mode panels: approval inbox, timeline, diff viewer, memory, and artifacts/log
+- [x] **OPS-01**: User can see a session list panel in Ops mode showing all sessions with status indicators
+- [x] **OPS-02**: User can select a session and see its detail panel with task, provider, repo/branch, start time, and current status
+- [x] **OPS-03**: User can switch between sessions quickly without losing context or panel state
+- [x] **OPS-04**: User can navigate between Ops mode panels: approval inbox, timeline, diff viewer, memory, and artifacts/log
 
 ### Approvals
 
@@ -144,10 +144,10 @@ Which phases cover which requirements. Updated during roadmap creation.
 | OFFICE-02 | Phase 9 | Pending |
 | OFFICE-03 | Phase 9 | Pending |
 | OFFICE-04 | Phase 9 | Pending |
-| OPS-01 | Phase 3 | Pending |
-| OPS-02 | Phase 3 | Pending |
-| OPS-03 | Phase 3 | Pending |
-| OPS-04 | Phase 3 | Pending |
+| OPS-01 | Phase 3 | Complete |
+| OPS-02 | Phase 3 | Complete |
+| OPS-03 | Phase 3 | Complete |
+| OPS-04 | Phase 3 | Complete |
 | APPR-01 | Phase 2 | Complete |
 | APPR-02 | Phase 2 | Complete |
 | APPR-03 | Phase 2 | Complete |
