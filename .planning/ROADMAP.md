@@ -13,7 +13,7 @@ The build starts with the daemon — the critical path every other feature depen
 Decimal phases appear between their surrounding integers in numeric order.
 
 - [x] **Phase 1: Daemon Core** - Normalized event schema, SQLite persistence, WebSocket server with sequence-based catch-up (completed 2026-04-05)
-- [ ] **Phase 2: Claude Adapter + Approval Foundation** - Hook ingestion, full approval round-trip with timeout, in-app and desktop notifications
+- [x] **Phase 2: Claude Adapter + Approval Foundation** - Hook ingestion, full approval round-trip with timeout, in-app and desktop notifications (completed 2026-04-05)
 - [ ] **Phase 3: Browser UI Shell + Session Management** - Vite/React/Zustand app, live session list, session filtering, Ops mode layout and panels
 - [ ] **Phase 4: Codex Adapter** - Codex app-server integration via stdio JSON-RPC, Codex sessions and approvals in the same UI
 - [ ] **Phase 5: Timeline & Replay** - Replayable ordered event timeline per session with scrubbing, jump-to, and filtering
@@ -54,9 +54,9 @@ Plans:
 **Plans**: 3 plans
 
 Plans:
-- [ ] 02-01-PLAN.md — Claude Code hook adapter: HTTP server, hook parser, risk classifier, SQLite schema migrations (DAEMON-04, APPR-02)
-- [ ] 02-02-PLAN.md — Approval queue + round-trip: in-memory queue, WebSocket decision handler, SQLite persistence (APPR-01, APPR-03, APPR-04, APPR-05, APPR-06)
-- [ ] 02-03-PLAN.md — Daemon wiring, timeout integration test, notification helpers (APPR-05, APPR-06, NOTIF-01, NOTIF-02)
+- [x] 02-01-PLAN.md — Claude Code hook adapter: HTTP server, hook parser, risk classifier, SQLite schema migrations (DAEMON-04, APPR-02)
+- [x] 02-02-PLAN.md — Approval queue + round-trip: in-memory queue, WebSocket decision handler, SQLite persistence (APPR-01, APPR-03, APPR-04, APPR-05, APPR-06)
+- [x] 02-03-PLAN.md — Daemon wiring, timeout integration test, notification helpers (APPR-05, APPR-06, NOTIF-01, NOTIF-02)
 
 ### Phase 3: Browser UI Shell + Session Management
 **Goal**: The browser shows live Claude Code sessions, lets the user filter the list, and provides the Ops mode layout with working navigation between session detail, approval inbox, timeline, diff, memory, and artifacts panels — even before those panels are fully populated.
@@ -144,7 +144,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8 →
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Daemon Core | 3/3 | Complete   | 2026-04-05 |
-| 2. Claude Adapter + Approval Foundation | 0/? | Not started | - |
+| 2. Claude Adapter + Approval Foundation | 3/3 | Complete   | 2026-04-05 |
 | 3. Browser UI Shell + Session Management | 0/? | Not started | - |
 | 4. Codex Adapter | 0/? | Not started | - |
 | 5. Timeline & Replay | 0/? | Not started | - |
