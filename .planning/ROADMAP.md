@@ -33,7 +33,12 @@ Decimal phases appear between their surrounding integers in numeric order.
   2. Synthetic events injected into the daemon appear in the SQLite database with WAL mode confirmed active and are broadcast over WebSocket to a connected browser tab
   3. A browser tab that disconnects and reconnects with a `lastSeenSequence` receives only the missed events in order, with no duplicates and no gaps
   4. Stopping and restarting the daemon does not lose any previously persisted events; the browser tab recovers full state after reconnect
-**Plans**: TBD
+**Plans**: 3 plans
+
+Plans:
+- [ ] 01-01-PLAN.md — Monorepo scaffold + @cockpit/shared NormalizedEvent Zod schema (DAEMON-01)
+- [ ] 01-02-PLAN.md — SQLite persistence layer with WAL mode, TDD (DAEMON-02)
+- [ ] 01-03-PLAN.md — WebSocket catch-up server + daemon entrypoint wiring, TDD (DAEMON-03)
 
 ### Phase 2: Claude Adapter + Approval Foundation
 **Goal**: Claude Code sessions are visible in the daemon with real hook events. The full approval round-trip — PreToolUse hook to browser decision back to Claude Code HTTP response — works end-to-end, with per-approval timeout and auto-deny shipping in the same release.
@@ -133,7 +138,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8 →
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Daemon Core | 0/? | Not started | - |
+| 1. Daemon Core | 0/3 | Planning done | - |
 | 2. Claude Adapter + Approval Foundation | 0/? | Not started | - |
 | 3. Browser UI Shell + Session Management | 0/? | Not started | - |
 | 4. Codex Adapter | 0/? | Not started | - |
