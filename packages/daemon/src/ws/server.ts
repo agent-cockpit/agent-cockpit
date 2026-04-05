@@ -1,7 +1,41 @@
 import { createServer } from 'node:http';
+import http from 'node:http';
+import crypto from 'node:crypto';
 import { WebSocketServer, WebSocket } from 'ws';
 import type Database from 'better-sqlite3';
 import { handleConnection } from './handlers.js';
+
+function handleLaunchSession(req: http.IncomingMessage, res: http.ServerResponse): void {
+  let body = '';
+  req.on('data', (chunk) => { body += chunk; });
+  req.on('end', () => {
+    try {
+      const { provider, workspacePath } = JSON.parse(body) as { provider?: string; workspacePath?: string };
+      if (!provider || !workspacePath) {
+        res.writeHead(400, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: 'provider and workspacePath are required' }));
+        return;
+      }
+      const sessionId = crypto.randomUUID();
+      if (provider === 'claude') {
+        // SESS-02 configure-and-copy: Claude cannot be safely spawned as Node child process
+        // (see RESEARCH.md open question 1 / GitHub issue #771)
+        // Return the hook configuration command for the user to run manually
+        const hookPort = process.env['COCKPIT_HOOK_PORT'] ?? '3002';
+        const hookCommand = `COCKPIT_SESSION_ID=${sessionId} claude --hooks http://localhost:${hookPort}/hook`;
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ sessionId, hookCommand, mode: 'configure-and-copy' }));
+      } else {
+        // Codex: not blocked by the same spawn issue — future Phase 4
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ sessionId, mode: 'spawn' }));
+      }
+    } catch {
+      res.writeHead(400, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: 'invalid JSON body' }));
+    }
+  });
+}
 
 export function createWsServer(
   db: Database.Database,
@@ -9,6 +43,28 @@ export function createWsServer(
 ): { wss: WebSocketServer; httpServer: ReturnType<typeof createServer> } {
   const httpServer = createServer();
   const wss = new WebSocketServer({ noServer: true });
+
+  // Handle standard HTTP requests (REST API)
+  httpServer.on('request', (req, res) => {
+    // CORS for localhost dev
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+
+    if (req.method === 'OPTIONS') {
+      res.writeHead(204);
+      res.end();
+      return;
+    }
+
+    if (req.method === 'POST' && req.url === '/api/sessions') {
+      handleLaunchSession(req, res);
+      return;
+    }
+
+    res.writeHead(404);
+    res.end();
+  });
 
   httpServer.on('upgrade', (request, socket, head) => {
     wss.handleUpgrade(request, socket, head, (ws) => {
