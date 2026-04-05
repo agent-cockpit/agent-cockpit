@@ -51,7 +51,12 @@ Plans:
   4. An approval that receives no decision within its configured timeout is automatically denied, an `approval_expired` event is emitted, and the agent continues without deadlocking
   5. All approval decisions (approve/deny/always-allow/timeout) survive a daemon restart and are queryable from the database
   6. An in-app notification fires when an approval is needed, and a desktop OS-level notification fires when the browser tab is in the background
-**Plans**: TBD
+**Plans**: 3 plans
+
+Plans:
+- [ ] 02-01-PLAN.md — Claude Code hook adapter: HTTP server, hook parser, risk classifier, SQLite schema migrations (DAEMON-04, APPR-02)
+- [ ] 02-02-PLAN.md — Approval queue + round-trip: in-memory queue, WebSocket decision handler, SQLite persistence (APPR-01, APPR-03, APPR-04, APPR-05, APPR-06)
+- [ ] 02-03-PLAN.md — Daemon wiring, timeout integration test, notification helpers (APPR-05, APPR-06, NOTIF-01, NOTIF-02)
 
 ### Phase 3: Browser UI Shell + Session Management
 **Goal**: The browser shows live Claude Code sessions, lets the user filter the list, and provides the Ops mode layout with working navigation between session detail, approval inbox, timeline, diff, memory, and artifacts panels — even before those panels are fully populated.
