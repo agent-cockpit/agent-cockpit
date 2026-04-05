@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: executing
-stopped_at: Completed 01-daemon-core/01-02-PLAN.md — SQLite persistence layer with better-sqlite3
-last_updated: "2026-04-05T03:52:17.978Z"
+stopped_at: Completed 01-daemon-core/01-03-PLAN.md — WebSocket catch-up server + daemon entrypoint
+last_updated: "2026-04-05T03:56:06.899Z"
 last_activity: "2026-04-05 — Plan 01-01 complete: pnpm monorepo scaffold and @cockpit/shared NormalizedEvent Zod schema"
 progress:
   total_phases: 9
-  completed_phases: 0
+  completed_phases: 1
   total_plans: 3
-  completed_plans: 2
+  completed_plans: 3
   percent: 67
 ---
 
@@ -51,6 +51,7 @@ Progress: [███████░░░] 67%
 
 *Updated after each plan completion*
 | Phase 01-daemon-core P02 | 5min | 3 tasks | 11 files |
+| Phase 01-daemon-core P03 | 2min | 2 tasks | 6 files |
 
 ## Accumulated Context
 
@@ -70,6 +71,8 @@ Recent decisions affecting current work:
 - [Phase 01-02]: WAL mode assertion skipped for :memory: databases — SQLite in-memory always uses 'memory' journal mode; WAL test uses os.tmpdir() temp file
 - [Phase 01-02]: INTEGER PRIMARY KEY without AUTOINCREMENT — rowid recycles after deletion; acceptable for append-only event log
 - [Phase 01-02]: pnpm onlyBuiltDependencies in pnpm-workspace.yaml is the correct way to allow native addon builds in pnpm v10
+- [Phase 01-daemon-core]: getEventsSince selects sequence_number column and merges into parsed payload — payload JSON stored at insert time does not include sequenceNumber
+- [Phase 01-daemon-core]: Synchronous catch-up replay before live event subscription — better-sqlite3 sync + Node single-threaded ensures atomic replay with no ordering violations
 
 ### Pending Todos
 
@@ -83,6 +86,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-05T03:52:17.976Z
-Stopped at: Completed 01-daemon-core/01-02-PLAN.md — SQLite persistence layer with better-sqlite3
+Last session: 2026-04-05T03:56:06.898Z
+Stopped at: Completed 01-daemon-core/01-03-PLAN.md — WebSocket catch-up server + daemon entrypoint
 Resume file: None

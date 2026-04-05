@@ -12,7 +12,7 @@ The build starts with the daemon — the critical path every other feature depen
 
 Decimal phases appear between their surrounding integers in numeric order.
 
-- [ ] **Phase 1: Daemon Core** - Normalized event schema, SQLite persistence, WebSocket server with sequence-based catch-up
+- [x] **Phase 1: Daemon Core** - Normalized event schema, SQLite persistence, WebSocket server with sequence-based catch-up (completed 2026-04-05)
 - [ ] **Phase 2: Claude Adapter + Approval Foundation** - Hook ingestion, full approval round-trip with timeout, in-app and desktop notifications
 - [ ] **Phase 3: Browser UI Shell + Session Management** - Vite/React/Zustand app, live session list, session filtering, Ops mode layout and panels
 - [ ] **Phase 4: Codex Adapter** - Codex app-server integration via stdio JSON-RPC, Codex sessions and approvals in the same UI
@@ -138,7 +138,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8 →
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Daemon Core | 2/3 | In Progress|  |
+| 1. Daemon Core | 3/3 | Complete   | 2026-04-05 |
 | 2. Claude Adapter + Approval Foundation | 0/? | Not started | - |
 | 3. Browser UI Shell + Session Management | 0/? | Not started | - |
 | 4. Codex Adapter | 0/? | Not started | - |
