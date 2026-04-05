@@ -10,27 +10,27 @@ See: .planning/PROJECT.md (updated 2026-04-04)
 ## Current Position
 
 Phase: 1 of 9 (Daemon Core)
-Plan: 0 of ? in current phase
-Status: Ready to plan
-Last activity: 2026-04-04 — Roadmap created; 39 requirements mapped across 9 phases
+Plan: 1 of 3 in current phase
+Status: In progress
+Last activity: 2026-04-05 — Plan 01-01 complete: pnpm monorepo scaffold and @cockpit/shared NormalizedEvent Zod schema
 
-Progress: [░░░░░░░░░░] 0%
+Progress: [█░░░░░░░░░] 4% (1/27 plans complete)
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 0
-- Average duration: —
-- Total execution time: 0 hours
+- Total plans completed: 1
+- Average duration: 2 min
+- Total execution time: 0.03 hours
 
 **By Phase:**
 
 | Phase | Plans | Total | Avg/Plan |
 |-------|-------|-------|----------|
-| - | - | - | - |
+| 01-daemon-core | 1 | 2 min | 2 min |
 
 **Recent Trend:**
-- Last 5 plans: —
+- Last 5 plans: 2 min
 - Trend: —
 
 *Updated after each plan completion*
@@ -46,6 +46,10 @@ Recent decisions affecting current work:
 - Roadmap: Approval timeout logic ships in Phase 2 with the first approval implementation, not as a follow-up
 - Roadmap: Office mode is Phase 9 (last) — additive display layer on proven Zustand store, no data model dependencies
 - Roadmap: Codex adapter is Phase 4 (after browser UI shell) — isolated adapter boundary avoids contaminating core architecture validation
+- 01-01: Package exports point to ./src/index.ts — no build step required in workspace development
+- 01-01: NodeNext moduleResolution used throughout — requires .js extensions in TypeScript source imports
+- 01-01: sequenceNumber is optional on NormalizedEvent — adapters omit it, SQLite assigns on insert
+- 01-01: vitest.config.ts uses 'projects' field (not deprecated vitest.workspace.ts) per Vitest 3.2+ convention
 
 ### Pending Todos
 
@@ -59,6 +63,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-04
-Stopped at: Roadmap written; REQUIREMENTS.md traceability updated; ready to run /gsd:plan-phase 1
+Last session: 2026-04-05
+Stopped at: Completed 01-daemon-core/01-01-PLAN.md — monorepo scaffold and @cockpit/shared NormalizedEvent schema
 Resume file: None
