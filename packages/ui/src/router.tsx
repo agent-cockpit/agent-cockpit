@@ -13,7 +13,7 @@ export const router = createBrowserRouter([
         index: true,
         Component: () => (
           <div className="flex items-center justify-center h-full p-8">
-            <span className="text-sm">Select a session to get started.</span>
+            <span className="text-sm text-muted-foreground">Select a session to get started.</span>
           </div>
         ),
       },
@@ -22,39 +22,36 @@ export const router = createBrowserRouter([
         Component: SessionDetailPanel,
         children: [
           {
+            index: true,
+            lazy: () =>
+              import('./components/panels/ApprovalInbox.js').then((m) => ({ Component: m.ApprovalInbox })),
+          },
+          {
             path: 'approvals',
-            lazy: async () => {
-              const { ApprovalInbox } = await import('./components/panels/ApprovalInbox.js')
-              return { Component: ApprovalInbox }
-            },
+            lazy: () =>
+              import('./components/panels/ApprovalInbox.js').then((m) => ({ Component: m.ApprovalInbox })),
           },
           {
             path: 'timeline',
-            lazy: async () => {
-              const { TimelinePanel } = await import('./components/panels/TimelinePanel.js')
-              return { Component: TimelinePanel }
-            },
+            lazy: () =>
+              import('./components/panels/TimelinePanel.js').then((m) => ({ Component: m.TimelinePanel })),
           },
           {
             path: 'diff',
-            lazy: async () => {
-              const { DiffPanel } = await import('./components/panels/DiffPanel.js')
-              return { Component: DiffPanel }
-            },
+            lazy: () =>
+              import('./components/panels/DiffPanel.js').then((m) => ({ Component: m.DiffPanel })),
           },
           {
             path: 'memory',
-            lazy: async () => {
-              const { MemoryPanel } = await import('./components/panels/MemoryPanel.js')
-              return { Component: MemoryPanel }
-            },
+            lazy: () =>
+              import('./components/panels/MemoryPanel.js').then((m) => ({ Component: m.MemoryPanel })),
           },
           {
             path: 'artifacts',
-            lazy: async () => {
-              const { ArtifactsPanel } = await import('./components/panels/ArtifactsPanel.js')
-              return { Component: ArtifactsPanel }
-            },
+            lazy: () =>
+              import('./components/panels/ArtifactsPanel.js').then((m) => ({
+                Component: m.ArtifactsPanel,
+              })),
           },
         ],
       },
