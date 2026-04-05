@@ -1,7 +1,10 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, afterEach } from 'vitest';
 import { openDatabase } from '../db/database.js';
 import { persistEvent, getEventsSince } from '../db/queries.js';
 import type { NormalizedEvent } from '@cockpit/shared';
+import * as os from 'node:os';
+import * as path from 'node:path';
+import * as fs from 'node:fs';
 
 // Helper: valid NormalizedEvent (no sequenceNumber — DB assigns it)
 function makeEvent(overrides: Partial<NormalizedEvent> = {}): NormalizedEvent {
@@ -24,10 +27,17 @@ describe('openDatabase', () => {
   });
 
   it('enables WAL mode (journal_mode = wal)', () => {
-    const db = openDatabase(':memory:');
-    const mode = db.pragma('journal_mode', { simple: true });
-    expect(mode).toBe('wal');
-    db.close();
+    // WAL mode requires a file-based database; :memory: databases always use 'memory' journal mode
+    const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'cockpit-test-'));
+    const dbPath = path.join(tmpDir, 'test.db');
+    try {
+      const db = openDatabase(dbPath);
+      const mode = db.pragma('journal_mode', { simple: true });
+      expect(mode).toBe('wal');
+      db.close();
+    } finally {
+      fs.rmSync(tmpDir, { recursive: true, force: true });
+    }
   });
 
   it('creates the events table', () => {
