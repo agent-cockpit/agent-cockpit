@@ -34,4 +34,6 @@ function shutdown(db: Database.Database, wss: WebSocketServer): void {
 process.on('SIGTERM', () => shutdown(db, wss));
 process.on('SIGINT', () => shutdown(db, wss));
 
-console.log(`[cockpit-daemon] Started. DB: ${DB_PATH}, WS port: ${WS_PORT}`);
+httpServer.once('listening', () => {
+  console.log(`[cockpit-daemon] Started. DB: ${DB_PATH}, WS port: ${WS_PORT}`);
+});

@@ -20,6 +20,14 @@ export function createWsServer(
     handleConnection(ws, req, db);
   });
 
+  httpServer.on('error', (err: NodeJS.ErrnoException) => {
+    if (err.code === 'EADDRINUSE') {
+      console.error(`[cockpit-daemon] Port ${port} is already in use. Stop the existing daemon or set COCKPIT_WS_PORT to a different port.`);
+      process.exit(1);
+    }
+    throw err;
+  });
+
   httpServer.listen(port, () => {
     console.log(`[cockpit-daemon] WebSocket server listening on ws://localhost:${port}`);
   });
