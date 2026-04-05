@@ -71,8 +71,8 @@ Requirements for initial release. Each maps to roadmap phases.
 
 ### Notifications
 
-- [ ] **NOTIF-01**: User receives in-app notifications when a session needs approval, fails, or completes
-- [ ] **NOTIF-02**: User receives desktop/browser OS-level notifications for approval needed, session failed, and session completed events (when the browser tab is in the background)
+- [x] **NOTIF-01**: User receives in-app notifications when a session needs approval, fails, or completes
+- [x] **NOTIF-02**: User receives desktop/browser OS-level notifications for approval needed, session failed, and session completed events (when the browser tab is in the background)
 
 ### History & Search
 
@@ -166,8 +166,8 @@ Which phases cover which requirements. Updated during roadmap creation.
 | MEM-03 | Phase 7 | Pending |
 | MEM-04 | Phase 7 | Pending |
 | COMP-01 | Phase 8 | Pending |
-| NOTIF-01 | Phase 2 | Pending |
-| NOTIF-02 | Phase 2 | Pending |
+| NOTIF-01 | Phase 2 | Complete |
+| NOTIF-02 | Phase 2 | Complete |
 | HIST-01 | Phase 8 | Pending |
 | HIST-02 | Phase 8 | Pending |
 

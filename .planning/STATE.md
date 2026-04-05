@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: executing
-stopped_at: Completed 02-claude-adapter-approval-foundation/02-02-PLAN.md — Approval queue + round-trip
-last_updated: "2026-04-05T04:47:45.795Z"
+stopped_at: "Checkpoint: 02-03 Task 3 human-verify — tests pass, awaiting daemon start verification"
+last_updated: "2026-04-05T04:50:58.038Z"
 last_activity: "2026-04-05 — Plan 01-01 complete: pnpm monorepo scaffold and @cockpit/shared NormalizedEvent Zod schema"
 progress:
   total_phases: 9
-  completed_phases: 1
+  completed_phases: 2
   total_plans: 6
-  completed_plans: 5
+  completed_plans: 6
   percent: 67
 ---
 
@@ -54,6 +54,7 @@ Progress: [███████░░░] 67%
 | Phase 01-daemon-core P03 | 2min | 2 tasks | 6 files |
 | Phase 02-claude-adapter-approval-foundation P01 | 8 | 2 tasks | 5 files |
 | Phase 02-claude-adapter-approval-foundation P02 | 2 | 2 tasks | 4 files |
+| Phase 02-claude-adapter-approval-foundation P03 | 8 | 2 tasks | 3 files |
 
 ## Accumulated Context
 
@@ -81,6 +82,9 @@ Recent decisions affecting current work:
 - [Phase 02-claude-adapter-approval-foundation]: pendingSet claim-then-act prevents double-resolution: delete approvalId before I/O to guard concurrent timeout + decide
 - [Phase 02-claude-adapter-approval-foundation]: pendingEvents Map stores full NormalizedEvent per approvalId to avoid extra DB read when constructing always_allow rules
 - [Phase 02-claude-adapter-approval-foundation]: approvalStore is pure data layer with no business logic; all orchestration lives in ApprovalQueue
+- [Phase 02-claude-adapter-approval-foundation]: Hook server started before WS server — both depend on DB but hook server has no WS dependency
+- [Phase 02-claude-adapter-approval-foundation]: hookServer.close() before WAL checkpoint in shutdown to stop incoming hooks before DB closes
+- [Phase 02-claude-adapter-approval-foundation]: Notification helpers receive visibilityState as param (not document.visibilityState) — Node-testable, no DOM globals
 
 ### Pending Todos
 
@@ -94,6 +98,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-05T04:47:45.793Z
-Stopped at: Completed 02-claude-adapter-approval-foundation/02-02-PLAN.md — Approval queue + round-trip
+Last session: 2026-04-05T04:50:52.642Z
+Stopped at: Checkpoint: 02-03 Task 3 human-verify — tests pass, awaiting daemon start verification
 Resume file: None
