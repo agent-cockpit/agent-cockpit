@@ -1,12 +1,18 @@
 import { Outlet } from 'react-router'
+import { SessionListPanel } from './SessionListPanel.js'
 
-// Full session list sidebar and detail panel are implemented in Plan 03.
-// This shell provides the two-column layout structure for nested routes.
 export function OpsLayout() {
   return (
-    <div className="flex h-screen">
-      <aside className="w-64 border-r" id="session-list-panel">{/* Plan 03 */}</aside>
-      <main className="flex-1"><Outlet /></main>
+    <div className="flex h-screen bg-background text-foreground">
+      <aside className="w-72 flex-none border-r overflow-hidden flex flex-col">
+        <div className="px-4 py-3 border-b">
+          <h1 className="text-sm font-semibold">Agent Cockpit</h1>
+        </div>
+        <SessionListPanel />
+      </aside>
+      <main className="flex-1 overflow-hidden">
+        <Outlet />
+      </main>
     </div>
   )
 }
