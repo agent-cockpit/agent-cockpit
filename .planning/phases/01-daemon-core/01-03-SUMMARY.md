@@ -132,3 +132,14 @@ None — no external service configuration required.
 
 *Phase: 01-daemon-core*
 *Completed: 2026-04-05*
+
+## Self-Check: PASSED
+
+- FOUND: packages/daemon/src/ws/server.ts
+- FOUND: packages/daemon/src/ws/handlers.ts
+- FOUND: packages/daemon/src/eventBus.ts
+- FOUND: packages/daemon/src/index.ts
+- FOUND: packages/daemon/src/__tests__/ws-catchup.test.ts
+- FOUND: .planning/phases/01-daemon-core/01-03-SUMMARY.md
+- FOUND commit 88aecc0 (RED tests)
+- FOUND commit ddc0b99 (GREEN implementation)
