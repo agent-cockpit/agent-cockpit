@@ -17,9 +17,9 @@ Requirements for initial release. Each maps to roadmap phases.
 
 ### Session Management
 
-- [ ] **SESS-01**: User can see all active Claude Code and Codex sessions discovered automatically in one UI
+- [x] **SESS-01**: User can see all active Claude Code and Codex sessions discovered automatically in one UI
 - [ ] **SESS-02**: User can launch a new Claude or Codex session from the browser UI by selecting a repo and provider
-- [ ] **SESS-03**: User can attach to an already-running session and begin receiving its events
+- [x] **SESS-03**: User can attach to an already-running session and begin receiving its events
 - [ ] **SESS-04**: User can filter the session list by project, provider, status, and recency
 
 ### Office Mode
@@ -136,9 +136,9 @@ Which phases cover which requirements. Updated during roadmap creation.
 | DAEMON-03 | Phase 1 | Complete |
 | DAEMON-04 | Phase 2 | Complete |
 | DAEMON-05 | Phase 4 | Pending |
-| SESS-01 | Phase 3 | Pending |
+| SESS-01 | Phase 3 | Complete |
 | SESS-02 | Phase 3 | Pending |
-| SESS-03 | Phase 3 | Pending |
+| SESS-03 | Phase 3 | Complete |
 | SESS-04 | Phase 3 | Pending |
 | OFFICE-01 | Phase 9 | Pending |
 | OFFICE-02 | Phase 9 | Pending |

@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: completed
-stopped_at: Completed 02-03-PLAN.md — Phase 2 complete
-last_updated: "2026-04-05T05:20:36.960Z"
+stopped_at: Completed 03-01-PLAN.md
+last_updated: "2026-04-05T05:54:39.599Z"
 last_activity: "2026-04-05 — Phase 2 complete: daemon wired with hook server, approval timeout tests, notification helpers"
 progress:
   total_phases: 9
   completed_phases: 2
-  total_plans: 6
-  completed_plans: 6
+  total_plans: 9
+  completed_plans: 7
   percent: 22
 ---
 
@@ -56,6 +56,7 @@ Progress: [██░░░░░░░░] 22%
 | Phase 02-claude-adapter-approval-foundation P02 | 2 | 2 tasks | 4 files |
 | Phase 02-claude-adapter-approval-foundation P03 | 8 | 2 tasks | 3 files |
 | Phase 02-claude-adapter-approval-foundation P03 | 8 | 3 tasks | 3 files |
+| Phase 03-browser-ui-shell-session-management P01 | 7 | 2 tasks | 21 files |
 
 ## Accumulated Context
 
@@ -86,6 +87,9 @@ Recent decisions affecting current work:
 - [Phase 02-claude-adapter-approval-foundation]: Hook server started before WS server — both depend on DB but hook server has no WS dependency
 - [Phase 02-claude-adapter-approval-foundation]: hookServer.close() before WAL checkpoint in shutdown to stop incoming hooks before DB closes
 - [Phase 02-claude-adapter-approval-foundation]: Notification helpers receive visibilityState as param (not document.visibilityState) — Node-testable, no DOM globals
+- [Phase 03-browser-ui-shell-session-management]: packages/ui tsconfig uses module=ESNext + moduleResolution=Bundler (not NodeNext) — Vite is the bundler, no .js extension required in TS source
+- [Phase 03-browser-ui-shell-session-management]: React Router v7 lazy route functions destructure named exports and return { Component } — avoids type mismatch with LazyRouteFunction signature
+- [Phase 03-browser-ui-shell-session-management]: connectDaemon reads useStore.getState() at call time (not module init) — ensures lastSeenSequence is current on reconnect for SESS-03 catch-up
 
 ### Pending Todos
 
@@ -98,6 +102,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-05T04:55:58.095Z
-Stopped at: Completed 02-03-PLAN.md — Phase 2 complete
+Last session: 2026-04-05T05:54:39.598Z
+Stopped at: Completed 03-01-PLAN.md
 Resume file: None
