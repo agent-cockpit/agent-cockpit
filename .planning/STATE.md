@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: completed
-stopped_at: Completed 05-02-PLAN.md
-last_updated: "2026-04-06T16:09:04.245Z"
+stopped_at: Completed 05-01-PLAN.md
+last_updated: "2026-04-06T16:09:41.679Z"
 last_activity: "2026-04-05 — Phase 3 complete: Ops layout shell, session list, detail panel, 5-tab nav, LaunchSessionModal wired"
 progress:
   total_phases: 9
   completed_phases: 4
   total_plans: 15
-  completed_plans: 13
+  completed_plans: 14
   percent: 33
 ---
 
@@ -63,6 +63,7 @@ Progress: [███░░░░░░░] 33%
 | Phase 04-codex-adapter P02 | 5 | 2 tasks | 3 files |
 | Phase 04-codex-adapter P03 | 15 | 2 tasks | 4 files |
 | Phase 05-timeline-replay P02 | 2 | 2 tasks | 3 files |
+| Phase 05-timeline-replay P01 | 2min | 2 tasks | 4 files |
 
 ## Accumulated Context
 
@@ -110,6 +111,8 @@ Recent decisions affecting current work:
 - [Phase 04-codex-adapter]: resolveCodexApproval is a no-op guard so both resolvers called unconditionally in approvalQueue.decide/handleTimeout
 - [Phase 05-timeline-replay]: EMPTY_EVENTS exported from eventsSlice (not inline []) ensures stable selector reference, preventing infinite re-render loops in TimelinePanel
 - [Phase 05-timeline-replay]: bulkApplyEvents replaces entire array for sessionId — designed for REST hydration providing canonical ordered set without dedup overhead
+- [Phase 05-01]: getEventsBySession returns 200 + empty array for unknown sessionId (not 404) — consistent with REST collection semantics
+- [Phase 05-01]: eventsMatch regex placed before POST handler in ws/server.ts to avoid URL collision and support future sub-routes
 
 ### Pending Todos
 
@@ -122,6 +125,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-06T16:09:04.244Z
-Stopped at: Completed 05-02-PLAN.md
+Last session: 2026-04-06T16:09:41.677Z
+Stopped at: Completed 05-01-PLAN.md
 Resume file: None
