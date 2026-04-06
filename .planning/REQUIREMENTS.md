@@ -13,7 +13,7 @@ Requirements for initial release. Each maps to roadmap phases.
 - [x] **DAEMON-02**: System persists all session data, events, approvals, and memory in a local SQLite database with WAL mode enabled and checkpoint scheduling configured at boot
 - [x] **DAEMON-03**: System provides a WebSocket server with sequence-based catch-up protocol so the browser can reconnect and replay missed events using `lastSeenSequence`
 - [x] **DAEMON-04**: System includes a Claude adapter that ingests lifecycle hooks via an HTTP hook server, capturing session start/stop, tool calls, file changes, permission requests, subagent events, and memory read/write events
-- [ ] **DAEMON-05**: System includes a Codex adapter that connects to `codex app-server` via stdio JSON-RPC, parsing item/turn events, handling approval requests in-band, and supporting session resume
+- [x] **DAEMON-05**: System includes a Codex adapter that connects to `codex app-server` via stdio JSON-RPC, parsing item/turn events, handling approval requests in-band, and supporting session resume
 
 ### Session Management
 
@@ -135,7 +135,7 @@ Which phases cover which requirements. Updated during roadmap creation.
 | DAEMON-02 | Phase 1 | Complete |
 | DAEMON-03 | Phase 1 | Complete |
 | DAEMON-04 | Phase 2 | Complete |
-| DAEMON-05 | Phase 4 | Pending |
+| DAEMON-05 | Phase 4 | Complete |
 | SESS-01 | Phase 3 | Complete |
 | SESS-02 | Phase 3 | Complete |
 | SESS-03 | Phase 3 | Complete |

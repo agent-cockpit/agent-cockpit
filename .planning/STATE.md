@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: completed
-stopped_at: "Completed 03-03-PLAN.md — Phase 3 complete (checkpoint:human-verify approved)"
-last_updated: "2026-04-06T01:40:04.628Z"
+stopped_at: Completed 04-01-PLAN.md
+last_updated: "2026-04-06T13:07:49.708Z"
 last_activity: "2026-04-05 — Phase 3 complete: Ops layout shell, session list, detail panel, 5-tab nav, LaunchSessionModal wired"
 progress:
   total_phases: 9
   completed_phases: 3
-  total_plans: 9
-  completed_plans: 9
+  total_plans: 12
+  completed_plans: 10
   percent: 33
 ---
 
@@ -59,6 +59,7 @@ Progress: [███░░░░░░░] 33%
 | Phase 03-browser-ui-shell-session-management P01 | 7 | 2 tasks | 21 files |
 | Phase 03-browser-ui-shell-session-management P02 | 7min | 2 tasks | 7 files |
 | Phase 03-browser-ui-shell-session-management P03 | 9 | 2 tasks | 9 files |
+| Phase 04-codex-adapter P01 | 4 | 2 tasks | 3 files |
 
 ## Accumulated Context
 
@@ -97,6 +98,8 @@ Recent decisions affecting current work:
 - [Phase 03-browser-ui-shell-session-management]: LaunchSessionModal uses plain div overlay (no shadcn) — shadcn is installed in Plan 03, keeping plans decoupled
 - [Phase 03-browser-ui-shell-session-management]: useFilteredSessions uses useRef to cache array reference — React 18 useSyncExternalStore strict-mode double-invocation requires stable snapshot reference; shallowArrayEqual alone insufficient
 - [Phase 03-browser-ui-shell-session-management]: OpsLayout tests mock SessionListPanel; SessionListPanel tests mock useNavigate — two-file split avoids React-18/Zustand infinite loop in component tests
+- [Phase 04-codex-adapter]: codex_sessions uses session_id (UUID) as PK and thread_id (Codex thr_xxx) as separate column — maps Codex thread identity to our session namespace
+- [Phase 04-codex-adapter]: Wave 0 stub pattern: it.todo() stubs with void import references compile cleanly; vitest fails RED at collection time (Cannot find module) without placeholder implementations
 
 ### Pending Todos
 
@@ -109,6 +112,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-06T01:06:33.250Z
-Stopped at: Completed 03-03-PLAN.md — Phase 3 complete (checkpoint:human-verify approved)
+Last session: 2026-04-06T13:07:49.706Z
+Stopped at: Completed 04-01-PLAN.md
 Resume file: None

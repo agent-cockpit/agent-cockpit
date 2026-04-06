@@ -156,7 +156,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8 →
 | 1. Daemon Core | 3/3 | Complete   | 2026-04-05 |
 | 2. Claude Adapter + Approval Foundation | 3/3 | Complete   | 2026-04-05 |
 | 3. Browser UI Shell + Session Management | 3/3 | Complete    | 2026-04-06 |
-| 4. Codex Adapter | 0/3 | Not started | - |
+| 4. Codex Adapter | 1/3 | In Progress|  |
 | 5. Timeline & Replay | 0/? | Not started | - |
 | 6. Diff & Artifact Review | 0/? | Not started | - |
 | 7. Memory Panel | 0/? | Not started | - |
