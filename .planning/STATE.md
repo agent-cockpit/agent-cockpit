@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: completed
-stopped_at: "Completed 03-03-PLAN.md (checkpoint:human-verify pending)"
-last_updated: "2026-04-05T06:11:57.184Z"
-last_activity: "2026-04-05 — Phase 2 complete: daemon wired with hook server, approval timeout tests, notification helpers"
+stopped_at: "Completed 03-03-PLAN.md — Phase 3 complete (checkpoint:human-verify approved)"
+last_updated: "2026-04-06T01:06:33.251Z"
+last_activity: "2026-04-05 — Phase 3 complete: Ops layout shell, SessionListPanel, SessionDetailPanel, 5-tab nav, LaunchSessionModal wired"
 progress:
   total_phases: 9
   completed_phases: 3
   total_plans: 9
   completed_plans: 9
-  percent: 22
+  percent: 33
 ---
 
 # Project State
@@ -21,16 +21,16 @@ progress:
 See: .planning/PROJECT.md (updated 2026-04-04)
 
 **Core value:** One unified approval, memory, and replay layer across Claude Code and Codex — so developers can run agents productively, not just watch them.
-**Current focus:** Phase 3 — Browser UI Shell + Session Management
+**Current focus:** Phase 4 — Codex Adapter
 
 ## Current Position
 
-Phase: 2 of 9 complete (Claude Adapter + Approval Foundation)
-Plan: All 3 plans of Phase 2 complete
-Status: Phase 2 complete — ready for Phase 3
-Last activity: 2026-04-05 — Phase 2 complete: daemon wired with hook server, approval timeout tests, notification helpers
+Phase: 3 of 9 complete (Browser UI Shell + Session Management)
+Plan: All 3 plans of Phase 3 complete
+Status: Phase 3 complete — ready for Phase 4
+Last activity: 2026-04-05 — Phase 3 complete: Ops layout shell, session list, detail panel, 5-tab nav, LaunchSessionModal wired
 
-Progress: [██░░░░░░░░] 22%
+Progress: [███░░░░░░░] 33%
 
 ## Performance Metrics
 
@@ -95,7 +95,7 @@ Recent decisions affecting current work:
 - [Phase 03-browser-ui-shell-session-management]: Zustand array selectors require shallowArrayEqual equality function — filter/sort always returns new array, causing infinite re-render without equality check
 - [Phase 03-browser-ui-shell-session-management]: POST /api/sessions request handler registered before upgrade handler on httpServer — HTTP request and WebSocket upgrade are mutually exclusive Node events
 - [Phase 03-browser-ui-shell-session-management]: LaunchSessionModal uses plain div overlay (no shadcn) — shadcn is installed in Plan 03, keeping plans decoupled
-- [Phase 03-browser-ui-shell-session-management]: useFilteredSessions uses useRef to cache array reference — React 18 useSyncExternalStore strict-mode snapshot stability fix
+- [Phase 03-browser-ui-shell-session-management]: useFilteredSessions uses useRef to cache array reference — React 18 useSyncExternalStore strict-mode double-invocation requires stable snapshot reference; shallowArrayEqual alone insufficient
 - [Phase 03-browser-ui-shell-session-management]: OpsLayout tests mock SessionListPanel; SessionListPanel tests mock useNavigate — two-file split avoids React-18/Zustand infinite loop in component tests
 
 ### Pending Todos
@@ -109,6 +109,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-05T06:11:57.182Z
-Stopped at: Completed 03-03-PLAN.md (checkpoint:human-verify pending)
+Last session: 2026-04-06T01:06:33.250Z
+Stopped at: Completed 03-03-PLAN.md — Phase 3 complete (checkpoint:human-verify approved)
 Resume file: None

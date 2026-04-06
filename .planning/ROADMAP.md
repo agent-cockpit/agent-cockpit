@@ -72,9 +72,9 @@ Plans:
 **Plans**: 3 plans
 
 Plans:
-- [ ] 03-01-PLAN.md — Scaffold packages/ui: Vite+React+Zustand store, WebSocket hook, session event derivation (SESS-01, SESS-03)
-- [ ] 03-02-PLAN.md — Session filters + selectors + POST /api/sessions daemon endpoint + LaunchSessionModal (SESS-02, SESS-04)
-- [ ] 03-03-PLAN.md — Ops layout shell: SessionListPanel, SessionDetailPanel, panel tabs with empty states (OPS-01, OPS-02, OPS-03, OPS-04)
+- [x] 03-01-PLAN.md — Scaffold packages/ui: Vite+React+Zustand store, WebSocket hook, session event derivation (SESS-01, SESS-03)
+- [x] 03-02-PLAN.md — Session filters + selectors + POST /api/sessions daemon endpoint + LaunchSessionModal (SESS-02, SESS-04)
+- [x] 03-03-PLAN.md — Ops layout shell: SessionListPanel, SessionDetailPanel, panel tabs with empty states (OPS-01, OPS-02, OPS-03, OPS-04)
 
 ### Phase 4: Codex Adapter
 **Goal**: Codex sessions appear in the same session list and approval inbox as Claude sessions. The adapter handles stdio JSON-RPC, session resume, and Codex approval events without modifying the daemon core or the browser UI.
@@ -150,7 +150,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8 →
 |-------|----------------|--------|-----------|
 | 1. Daemon Core | 3/3 | Complete   | 2026-04-05 |
 | 2. Claude Adapter + Approval Foundation | 3/3 | Complete   | 2026-04-05 |
-| 3. Browser UI Shell + Session Management | 3/3 | Complete   | 2026-04-05 |
+| 3. Browser UI Shell + Session Management | 3/3 | Complete   | 2026-04-06 |
 | 4. Codex Adapter | 0/? | Not started | - |
 | 5. Timeline & Replay | 0/? | Not started | - |
 | 6. Diff & Artifact Review | 0/? | Not started | - |
