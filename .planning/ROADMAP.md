@@ -116,7 +116,10 @@ Plans:
   1. The diff panel for a completed or in-progress session shows a file tree of every file changed during that session, updated as new file-change events arrive
   2. Clicking any file in the tree opens its raw diff view showing the exact lines added and removed
   3. The session summary shows files touched count, final status (completed/failed/in-progress), and elapsed time
-**Plans**: TBD
+**Plans**: 1 plan
+
+Plans:
+- [ ] 06-01-PLAN.md — DiffPanel: TDD tests + full implementation (file tree, colorized diff view, summary banner) (DIFF-01, DIFF-02, DIFF-03)
 
 ### Phase 7: Memory Panel
 **Goal**: The user can view, edit, and extend project memory from one surface inside the browser — including reading from CLAUDE.md, creating new notes, and approving or rejecting agent-suggested memory updates before they are written to disk.
@@ -163,7 +166,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8 →
 | 3. Browser UI Shell + Session Management | 3/3 | Complete    | 2026-04-06 |
 | 4. Codex Adapter | 3/3 | Complete   | 2026-04-06 |
 | 5. Timeline & Replay | 3/3 | Complete   | 2026-04-06 |
-| 6. Diff & Artifact Review | 0/? | Not started | - |
+| 6. Diff & Artifact Review | 0/1 | Not started | - |
 | 7. Memory Panel | 0/? | Not started | - |
 | 8. Session History & Search | 0/? | Not started | - |
 | 9. Office Mode | 0/? | Not started | - |
