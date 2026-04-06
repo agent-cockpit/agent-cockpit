@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: completed
-stopped_at: Completed 04-01-PLAN.md
-last_updated: "2026-04-06T13:07:49.708Z"
+stopped_at: Completed 04-02-PLAN.md
+last_updated: "2026-04-06T13:11:12.087Z"
 last_activity: "2026-04-05 — Phase 3 complete: Ops layout shell, session list, detail panel, 5-tab nav, LaunchSessionModal wired"
 progress:
   total_phases: 9
   completed_phases: 3
   total_plans: 12
-  completed_plans: 10
+  completed_plans: 11
   percent: 33
 ---
 
@@ -60,6 +60,7 @@ Progress: [███░░░░░░░] 33%
 | Phase 03-browser-ui-shell-session-management P02 | 7min | 2 tasks | 7 files |
 | Phase 03-browser-ui-shell-session-management P03 | 9 | 2 tasks | 9 files |
 | Phase 04-codex-adapter P01 | 4 | 2 tasks | 3 files |
+| Phase 04-codex-adapter P02 | 5 | 2 tasks | 3 files |
 
 ## Accumulated Context
 
@@ -100,6 +101,9 @@ Recent decisions affecting current work:
 - [Phase 03-browser-ui-shell-session-management]: OpsLayout tests mock SessionListPanel; SessionListPanel tests mock useNavigate — two-file split avoids React-18/Zustand infinite loop in component tests
 - [Phase 04-codex-adapter]: codex_sessions uses session_id (UUID) as PK and thread_id (Codex thr_xxx) as separate column — maps Codex thread identity to our session namespace
 - [Phase 04-codex-adapter]: Wave 0 stub pattern: it.todo() stubs with void import references compile cleanly; vitest fails RED at collection time (Cannot find module) without placeholder implementations
+- [Phase 04-codex-adapter]: _codexServerId attached directly on NormalizedEvent with _ prefix (non-schema side-channel) — Plan 03 adapter reads it to correlate Codex approval reply IDs
+- [Phase 04-codex-adapter]: classifyCodexApproval uses Set of HIGH_RISK_COMMANDS tokens checked per-token (not regex) — O(1) lookup, covers rm/sudo/chmod/chown/kill/pkill/curl/wget
+- [Phase 04-codex-adapter]: CodexParserContext mutated by parseCodexLine (sessionStartEmitted flag) — caller owns context lifetime; mutation intentional for dedup
 
 ### Pending Todos
 
@@ -112,6 +116,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-06T13:07:49.706Z
-Stopped at: Completed 04-01-PLAN.md
+Last session: 2026-04-06T13:11:12.085Z
+Stopped at: Completed 04-02-PLAN.md
 Resume file: None
