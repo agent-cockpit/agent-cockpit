@@ -56,6 +56,13 @@ export function openDatabase(dbPath: string): Database.Database {
       pattern     TEXT NOT NULL,
       created_at  TEXT NOT NULL
     );
+
+    CREATE TABLE IF NOT EXISTS codex_sessions (
+      session_id   TEXT PRIMARY KEY,
+      thread_id    TEXT NOT NULL,
+      workspace    TEXT NOT NULL,
+      created_at   TEXT NOT NULL
+    );
   `);
 
   // Checkpoint scheduling: fires every 10s, non-blocking (unref so it doesn't keep process alive)
