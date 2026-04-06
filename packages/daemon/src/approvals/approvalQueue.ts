@@ -2,6 +2,7 @@ import type Database from 'better-sqlite3';
 import type { NormalizedEvent } from '@cockpit/shared';
 import { eventBus } from '../eventBus.js';
 import { resolveApproval } from '../adapters/claude/hookServer.js';
+import { resolveCodexApproval } from '../adapters/codex/codexAdapter.js';
 import {
   insertApproval,
   updateApprovalDecision,
@@ -88,10 +89,12 @@ export class ApprovalQueue {
     } as NormalizedEvent;
     eventBus.emit('event', resolvedEvent);
 
-    // Call resolveApproval on the hook server
+    // Call resolveApproval on the hook server (Claude) — no-op if not a Claude approval
     const hookDecision =
       decision === 'approve' ? 'allow' : decision === 'deny' ? 'deny' : 'allow';
     resolveApproval(approvalId, hookDecision);
+    // Call resolveCodexApproval (Codex) — no-op if not a Codex approval
+    resolveCodexApproval(approvalId, decision);
   }
 
   handleTimeout(approvalId: string, db: Database.Database): void {
@@ -121,8 +124,10 @@ export class ApprovalQueue {
     } as NormalizedEvent;
     eventBus.emit('event', expiredEvent);
 
-    // Call resolveApproval deny
+    // Call resolveApproval deny (Claude) — no-op if not a Claude approval
     resolveApproval(approvalId, 'deny', reason);
+    // Call resolveCodexApproval deny (Codex) — no-op if not a Codex approval
+    resolveCodexApproval(approvalId, 'deny');
   }
 }
 

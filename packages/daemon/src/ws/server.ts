@@ -4,8 +4,14 @@ import crypto from 'node:crypto';
 import { WebSocketServer, WebSocket } from 'ws';
 import type Database from 'better-sqlite3';
 import { handleConnection } from './handlers.js';
+import { CodexAdapter } from '../adapters/codex/codexAdapter.js';
+import { eventBus } from '../eventBus.js';
 
-function handleLaunchSession(req: http.IncomingMessage, res: http.ServerResponse): void {
+function handleLaunchSession(
+  req: http.IncomingMessage,
+  res: http.ServerResponse,
+  db: Database.Database,
+): void {
   let body = '';
   req.on('data', (chunk) => { body += chunk; });
   req.on('end', () => {
@@ -26,7 +32,16 @@ function handleLaunchSession(req: http.IncomingMessage, res: http.ServerResponse
         res.writeHead(200, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({ sessionId, hookCommand, mode: 'configure-and-copy' }));
       } else {
-        // Codex: not blocked by the same spawn issue — future Phase 4
+        // Codex: spawn codex app-server as a child process
+        const adapter = new CodexAdapter(
+          sessionId,
+          workspacePath,
+          db,
+          (event) => eventBus.emit('event', event),
+        );
+        adapter.start().catch((err: unknown) => {
+          console.error('[cockpit-daemon] CodexAdapter.start() failed:', err);
+        });
         res.writeHead(200, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({ sessionId, mode: 'spawn' }));
       }
@@ -58,7 +73,7 @@ export function createWsServer(
     }
 
     if (req.method === 'POST' && req.url === '/api/sessions') {
-      handleLaunchSession(req, res);
+      handleLaunchSession(req, res, db);
       return;
     }
 
