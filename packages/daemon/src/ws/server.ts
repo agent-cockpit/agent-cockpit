@@ -6,6 +6,7 @@ import type Database from 'better-sqlite3';
 import { handleConnection } from './handlers.js';
 import { CodexAdapter } from '../adapters/codex/codexAdapter.js';
 import { eventBus } from '../eventBus.js';
+import { getEventsBySession } from '../db/queries.js';
 
 function handleLaunchSession(
   req: http.IncomingMessage,
@@ -63,12 +64,21 @@ export function createWsServer(
   httpServer.on('request', (req, res) => {
     // CORS for localhost dev
     res.setHeader('Access-Control-Allow-Origin', '*');
-    res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
+    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
     res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
 
     if (req.method === 'OPTIONS') {
       res.writeHead(204);
       res.end();
+      return;
+    }
+
+    const eventsMatch = req.method === 'GET' && req.url?.match(/^\/api\/sessions\/([^/]+)\/events$/);
+    if (eventsMatch) {
+      const sessionId = eventsMatch[1]!;
+      const events = getEventsBySession(db, sessionId);
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify(events));
       return;
     }
 

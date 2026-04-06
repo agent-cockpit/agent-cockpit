@@ -2,7 +2,9 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import http from 'node:http';
 import { createWsServer } from '../ws/server.js';
 import { openDatabase } from '../db/database.js';
+import { persistEvent } from '../db/queries.js';
 import type Database from 'better-sqlite3';
+import type { NormalizedEvent } from '@cockpit/shared';
 
 // Helper: make an HTTP POST request and return status + parsed JSON body
 function httpPost(port: number, path: string, body: unknown): Promise<{ status: number; data: Record<string, unknown> }> {
@@ -36,6 +38,41 @@ function httpGet(port: number, path: string): Promise<{ status: number }> {
     req.on('error', reject);
     req.end();
   });
+}
+
+// Helper: make an HTTP GET request and return status + parsed JSON body + headers
+function httpGetJson(port: number, path: string): Promise<{ status: number; body: unknown; headers: http.IncomingHttpHeaders }> {
+  return new Promise((resolve, reject) => {
+    const req = http.request(
+      { hostname: 'localhost', port, path, method: 'GET' },
+      (res) => {
+        let raw = '';
+        res.on('data', (chunk) => { raw += chunk; });
+        res.on('end', () => {
+          resolve({
+            status: res.statusCode ?? 0,
+            body: raw ? JSON.parse(raw) : null,
+            headers: res.headers,
+          });
+        });
+      },
+    );
+    req.on('error', reject);
+    req.end();
+  });
+}
+
+// Helper: valid NormalizedEvent for seeding
+function makeSessionEvent(sessionId: string, overrides: Partial<NormalizedEvent> = {}): NormalizedEvent {
+  return {
+    schemaVersion: 1,
+    sessionId,
+    timestamp: new Date().toISOString(),
+    type: 'session_start',
+    provider: 'claude',
+    workspacePath: '/home/user/project',
+    ...overrides,
+  } as NormalizedEvent;
 }
 
 let db: Database.Database;
@@ -111,5 +148,51 @@ describe('Other HTTP routes', () => {
   it('GET /api/sessions returns 404', async () => {
     const { status } = await httpGet(port, '/api/sessions');
     expect(status).toBe(404);
+  });
+});
+
+describe('GET /api/sessions/:sessionId/events', () => {
+  it('returns 200 with Content-Type application/json', async () => {
+    const sessionId = 'aaaaaaaa-0000-0000-0000-000000000001';
+    const { status, headers } = await httpGetJson(port, `/api/sessions/${sessionId}/events`);
+    expect(status).toBe(200);
+    expect(headers['content-type']).toBe('application/json');
+  });
+
+  it('response body is a JSON array of events matching only the requested sessionId', async () => {
+    const sessionA = 'aaaaaaaa-0000-0000-0000-000000000002';
+    const sessionB = 'bbbbbbbb-0000-0000-0000-000000000002';
+    persistEvent(db, makeSessionEvent(sessionA));
+    persistEvent(db, makeSessionEvent(sessionB));
+    persistEvent(db, makeSessionEvent(sessionA));
+    const { status, body } = await httpGetJson(port, `/api/sessions/${sessionA}/events`);
+    expect(status).toBe(200);
+    expect(Array.isArray(body)).toBe(true);
+    const events = body as Array<{ sessionId: string }>;
+    expect(events).toHaveLength(2);
+    expect(events.every((e) => e.sessionId === sessionA)).toBe(true);
+  });
+
+  it('events in response are ordered by sequenceNumber ASC', async () => {
+    const sessionId = 'cccccccc-0000-0000-0000-000000000003';
+    persistEvent(db, makeSessionEvent(sessionId));
+    persistEvent(db, makeSessionEvent(sessionId));
+    persistEvent(db, makeSessionEvent(sessionId));
+    const { body } = await httpGetJson(port, `/api/sessions/${sessionId}/events`);
+    const events = body as Array<{ sequenceNumber: number }>;
+    const sequences = events.map((e) => e.sequenceNumber);
+    expect(sequences).toEqual([...sequences].sort((a, b) => a - b));
+  });
+
+  it('returns 200 with empty array for unknown sessionId', async () => {
+    const { status, body } = await httpGetJson(port, '/api/sessions/unknown-id/events');
+    expect(status).toBe(200);
+    expect(body).toEqual([]);
+  });
+
+  it('Access-Control-Allow-Methods response header includes GET', async () => {
+    const sessionId = 'eeeeeeee-0000-0000-0000-000000000005';
+    const { headers } = await httpGetJson(port, `/api/sessions/${sessionId}/events`);
+    expect(headers['access-control-allow-methods']).toContain('GET');
   });
 });
