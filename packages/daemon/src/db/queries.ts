@@ -28,6 +28,19 @@ export function persistEvent(
   return { ...event, sequenceNumber };
 }
 
+export function getEventsBySession(
+  db: Database.Database,
+  sessionId: string,
+): Array<NormalizedEvent & { sequenceNumber: number }> {
+  const rows = db.prepare<[string], { payload: string; sequence_number: number }>(
+    'SELECT payload, sequence_number FROM events WHERE session_id = ? ORDER BY sequence_number ASC'
+  ).all(sessionId);
+  return rows.map((row) => ({
+    ...(JSON.parse(row.payload) as NormalizedEvent),
+    sequenceNumber: row.sequence_number,
+  }));
+}
+
 export function getEventsSince(
   db: Database.Database,
   lastSeenSequence: number,

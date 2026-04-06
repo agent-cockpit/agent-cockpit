@@ -1,6 +1,6 @@
 import { describe, it, expect, afterEach } from 'vitest';
 import { openDatabase } from '../db/database.js';
-import { persistEvent, getEventsSince } from '../db/queries.js';
+import { persistEvent, getEventsSince, getEventsBySession } from '../db/queries.js';
 import type { NormalizedEvent } from '@cockpit/shared';
 import * as os from 'node:os';
 import * as path from 'node:path';
@@ -129,6 +129,72 @@ describe('getEventsSince', () => {
     const events = getEventsSince(db, 0);
     const sequences = events.map((e) => e.sequenceNumber);
     expect(sequences).toEqual([...sequences].sort((a, b) => (a ?? 0) - (b ?? 0)));
+    db.close();
+  });
+});
+
+describe('getEventsBySession', () => {
+  it('returns [] for a sessionId with no events', () => {
+    const db = openDatabase(':memory:');
+    const events = getEventsBySession(db, 'non-existent-session');
+    expect(events).toEqual([]);
+    db.close();
+  });
+
+  it('returns only events for the requested sessionId (not events from other sessions)', () => {
+    const db = openDatabase(':memory:');
+    const sessionA = 'aaaaaaaa-0000-0000-0000-000000000000';
+    const sessionB = 'bbbbbbbb-0000-0000-0000-000000000000';
+    persistEvent(db, makeEvent({ sessionId: sessionA }));
+    persistEvent(db, makeEvent({ sessionId: sessionB }));
+    persistEvent(db, makeEvent({ sessionId: sessionA }));
+    const events = getEventsBySession(db, sessionA);
+    expect(events).toHaveLength(2);
+    expect(events.every((e) => e.sessionId === sessionA)).toBe(true);
+    db.close();
+  });
+
+  it('returns events ordered by sequenceNumber ASC', () => {
+    const db = openDatabase(':memory:');
+    const sessionId = 'cccccccc-0000-0000-0000-000000000000';
+    persistEvent(db, makeEvent({ sessionId }));
+    persistEvent(db, makeEvent({ sessionId }));
+    persistEvent(db, makeEvent({ sessionId }));
+    const events = getEventsBySession(db, sessionId);
+    const sequences = events.map((e) => e.sequenceNumber);
+    expect(sequences).toEqual([...sequences].sort((a, b) => (a ?? 0) - (b ?? 0)));
+    db.close();
+  });
+
+  it('each returned object has sequenceNumber merged in', () => {
+    const db = openDatabase(':memory:');
+    const sessionId = 'dddddddd-0000-0000-0000-000000000000';
+    persistEvent(db, makeEvent({ sessionId }));
+    const events = getEventsBySession(db, sessionId);
+    expect(events).toHaveLength(1);
+    expect(typeof events[0]!.sequenceNumber).toBe('number');
+    expect(events[0]!.sequenceNumber).toBeGreaterThan(0);
+    db.close();
+  });
+
+  it('handles multiple sessions stored in the same DB', () => {
+    const db = openDatabase(':memory:');
+    const sessions = [
+      'eeeeeeee-0000-0000-0000-000000000000',
+      'ffffffff-0000-0000-0000-000000000000',
+      '11111111-0000-0000-0000-000000000000',
+    ];
+    // Interleave events from multiple sessions
+    for (let i = 0; i < 3; i++) {
+      for (const sid of sessions) {
+        persistEvent(db, makeEvent({ sessionId: sid }));
+      }
+    }
+    for (const sid of sessions) {
+      const events = getEventsBySession(db, sid);
+      expect(events).toHaveLength(3);
+      expect(events.every((e) => e.sessionId === sid)).toBe(true);
+    }
     db.close();
   });
 });
