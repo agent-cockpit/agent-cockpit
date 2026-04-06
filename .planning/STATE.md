@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: completed
-stopped_at: Completed 05-03-PLAN.md
-last_updated: "2026-04-06T16:19:41.884Z"
+stopped_at: Completed 06-01-PLAN.md
+last_updated: "2026-04-06T23:37:32.389Z"
 last_activity: "2026-04-05 — Phase 3 complete: Ops layout shell, session list, detail panel, 5-tab nav, LaunchSessionModal wired"
 progress:
   total_phases: 9
-  completed_phases: 5
-  total_plans: 15
-  completed_plans: 15
+  completed_phases: 6
+  total_plans: 16
+  completed_plans: 16
   percent: 33
 ---
 
@@ -65,6 +65,7 @@ Progress: [███░░░░░░░] 33%
 | Phase 05-timeline-replay P02 | 2 | 2 tasks | 3 files |
 | Phase 05-timeline-replay P01 | 2min | 2 tasks | 4 files |
 | Phase 05-timeline-replay P03 | 3 | 1 tasks | 2 files |
+| Phase 06-diff-artifact-review P01 | 8 | 2 tasks | 2 files |
 
 ## Accumulated Context
 
@@ -116,6 +117,8 @@ Recent decisions affecting current work:
 - [Phase 05-01]: eventsMatch regex placed before POST handler in ws/server.ts to avoid URL collision and support future sub-routes
 - [Phase 05-03]: data-testid='timeline-list' added to list container — RTL within() scoping required because filter chips use same text as event row labels
 - [Phase 05-03]: ToolCallEvent uses 'input' field (not 'toolInput') matching actual shared schema — InlineDetail renders event.input via JSON.stringify
+- [Phase 06-diff-artifact-review]: DiffPanel derives file tree from events array at render time (not stored in Zustand) — avoids synchronization complexity
+- [Phase 06-diff-artifact-review]: data-testid='diff-line-add' and 'diff-line-del' used for colorization assertions — more reliable than className checks in RTL
 
 ### Pending Todos
 
@@ -128,6 +131,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-06T16:16:32.839Z
-Stopped at: Completed 05-03-PLAN.md
+Last session: 2026-04-06T23:37:32.388Z
+Stopped at: Completed 06-01-PLAN.md
 Resume file: None

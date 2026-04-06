@@ -54,9 +54,9 @@ Requirements for initial release. Each maps to roadmap phases.
 
 ### Diff & Artifact Review
 
-- [ ] **DIFF-01**: User can see a file tree of all files changed during a session
-- [ ] **DIFF-02**: User can inspect a per-file raw diff view for any file changed in a session
-- [ ] **DIFF-03**: User can see a session summary showing files touched, final status, and elapsed time
+- [x] **DIFF-01**: User can see a file tree of all files changed during a session
+- [x] **DIFF-02**: User can inspect a per-file raw diff view for any file changed in a session
+- [x] **DIFF-03**: User can see a session summary showing files touched, final status, and elapsed time
 
 ### Memory Panel
 
@@ -158,9 +158,9 @@ Which phases cover which requirements. Updated during roadmap creation.
 | TIMELINE-02 | Phase 5 | Complete |
 | TIMELINE-03 | Phase 5 | Complete |
 | TIMELINE-04 | Phase 5 | Complete |
-| DIFF-01 | Phase 6 | Pending |
-| DIFF-02 | Phase 6 | Pending |
-| DIFF-03 | Phase 6 | Pending |
+| DIFF-01 | Phase 6 | Complete |
+| DIFF-02 | Phase 6 | Complete |
+| DIFF-03 | Phase 6 | Complete |
 | MEM-01 | Phase 7 | Pending |
 | MEM-02 | Phase 7 | Pending |
 | MEM-03 | Phase 7 | Pending |
