@@ -101,7 +101,12 @@ Plans:
   2. The user can jump directly to the first or next approval event or file-change event in the timeline using a dedicated control, without scrolling through all events
   3. The user can filter the timeline by event type (e.g., show only tool calls) and the timeline updates without leaving the panel
   4. Clicking any timeline event opens its related output, diff, or approval detail inline
-**Plans**: TBD
+**Plans**: 3 plans
+
+Plans:
+- [ ] 05-01-PLAN.md — Daemon: getEventsBySession query + GET /api/sessions/:id/events endpoint + CORS fix (TIMELINE-01)
+- [ ] 05-02-PLAN.md — UI: eventsSlice in Zustand store, applyEvent integration, bulkApplyEvents (TIMELINE-01, TIMELINE-02, TIMELINE-03)
+- [ ] 05-03-PLAN.md — TimelinePanel: filter chips, jump-to controls, inline detail, mount hydration (TIMELINE-01, TIMELINE-02, TIMELINE-03, TIMELINE-04)
 
 ### Phase 6: Diff & Artifact Review
 **Goal**: For any session, the user can see exactly which files the agent changed, inspect the raw diff per file, and read a concise session summary — all without leaving the browser.
