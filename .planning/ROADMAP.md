@@ -15,7 +15,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [x] **Phase 1: Daemon Core** - Normalized event schema, SQLite persistence, WebSocket server with sequence-based catch-up (completed 2026-04-05)
 - [x] **Phase 2: Claude Adapter + Approval Foundation** - Hook ingestion, full approval round-trip with timeout, in-app and desktop notifications (completed 2026-04-05)
 - [x] **Phase 3: Browser UI Shell + Session Management** - Vite/React/Zustand app, live session list, session filtering, Ops mode layout and panels (completed 2026-04-05)
-- [ ] **Phase 4: Codex Adapter** - Codex app-server integration via stdio JSON-RPC, Codex sessions and approvals in the same UI
+- [x] **Phase 4: Codex Adapter** - Codex app-server integration via stdio JSON-RPC, Codex sessions and approvals in the same UI (completed 2026-04-06)
 - [ ] **Phase 5: Timeline & Replay** - Replayable ordered event timeline per session with scrubbing, jump-to, and filtering
 - [ ] **Phase 6: Diff & Artifact Review** - File tree of changed files, per-file raw diff view, session summary
 - [ ] **Phase 7: Memory Panel** - Read/edit project memory, create notes, approve agent-suggested memory updates
@@ -156,7 +156,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8 →
 | 1. Daemon Core | 3/3 | Complete   | 2026-04-05 |
 | 2. Claude Adapter + Approval Foundation | 3/3 | Complete   | 2026-04-05 |
 | 3. Browser UI Shell + Session Management | 3/3 | Complete    | 2026-04-06 |
-| 4. Codex Adapter | 1/3 | In Progress|  |
+| 4. Codex Adapter | 3/3 | Complete   | 2026-04-06 |
 | 5. Timeline & Replay | 0/? | Not started | - |
 | 6. Diff & Artifact Review | 0/? | Not started | - |
 | 7. Memory Panel | 0/? | Not started | - |
