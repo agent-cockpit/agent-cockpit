@@ -2,6 +2,7 @@ import { create } from 'zustand'
 import { subscribeWithSelector } from 'zustand/middleware'
 import type { NormalizedEvent } from '@cockpit/shared'
 import { applyEventToSessions } from './sessionsSlice.js'
+import { applyEventToEvents } from './eventsSlice.js'
 
 export type SessionStatus = 'active' | 'ended' | 'error'
 
@@ -38,13 +39,27 @@ interface WsSlice {
   recordSequence: (n: number) => void
 }
 
-export type AppStore = SessionsSlice & UiSlice & WsSlice
+interface EventsSlice {
+  events: Record<string, NormalizedEvent[]>
+  bulkApplyEvents: (sessionId: string, events: NormalizedEvent[]) => void
+}
+
+export type AppStore = SessionsSlice & UiSlice & WsSlice & EventsSlice
 
 export const useStore = create<AppStore>()(
   subscribeWithSelector((set) => ({
     // sessionsSlice
     sessions: {},
-    applyEvent: (event) => set((state) => applyEventToSessions(state, event)),
+    applyEvent: (event) =>
+      set((state) => ({
+        ...applyEventToSessions(state, event),
+        ...applyEventToEvents(state, event),
+      })),
+
+    // eventsSlice
+    events: {},
+    bulkApplyEvents: (sessionId, evs) =>
+      set((s) => ({ events: { ...s.events, [sessionId]: evs } })),
 
     // uiSlice
     selectedSessionId: null,
