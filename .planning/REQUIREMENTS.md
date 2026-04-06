@@ -47,9 +47,9 @@ Requirements for initial release. Each maps to roadmap phases.
 
 ### Timeline & Replay
 
-- [ ] **TIMELINE-01**: User can view a replayable ordered event timeline for each session showing: prompt/task created, plan updates, tool calls, command runs, file changes, approvals requested/resolved, subagent spawn/complete, memory read/write, completion/failure
-- [ ] **TIMELINE-02**: User can scrub the timeline and jump directly to approval events or file-change events
-- [ ] **TIMELINE-03**: User can filter the timeline by event type to focus on specific event categories
+- [x] **TIMELINE-01**: User can view a replayable ordered event timeline for each session showing: prompt/task created, plan updates, tool calls, command runs, file changes, approvals requested/resolved, subagent spawn/complete, memory read/write, completion/failure
+- [x] **TIMELINE-02**: User can scrub the timeline and jump directly to approval events or file-change events
+- [x] **TIMELINE-03**: User can filter the timeline by event type to focus on specific event categories
 - [ ] **TIMELINE-04**: User can click a timeline event to inspect its related output, diff, or approval details
 
 ### Diff & Artifact Review
@@ -154,9 +154,9 @@ Which phases cover which requirements. Updated during roadmap creation.
 | APPR-04 | Phase 2 | Complete |
 | APPR-05 | Phase 2 | Complete |
 | APPR-06 | Phase 2 | Complete |
-| TIMELINE-01 | Phase 5 | Pending |
-| TIMELINE-02 | Phase 5 | Pending |
-| TIMELINE-03 | Phase 5 | Pending |
+| TIMELINE-01 | Phase 5 | Complete |
+| TIMELINE-02 | Phase 5 | Complete |
+| TIMELINE-03 | Phase 5 | Complete |
 | TIMELINE-04 | Phase 5 | Pending |
 | DIFF-01 | Phase 6 | Pending |
 | DIFF-02 | Phase 6 | Pending |

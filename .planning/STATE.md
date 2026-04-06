@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: completed
-stopped_at: Completed 04-03-PLAN.md
-last_updated: "2026-04-06T13:20:06.792Z"
+stopped_at: Completed 05-02-PLAN.md
+last_updated: "2026-04-06T16:09:04.245Z"
 last_activity: "2026-04-05 — Phase 3 complete: Ops layout shell, session list, detail panel, 5-tab nav, LaunchSessionModal wired"
 progress:
   total_phases: 9
   completed_phases: 4
-  total_plans: 12
-  completed_plans: 12
+  total_plans: 15
+  completed_plans: 13
   percent: 33
 ---
 
@@ -62,6 +62,7 @@ Progress: [███░░░░░░░] 33%
 | Phase 04-codex-adapter P01 | 4 | 2 tasks | 3 files |
 | Phase 04-codex-adapter P02 | 5 | 2 tasks | 3 files |
 | Phase 04-codex-adapter P03 | 15 | 2 tasks | 4 files |
+| Phase 05-timeline-replay P02 | 2 | 2 tasks | 3 files |
 
 ## Accumulated Context
 
@@ -107,6 +108,8 @@ Recent decisions affecting current work:
 - [Phase 04-codex-adapter]: CodexParserContext mutated by parseCodexLine (sessionStartEmitted flag) — caller owns context lifetime; mutation intentional for dedup
 - [Phase 04-codex-adapter]: procFactory parameter injected into CodexAdapter constructor — tests provide EventEmitter mock, production spawns real codex binary
 - [Phase 04-codex-adapter]: resolveCodexApproval is a no-op guard so both resolvers called unconditionally in approvalQueue.decide/handleTimeout
+- [Phase 05-timeline-replay]: EMPTY_EVENTS exported from eventsSlice (not inline []) ensures stable selector reference, preventing infinite re-render loops in TimelinePanel
+- [Phase 05-timeline-replay]: bulkApplyEvents replaces entire array for sessionId — designed for REST hydration providing canonical ordered set without dedup overhead
 
 ### Pending Todos
 
@@ -119,6 +122,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-06T13:17:24.215Z
-Stopped at: Completed 04-03-PLAN.md
+Last session: 2026-04-06T16:09:04.244Z
+Stopped at: Completed 05-02-PLAN.md
 Resume file: None
