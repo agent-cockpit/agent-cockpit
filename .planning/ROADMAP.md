@@ -85,7 +85,12 @@ Plans:
   2. A Codex approval request appears in the unified approval inbox with correct type classification; approving or denying it delivers the correct JSON-RPC response to the Codex process
   3. A Codex session can be resumed from the browser UI after the daemon restarts, with prior events replayed from SQLite
   4. A provider parse error from a malformed Codex payload emits a `provider_parse_error` event and does not crash the daemon
-**Plans**: TBD
+**Plans**: 3 plans
+
+Plans:
+- [ ] 04-01-PLAN.md — Wave 0 foundation: codex_sessions DB migration + failing test stubs for parser and adapter (DAEMON-05)
+- [ ] 04-02-PLAN.md — TDD: codexParser + codexRiskClassifier implementation, all parser tests green (DAEMON-05)
+- [ ] 04-03-PLAN.md — CodexAdapter class + wiring into POST /api/sessions and approvalQueue (DAEMON-05)
 
 ### Phase 5: Timeline & Replay
 **Goal**: Every session has a fully replayable, ordered event timeline the user can scrub, jump through, and filter — enabling after-the-fact review of exactly what the agent did and when.
@@ -151,7 +156,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8 →
 | 1. Daemon Core | 3/3 | Complete   | 2026-04-05 |
 | 2. Claude Adapter + Approval Foundation | 3/3 | Complete   | 2026-04-05 |
 | 3. Browser UI Shell + Session Management | 3/3 | Complete    | 2026-04-06 |
-| 4. Codex Adapter | 0/? | Not started | - |
+| 4. Codex Adapter | 0/3 | Not started | - |
 | 5. Timeline & Replay | 0/? | Not started | - |
 | 6. Diff & Artifact Review | 0/? | Not started | - |
 | 7. Memory Panel | 0/? | Not started | - |
