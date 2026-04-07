@@ -99,6 +99,22 @@ export function persistEvent(
   });
 
   const sequenceNumber = result.lastInsertRowid as number;
+
+  // Index for full-text search — extract searchable text fields from payload
+  const p = event as Record<string, unknown>;
+  const searchText = [
+    event.type,
+    p['proposedAction'] ?? '',
+    p['filePath'] ?? '',
+    p['toolName'] ?? '',
+    p['workspacePath'] ?? '',
+    p['memoryKey'] ?? '',
+    p['value'] ?? '',
+  ]
+    .join(' ')
+    .trim();
+  indexForSearch(db, searchText, 'event', sequenceNumber, event.sessionId);
+
   return { ...event, sequenceNumber };
 }
 
