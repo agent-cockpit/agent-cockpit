@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: completed
-stopped_at: Completed 08-02-PLAN.md
-last_updated: "2026-04-07T12:46:17.487Z"
+stopped_at: Completed 08-03-PLAN.md
+last_updated: "2026-04-07T12:52:44.009Z"
 last_activity: "2026-04-05 — Phase 3 complete: Ops layout shell, session list, detail panel, 5-tab nav, LaunchSessionModal wired"
 progress:
   total_phases: 9
-  completed_phases: 7
+  completed_phases: 8
   total_plans: 22
-  completed_plans: 21
+  completed_plans: 22
   percent: 33
 ---
 
@@ -71,6 +71,7 @@ Progress: [███░░░░░░░] 33%
 | Phase 07-memory-panel P03 | 3min | 2 tasks | 2 files |
 | Phase 08-session-history-search P01 | 2 | 2 tasks | 4 files |
 | Phase 08-session-history-search P02 | 2 | 2 tasks | 5 files |
+| Phase 08-session-history-search P03 | 4 | 2 tasks | 9 files |
 
 ## Accumulated Context
 
@@ -137,6 +138,8 @@ Recent decisions affecting current work:
 - [Phase 08-session-history-search]: persistEvent extracts specific text fields for FTS5 indexing rather than full JSON blob — keeps index focused and results relevant
 - [Phase 08-session-history-search]: SessionSummary defined locally in UI store to avoid cross-package daemon import
 - [Phase 08-session-history-search]: GET /api/sessions/:id/summary registered before GET /api/sessions to prevent URL collision
+- [Phase 08-session-history-search]: HistoryPage uniqueProjects memoized on sessions.length to avoid over-computation while still catching new sessions
+- [Phase 08-session-history-search]: MemoryPanel read view for CLAUDE.md in historyMode uses pre block to preserve content readability without edit capability
 
 ### Pending Todos
 
@@ -149,6 +152,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-07T12:46:17.485Z
-Stopped at: Completed 08-02-PLAN.md
+Last session: 2026-04-07T12:52:44.007Z
+Stopped at: Completed 08-03-PLAN.md
 Resume file: None

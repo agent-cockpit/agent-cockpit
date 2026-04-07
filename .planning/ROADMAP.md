@@ -19,7 +19,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [x] **Phase 5: Timeline & Replay** - Replayable ordered event timeline per session with scrubbing, jump-to, and filtering (completed 2026-04-06)
 - [x] **Phase 6: Diff & Artifact Review** - File tree of changed files, per-file raw diff view, session summary (completed 2026-04-06)
 - [x] **Phase 7: Memory Panel** - Read/edit project memory, create notes, approve agent-suggested memory updates (completed 2026-04-07)
-- [ ] **Phase 8: Session History & Search** - Full-text search across sessions, searchable history list, side-by-side session comparison
+- [x] **Phase 8: Session History & Search** - Full-text search across sessions, searchable history list, side-by-side session comparison (completed 2026-04-07)
 - [ ] **Phase 9: Office Mode** - Pixel-art spatial visualization of active agents with state-driven animations and layout persistence
 
 ## Phase Details
@@ -183,5 +183,5 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8 →
 | 5. Timeline & Replay | 3/3 | Complete   | 2026-04-06 |
 | 6. Diff & Artifact Review | 1/1 | Complete   | 2026-04-06 |
 | 7. Memory Panel | 3/3 | Complete   | 2026-04-07 |
-| 8. Session History & Search | 2/3 | In Progress|  |
+| 8. Session History & Search | 3/3 | Complete   | 2026-04-07 |
 | 9. Office Mode | 0/? | Not started | - |
