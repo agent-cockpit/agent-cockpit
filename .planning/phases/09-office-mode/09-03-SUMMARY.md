@@ -30,14 +30,17 @@ key-files:
 key-decisions:
   - "vi.hoisted() required when mock factory closures reference variables declared in test file scope — avoids hoisting temporal dead zone errors"
   - "useStore.getState() mock attached via Object.assign on the mock function — matches Zustand's static method pattern"
+  - "PointerSensor with activationConstraint.distance=8 replaces dnd-kit default sensors to allow click events through without triggering drag"
+  - "activeDragId stored as separate useState to prevent positions state read during drag causing infinite re-render loop"
 
 patterns-established:
   - "OfficePage filters sessions with status==='active' inline in useStore selector to avoid rendering ended/error sessions"
   - "DragEndEvent handler reads position from positions state (not live transform) before computing new absolute position — prevents accumulation errors on repeated drags"
+  - "dnd-kit click-through pattern: PointerSensor + activationConstraint.distance=8 for draggable elements that also need click handlers"
 
 requirements-completed: [OFFICE-01, OFFICE-02, OFFICE-03, OFFICE-04]
 
-duration: 1min
+duration: 10min
 completed: 2026-04-07
 ---
 
@@ -47,10 +50,10 @@ completed: 2026-04-07
 
 ## Performance
 
-- **Duration:** 1 min
+- **Duration:** ~10 min
 - **Started:** 2026-04-07T14:24:35Z
-- **Completed:** 2026-04-07T14:25:50Z
-- **Tasks:** 2 auto + 1 human checkpoint (awaiting)
+- **Completed:** 2026-04-07T14:34:00Z
+- **Tasks:** 2 auto + 1 human checkpoint (approved)
 - **Files modified:** 4
 
 ## Accomplishments
@@ -65,6 +68,11 @@ completed: 2026-04-07
 
 1. **Task 1: OfficePage — DndContext canvas with position persistence and click navigation** - `841c30e` (feat)
 2. **Task 2: Wire /office route and add Office NavLink to OpsLayout** - `663d726` (feat)
+3. **Task 3: Human verify — Office mode end-to-end in browser** - approved (no code commit)
+
+**Post-task bug fixes:**
+- `6b48d09` — fix(09-03): prevent infinite re-render loop in OfficePage
+- `7ecb5e7` — fix(09-03): fix sprite click swallowed by dnd-kit default sensor
 
 ## Files Created/Modified
 
@@ -80,11 +88,33 @@ completed: 2026-04-07
 
 ## Deviations from Plan
 
-None — plan executed exactly as written. The `vi.hoisted()` pattern was needed to make the mock work (implementation detail, not a plan deviation).
+### Auto-fixed Issues
+
+**1. [Rule 1 - Bug] Fixed infinite re-render loop in OfficePage**
+- **Found during:** Browser verification (Task 3 checkpoint)
+- **Issue:** Zustand sessions selector using `.filter()` returns a new array reference on every render; when drag end called `setPositions`, React re-rendered OfficePage which re-ran the selector, creating an infinite loop
+- **Fix:** Added `shallow` equality function to the `useStore` sessions selector so filter results are compared by content, not reference
+- **Files modified:** `packages/ui/src/pages/OfficePage.tsx`
+- **Verification:** Browser no longer crashes on load; renders stable
+- **Committed in:** `6b48d09`
+
+**2. [Rule 1 - Bug] Fixed sprite click swallowed by dnd-kit default sensor**
+- **Found during:** Browser verification (Task 3 checkpoint)
+- **Issue:** dnd-kit's default `MouseSensor` registers a mousedown listener on draggable elements that consumes the pointer event before it can bubble as a click, making sprite navigation non-functional
+- **Fix:** Replaced default sensors with `PointerSensor` configured with `activationConstraint: { distance: 8 }` — drag only activates after 8px movement, allowing short taps to fire as click events
+- **Files modified:** `packages/ui/src/pages/OfficePage.tsx`
+- **Verification:** Clicking a sprite navigates to /session/:id/approvals; drag still works
+- **Committed in:** `7ecb5e7`
+
+---
+
+**Total deviations:** 2 auto-fixed (2 Rule 1 bugs found during browser verification)
+**Impact on plan:** Both fixes essential for OFFICE-01 (rendering stability) and OFFICE-03 (click navigation). No scope creep.
 
 ## Issues Encountered
 
-Minor: Initial `useStore` mock approach caused "Cannot access before initialization" ReferenceError due to vi.mock hoisting. Resolved by using `vi.hoisted()` to pre-declare mock variables — standard Vitest pattern for this scenario.
+- Initial `useStore` mock approach caused "Cannot access before initialization" ReferenceError due to vi.mock hoisting. Resolved by using `vi.hoisted()` to pre-declare mock variables — standard Vitest pattern.
+- dnd-kit click-through is a documented library footgun; PointerSensor + activationConstraint.distance is the canonical solution from dnd-kit GitHub issues.
 
 ## User Setup Required
 
@@ -98,7 +128,9 @@ All four OFFICE requirements (OFFICE-01 through OFFICE-04) are implemented:
 - OFFICE-03: Click-to-navigate to session approvals
 - OFFICE-04: Drag position persistence via localStorage
 
-**Awaiting human verification checkpoint** (Task 3): Browser test of /office route, sprite animation, hover card, drag-and-drop persistence, and navigation. Performance check for 45fps with 10 concurrent sessions.
+Human verification checkpoint (Task 3) **approved**: /office route loads, sprites animate, hover card shows all OFFICE-02 fields, drag positions persist after refresh, click navigates to /session/:id/approvals, Office NavLink highlights as active.
+
+All nine phases of the v1.0 roadmap are now complete.
 
 ---
 *Phase: 09-office-mode*

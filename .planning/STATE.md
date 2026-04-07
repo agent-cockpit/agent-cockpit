@@ -3,8 +3,8 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: completed
-stopped_at: Completed 09-03-PLAN.md — awaiting human-verify checkpoint
-last_updated: "2026-04-07T14:27:10.526Z"
+stopped_at: Completed 09-03-PLAN.md — human verify approved, all OFFICE requirements met, Phase 9 complete
+last_updated: "2026-04-07T17:08:25.999Z"
 last_activity: "2026-04-05 — Phase 3 complete: Ops layout shell, session list, detail panel, 5-tab nav, LaunchSessionModal wired"
 progress:
   total_phases: 9
@@ -150,6 +150,8 @@ Recent decisions affecting current work:
 - [Phase 09-office-mode]: task title uses workspacePath basename — will improve when SessionRecord gains a title field
 - [Phase 09-office-mode]: vi.hoisted() required when mock factory closures reference variables declared in test file scope — avoids hoisting temporal dead zone errors
 - [Phase 09-office-mode]: useStore.getState() mock attached via Object.assign on the mock function — matches Zustand static method pattern
+- [Phase 09-office-mode]: PointerSensor with activationConstraint.distance=8 replaces dnd-kit default sensors to allow click events through without triggering drag
+- [Phase 09-office-mode]: activeDragId stored as separate useState to prevent positions state read during drag causing infinite re-render loop
 
 ### Pending Todos
 
@@ -162,6 +164,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-07T14:27:10.524Z
-Stopped at: Completed 09-03-PLAN.md — awaiting human-verify checkpoint
+Last session: 2026-04-07T17:08:19.129Z
+Stopped at: Completed 09-03-PLAN.md — human verify approved, all OFFICE requirements met, Phase 9 complete
 Resume file: None
