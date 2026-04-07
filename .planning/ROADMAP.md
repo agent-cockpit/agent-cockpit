@@ -130,7 +130,12 @@ Plans:
   2. The user can edit CLAUDE.md content directly in the memory panel and save the changes back to disk; a notice informs the user the changes take effect on the next session if a session is currently running
   3. The user can create a new memory note and pin it to the project; the note persists across daemon restarts
   4. An agent-suggested memory update appears in the panel awaiting approval; approving it writes the note to the appropriate memory file; rejecting it discards it without modifying any file
-**Plans**: TBD
+**Plans**: 3 plans
+
+Plans:
+- [ ] 07-01-PLAN.md — Wave 0: memory_notes DB schema, memoryReader + memoryNotes modules, test scaffolds (MEM-01, MEM-02, MEM-03, MEM-04)
+- [ ] 07-02-PLAN.md — Daemon REST endpoints: CLAUDE.md read/write, auto-memory read, notes CRUD, suggestions approve/reject (MEM-01, MEM-02, MEM-03, MEM-04)
+- [ ] 07-03-PLAN.md — MemoryPanel.tsx full implementation + all RTL tests green (MEM-01, MEM-02, MEM-03, MEM-04)
 
 ### Phase 8: Session History & Search
 **Goal**: The user can search across everything the system has recorded — sessions, tasks, memory, file changes, approval decisions — and browse or reopen any past session, including a side-by-side comparison of two sessions.
@@ -140,7 +145,12 @@ Plans:
   1. Typing a query into the search interface returns matching results across sessions, task titles, memory items, file-change records, and approval history within two seconds, even with more than 50 sessions recorded
   2. The session history list shows all past sessions with filtering by project, provider, status, and date; clicking any past session opens its timeline, memory, and diffs as a read-only view
   3. The user can select any two sessions and open a side-by-side comparison showing provider, runtime, approval count, files changed, and final status
-**Plans**: TBD
+**Plans**: 3 plans
+
+Plans:
+- [ ] 07-01-PLAN.md — Wave 0: memory_notes DB schema, memoryReader + memoryNotes modules, test scaffolds (MEM-01, MEM-02, MEM-03, MEM-04)
+- [ ] 07-02-PLAN.md — Daemon REST endpoints: CLAUDE.md read/write, auto-memory read, notes CRUD, suggestions approve/reject (MEM-01, MEM-02, MEM-03, MEM-04)
+- [ ] 07-03-PLAN.md — MemoryPanel.tsx full implementation + all RTL tests green (MEM-01, MEM-02, MEM-03, MEM-04)
 
 ### Phase 9: Office Mode
 **Goal**: Office mode shows every active agent as an animated pixel-art entity whose animation reflects its current state, with a hover card, click-through to Ops mode, and a draggable layout that persists locally — all rendering above 45fps with 10 concurrent sessions.
@@ -152,7 +162,12 @@ Plans:
   3. Clicking an agent in Office mode navigates to its Ops mode session detail panel
   4. The user can drag agents to rearrange their positions; the layout is persisted locally and survives a browser refresh
   5. With 10 concurrent active sessions each receiving events at 10 events/second, the Office mode canvas sustains at least 45fps (verified in browser DevTools)
-**Plans**: TBD
+**Plans**: 3 plans
+
+Plans:
+- [ ] 07-01-PLAN.md — Wave 0: memory_notes DB schema, memoryReader + memoryNotes modules, test scaffolds (MEM-01, MEM-02, MEM-03, MEM-04)
+- [ ] 07-02-PLAN.md — Daemon REST endpoints: CLAUDE.md read/write, auto-memory read, notes CRUD, suggestions approve/reject (MEM-01, MEM-02, MEM-03, MEM-04)
+- [ ] 07-03-PLAN.md — MemoryPanel.tsx full implementation + all RTL tests green (MEM-01, MEM-02, MEM-03, MEM-04)
 
 ## Progress
 
