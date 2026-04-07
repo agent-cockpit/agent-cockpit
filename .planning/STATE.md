@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: completed
-stopped_at: Completed 09-02-PLAN.md
-last_updated: "2026-04-07T14:23:20.234Z"
+stopped_at: Completed 09-03-PLAN.md — awaiting human-verify checkpoint
+last_updated: "2026-04-07T14:27:10.526Z"
 last_activity: "2026-04-05 — Phase 3 complete: Ops layout shell, session list, detail panel, 5-tab nav, LaunchSessionModal wired"
 progress:
   total_phases: 9
-  completed_phases: 8
+  completed_phases: 9
   total_plans: 25
-  completed_plans: 24
+  completed_plans: 25
   percent: 33
 ---
 
@@ -74,6 +74,7 @@ Progress: [███░░░░░░░] 33%
 | Phase 08-session-history-search P03 | 4 | 2 tasks | 9 files |
 | Phase 09-office-mode P01 | 2 | 3 tasks | 7 files |
 | Phase 09-office-mode P02 | 1 | 2 tasks | 4 files |
+| Phase 09-office-mode P03 | 1min | 2 tasks | 4 files |
 
 ## Accumulated Context
 
@@ -147,6 +148,8 @@ Recent decisions affecting current work:
 - [Phase 09-office-mode]: useLocalStorage lazy initializer wraps localStorage.getItem in try/catch to handle both SSR and QuotaExceededError
 - [Phase 09-office-mode]: AgentHoverCard receives elapsedMs as prop — prevents Date.now() flakiness in tests and gives OfficePage full control over refresh cadence
 - [Phase 09-office-mode]: task title uses workspacePath basename — will improve when SessionRecord gains a title field
+- [Phase 09-office-mode]: vi.hoisted() required when mock factory closures reference variables declared in test file scope — avoids hoisting temporal dead zone errors
+- [Phase 09-office-mode]: useStore.getState() mock attached via Object.assign on the mock function — matches Zustand static method pattern
 
 ### Pending Todos
 
@@ -159,6 +162,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-07T14:23:20.232Z
-Stopped at: Completed 09-02-PLAN.md
+Last session: 2026-04-07T14:27:10.524Z
+Stopped at: Completed 09-03-PLAN.md — awaiting human-verify checkpoint
 Resume file: None
