@@ -165,9 +165,9 @@ Plans:
 **Plans**: 3 plans
 
 Plans:
-- [ ] 09-01-PLAN.md — To be planned
-- [ ] 09-02-PLAN.md — To be planned
-- [ ] 09-03-PLAN.md — To be planned
+- [ ] 09-01-PLAN.md — Install dnd-kit + TDD spriteStates (deriveAgentState) + TDD useLocalStorage hook
+- [ ] 09-02-PLAN.md — AgentSprite (draggable, animated, hover trigger) + AgentHoverCard (OFFICE-02 fields)
+- [ ] 09-03-PLAN.md — OfficePage (DndContext canvas, position persistence, navigation) + route + nav link
 
 ## Progress
 
