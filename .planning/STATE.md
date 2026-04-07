@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: completed
-stopped_at: Completed 08-01-PLAN.md
-last_updated: "2026-04-07T12:41:30.071Z"
+stopped_at: Completed 08-02-PLAN.md
+last_updated: "2026-04-07T12:46:17.487Z"
 last_activity: "2026-04-05 — Phase 3 complete: Ops layout shell, session list, detail panel, 5-tab nav, LaunchSessionModal wired"
 progress:
   total_phases: 9
   completed_phases: 7
   total_plans: 22
-  completed_plans: 20
+  completed_plans: 21
   percent: 33
 ---
 
@@ -70,6 +70,7 @@ Progress: [███░░░░░░░] 33%
 | Phase 07-memory-panel P02 | 5min | 2 tasks | 4 files |
 | Phase 07-memory-panel P03 | 3min | 2 tasks | 2 files |
 | Phase 08-session-history-search P01 | 2 | 2 tasks | 4 files |
+| Phase 08-session-history-search P02 | 2 | 2 tasks | 5 files |
 
 ## Accumulated Context
 
@@ -134,6 +135,8 @@ Recent decisions affecting current work:
 - [Phase 08-session-history-search]: FTS5 external content table (content='') with manual INSERT — avoids full-table scan, idempotent backfill via INSERT OR IGNORE on openDatabase()
 - [Phase 08-session-history-search]: searchAll wraps user query in double-quotes + escapes internal double-quotes to prevent FTS5 syntax injection
 - [Phase 08-session-history-search]: persistEvent extracts specific text fields for FTS5 indexing rather than full JSON blob — keeps index focused and results relevant
+- [Phase 08-session-history-search]: SessionSummary defined locally in UI store to avoid cross-package daemon import
+- [Phase 08-session-history-search]: GET /api/sessions/:id/summary registered before GET /api/sessions to prevent URL collision
 
 ### Pending Todos
 
@@ -146,6 +149,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-07T12:41:30.069Z
-Stopped at: Completed 08-01-PLAN.md
+Last session: 2026-04-07T12:46:17.485Z
+Stopped at: Completed 08-02-PLAN.md
 Resume file: None
