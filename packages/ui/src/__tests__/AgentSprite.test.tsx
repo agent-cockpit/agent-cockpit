@@ -14,9 +14,20 @@ vi.mock('@dnd-kit/core', () => ({
   }),
 }))
 
-// Mock AgentHoverCard to keep AgentSprite tests isolated
+// Mock Radix HoverCard so Content always renders (no hover interaction needed)
+vi.mock('@radix-ui/react-hover-card', () => ({
+  Root: ({ children }: { children: React.ReactNode }) => <>{children}</>,
+  Trigger: ({ children }: { children: React.ReactNode; asChild?: boolean }) => <>{children}</>,
+  Content: ({ children }: { children: React.ReactNode }) => <>{children}</>,
+}))
+
+// Capture props passed to AgentHoverCard for assertion
+const mockHoverCardProps: { elapsedMs?: number; lastToolUsed?: string } = {}
 vi.mock('../components/office/AgentHoverCard.js', () => ({
-  AgentHoverCard: () => <div data-testid="mock-hover-card" />,
+  AgentHoverCard: (props: { elapsedMs?: number; lastToolUsed?: string }) => {
+    Object.assign(mockHoverCardProps, props)
+    return <div data-testid="mock-hover-card" />
+  },
 }))
 
 const mockSession: SessionRecord = {
@@ -40,6 +51,7 @@ const defaultProps = {
 describe('AgentSprite', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    Object.keys(mockHoverCardProps).forEach(k => delete (mockHoverCardProps as Record<string, unknown>)[k])
   })
 
   it('renders div with correct data-testid', () => {
@@ -100,5 +112,20 @@ describe('AgentSprite', () => {
     // should display the last non-empty segment
     const el = screen.getByTestId('agent-sprite-sess-abc')
     expect(el).toBeDefined()
+  })
+
+  it('forwards elapsedMs prop to AgentHoverCard', () => {
+    render(<AgentSprite {...defaultProps} elapsedMs={90000} />)
+    expect(mockHoverCardProps.elapsedMs).toBe(90000)
+  })
+
+  it('forwards lastToolUsed prop to AgentHoverCard when provided', () => {
+    render(<AgentSprite {...defaultProps} elapsedMs={0} lastToolUsed="Bash" />)
+    expect(mockHoverCardProps.lastToolUsed).toBe('Bash')
+  })
+
+  it('forwards lastToolUsed as undefined to AgentHoverCard when not provided', () => {
+    render(<AgentSprite {...defaultProps} elapsedMs={0} />)
+    expect(mockHoverCardProps.lastToolUsed).toBeUndefined()
   })
 })

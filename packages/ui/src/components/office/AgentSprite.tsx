@@ -13,6 +13,8 @@ interface AgentSpriteProps {
   position: { x: number; y: number }
   isDragging: boolean
   onClick: () => void
+  elapsedMs: number
+  lastToolUsed?: string
 }
 
 export function AgentSprite({
@@ -21,6 +23,8 @@ export function AgentSprite({
   position,
   isDragging,
   onClick,
+  elapsedMs,
+  lastToolUsed,
 }: AgentSpriteProps) {
   const { attributes, listeners, setNodeRef, transform } = useDraggable({
     id: session.sessionId,
@@ -68,7 +72,7 @@ export function AgentSprite({
         </div>
       </HoverCard.Trigger>
       <HoverCard.Content side="top" sideOffset={8}>
-        <AgentHoverCard session={session} elapsedMs={0} />
+        <AgentHoverCard session={session} elapsedMs={elapsedMs} lastToolUsed={lastToolUsed} />
       </HoverCard.Content>
     </HoverCard.Root>
   )
