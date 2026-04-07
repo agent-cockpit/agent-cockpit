@@ -2,7 +2,7 @@
 phase: 7
 slug: memory-panel
 status: draft
-nyquist_compliant: false
+nyquist_compliant: true
 wave_0_complete: false
 created: 2026-04-07
 ---
@@ -43,6 +43,8 @@ created: 2026-04-07
 | 07-02-01 | 02 | 1 | MEM-01, MEM-02 | unit (RTL + daemon) | `pnpm vitest run` | ✅ Wave 0 | ⬜ pending |
 | 07-02-02 | 02 | 1 | MEM-03 | unit (RTL + daemon) | `pnpm vitest run` | ✅ Wave 0 | ⬜ pending |
 | 07-02-03 | 02 | 1 | MEM-04 | unit (RTL + daemon) | `pnpm vitest run` | ✅ Wave 0 | ⬜ pending |
+| 07-03-01 | 03 | 2 | MEM-01..04 | unit (RTL) | `pnpm vitest run --project packages/ui` | ✅ Wave 0 | ⬜ pending |
+| 07-03-02 | 03 | 2 | MEM-01..04 | unit (RTL) | `pnpm vitest run --project packages/ui` | ✅ Wave 0 | ⬜ pending |
 
 *Status: ⬜ pending · ✅ green · ❌ red · ⚠️ flaky*
 
@@ -70,11 +72,11 @@ created: 2026-04-07
 
 ## Validation Sign-Off
 
-- [ ] All tasks have `<automated>` verify or Wave 0 dependencies
-- [ ] Sampling continuity: no 3 consecutive tasks without automated verify
-- [ ] Wave 0 covers all MISSING references
-- [ ] No watch-mode flags
-- [ ] Feedback latency < 20s
-- [ ] `nyquist_compliant: true` set in frontmatter
+- [x] All tasks have `<automated>` verify or Wave 0 dependencies
+- [x] Sampling continuity: no 3 consecutive tasks without automated verify
+- [x] Wave 0 covers all MISSING references
+- [x] No watch-mode flags
+- [x] Feedback latency < 20s
+- [x] `nyquist_compliant: true` set in frontmatter
 
 **Approval:** pending
