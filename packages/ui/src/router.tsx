@@ -23,6 +23,11 @@ export const router = createBrowserRouter([
           import('./pages/HistoryPage.js').then((m) => ({ Component: m.HistoryPage })),
       },
       {
+        path: 'office',
+        lazy: () =>
+          import('./pages/OfficePage.js').then((m) => ({ Component: m.OfficePage })),
+      },
+      {
         path: 'session/:sessionId',
         Component: SessionDetailPanel,
         children: [

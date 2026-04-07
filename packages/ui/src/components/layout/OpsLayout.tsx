@@ -15,6 +15,14 @@ export function OpsLayout() {
           >
             History
           </NavLink>
+          <NavLink
+            to="/office"
+            className={({ isActive }) =>
+              `text-xs px-2 py-1 rounded ${isActive ? 'bg-muted font-semibold' : 'text-muted-foreground hover:text-foreground'}`
+            }
+          >
+            Office
+          </NavLink>
         </div>
         <SessionListPanel />
       </aside>
