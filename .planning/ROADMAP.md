@@ -182,6 +182,6 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8 →
 | 4. Codex Adapter | 3/3 | Complete   | 2026-04-06 |
 | 5. Timeline & Replay | 3/3 | Complete   | 2026-04-06 |
 | 6. Diff & Artifact Review | 1/1 | Complete   | 2026-04-06 |
-| 7. Memory Panel | 0/? | Not started | - |
+| 7. Memory Panel | 2/3 | In Progress|  |
 | 8. Session History & Search | 0/? | Not started | - |
 | 9. Office Mode | 0/? | Not started | - |
