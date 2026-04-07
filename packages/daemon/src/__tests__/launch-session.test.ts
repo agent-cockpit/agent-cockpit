@@ -145,9 +145,9 @@ describe('POST /api/sessions', () => {
 });
 
 describe('Other HTTP routes', () => {
-  it('GET /api/sessions returns 404', async () => {
+  it('GET /api/sessions returns 200 JSON array (history endpoint added in Plan 02)', async () => {
     const { status } = await httpGet(port, '/api/sessions');
-    expect(status).toBe(404);
+    expect(status).toBe(200);
   });
 });
 

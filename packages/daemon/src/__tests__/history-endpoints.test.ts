@@ -1,4 +1,5 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import http from 'node:http';
 import { openDatabase } from '../db/database.js';
 import {
   indexForSearch,
@@ -7,7 +8,54 @@ import {
   getSessionSummary,
   persistEvent,
 } from '../db/queries.js';
+import { createWsServer } from '../ws/server.js';
+import type Database from 'better-sqlite3';
 import type { NormalizedEvent } from '@cockpit/shared';
+
+// ---- HTTP helper ----
+
+function httpGetJson(
+  port: number,
+  urlPath: string,
+): Promise<{ status: number; body: unknown; headers: http.IncomingHttpHeaders }> {
+  return new Promise((resolve, reject) => {
+    const req = http.request(
+      { hostname: 'localhost', port, path: urlPath, method: 'GET' },
+      (res) => {
+        let raw = '';
+        res.on('data', (chunk) => { raw += chunk; });
+        res.on('end', () => {
+          resolve({ status: res.statusCode ?? 0, body: raw ? JSON.parse(raw) : null, headers: res.headers });
+        });
+      },
+    );
+    req.on('error', reject);
+    req.end();
+  });
+}
+
+// ---- HTTP endpoint test setup ----
+
+let db: Database.Database;
+let httpServer: http.Server;
+let port: number;
+
+beforeEach(async () => {
+  db = openDatabase(':memory:');
+  const server = createWsServer(db, 0);
+  httpServer = server.httpServer;
+  await new Promise<void>((resolve) => {
+    if (httpServer.listening) resolve();
+    else httpServer.on('listening', resolve);
+  });
+  const addr = httpServer.address();
+  port = typeof addr === 'object' && addr ? addr.port : 0;
+});
+
+afterEach(async () => {
+  await new Promise<void>((resolve) => httpServer.close(() => resolve()));
+  db.close();
+});
 
 function makeEvent(overrides: Partial<NormalizedEvent> = {}): NormalizedEvent {
   return {
@@ -151,5 +199,81 @@ describe('indexForSearch integration', () => {
     expect(afterResults[0]!.sourceId).toBe('note-42');
     expect(afterResults[0]!.sessionId).toBe(SESSION_A);
     db.close();
+  });
+});
+
+// ---- HTTP endpoint tests (Plan 02) ----
+
+function makeSessionStartEventHttp(sessionId: string, workspacePath: string): NormalizedEvent {
+  return {
+    schemaVersion: 1,
+    sessionId,
+    timestamp: new Date().toISOString(),
+    type: 'session_start',
+    provider: 'claude',
+    workspacePath,
+  } as NormalizedEvent;
+}
+
+describe('GET /api/search', () => {
+  it('Test H1: returns 200 JSON array for matching query', async () => {
+    const sessionId = 'search-session-001';
+    persistEvent(db, makeSessionStartEventHttp(sessionId, '/workspace/search'));
+    indexForSearch(db, 'hello world from http test', 'event', 'evt-001', sessionId);
+
+    const { status, body, headers } = await httpGetJson(port, '/api/search?q=hello');
+    expect(status).toBe(200);
+    expect(Array.isArray(body)).toBe(true);
+    const results = body as Array<{ sourceType: string; sourceId: string; sessionId: string; snippet: string }>;
+    expect(results.length).toBeGreaterThan(0);
+    expect(results[0]!.sourceType).toBe('event');
+    expect(headers['access-control-allow-origin']).toBe('*');
+  });
+
+  it('Test H2: returns 200 empty array when no q param provided', async () => {
+    const { status, body } = await httpGetJson(port, '/api/search');
+    expect(status).toBe(200);
+    expect(body).toEqual([]);
+  });
+
+  it('Test H2b: returns 200 empty array when q param is empty string', async () => {
+    const { status, body } = await httpGetJson(port, '/api/search?q=');
+    expect(status).toBe(200);
+    expect(Array.isArray(body)).toBe(true);
+  });
+});
+
+describe('GET /api/sessions (all sessions)', () => {
+  it('Test H3: returns 200 JSON array with CORS header', async () => {
+    const sessionId = 'http-all-sessions-001';
+    persistEvent(db, makeSessionStartEventHttp(sessionId, '/workspace/all-sessions'));
+
+    const { status, body, headers } = await httpGetJson(port, '/api/sessions');
+    expect(status).toBe(200);
+    expect(Array.isArray(body)).toBe(true);
+    const sessions = body as Array<{ sessionId: string }>;
+    expect(sessions.some((s) => s.sessionId === sessionId)).toBe(true);
+    expect(headers['access-control-allow-origin']).toBe('*');
+  });
+});
+
+describe('GET /api/sessions/:id/summary', () => {
+  it('Test H4: returns 200 JSON object for known session', async () => {
+    const sessionId = 'http-summary-known-001';
+    persistEvent(db, makeSessionStartEventHttp(sessionId, '/workspace/known'));
+
+    const { status, body, headers } = await httpGetJson(port, `/api/sessions/${sessionId}/summary`);
+    expect(status).toBe(200);
+    const summary = body as { sessionId: string; provider: string; workspacePath: string };
+    expect(summary.sessionId).toBe(sessionId);
+    expect(summary.provider).toBe('claude');
+    expect(summary.workspacePath).toBe('/workspace/known');
+    expect(headers['access-control-allow-origin']).toBe('*');
+  });
+
+  it('Test H5: returns 404 for unknown session', async () => {
+    const { status, headers } = await httpGetJson(port, '/api/sessions/no-such-session-xyz/summary');
+    expect(status).toBe(404);
+    expect(headers['access-control-allow-origin']).toBe('*');
   });
 });

@@ -6,7 +6,7 @@ import type Database from 'better-sqlite3';
 import { handleConnection } from './handlers.js';
 import { CodexAdapter } from '../adapters/codex/codexAdapter.js';
 import { eventBus } from '../eventBus.js';
-import { getEventsBySession } from '../db/queries.js';
+import { getEventsBySession, searchAll, getAllSessions, getSessionSummary } from '../db/queries.js';
 import { resolveClaudeMdPath, resolveAutoMemoryPath, readFileSafe, writeFileSafe, getWorkspacePath } from '../memory/memoryReader.js';
 import { insertNote, listNotes, deleteNote } from '../memory/memoryNotes.js';
 
@@ -119,6 +119,41 @@ export function createWsServer(
       const content = readFileSafe(resolveAutoMemoryPath(workspace));
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ content }));
+      return;
+    }
+
+    // GET /api/search?q=<query>
+    const searchMatch = req.method === 'GET' && req.url?.startsWith('/api/search');
+    if (searchMatch) {
+      const url = new URL(req.url!, 'http://localhost');
+      const q = url.searchParams.get('q') ?? '';
+      const results = searchAll(db, q);
+      res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
+      res.end(JSON.stringify(results));
+      return;
+    }
+
+    // GET /api/sessions/:id/summary (must come BEFORE /api/sessions list)
+    const sessionSummaryMatch = req.method === 'GET' && req.url?.match(/^\/api\/sessions\/([^/]+)\/summary$/);
+    if (sessionSummaryMatch) {
+      const sessionId = sessionSummaryMatch[1]!;
+      const summary = getSessionSummary(db, sessionId);
+      if (!summary) {
+        res.writeHead(404, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
+        res.end(JSON.stringify({ error: 'session not found' }));
+      } else {
+        res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
+        res.end(JSON.stringify(summary));
+      }
+      return;
+    }
+
+    // GET /api/sessions (all sessions list)
+    const allSessionsMatch = req.method === 'GET' && req.url === '/api/sessions';
+    if (allSessionsMatch) {
+      const sessions = getAllSessions(db);
+      res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
+      res.end(JSON.stringify(sessions));
       return;
     }
 
