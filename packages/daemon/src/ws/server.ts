@@ -7,6 +7,8 @@ import { handleConnection } from './handlers.js';
 import { CodexAdapter } from '../adapters/codex/codexAdapter.js';
 import { eventBus } from '../eventBus.js';
 import { getEventsBySession } from '../db/queries.js';
+import { resolveClaudeMdPath, resolveAutoMemoryPath, readFileSafe, writeFileSafe, getWorkspacePath } from '../memory/memoryReader.js';
+import { insertNote, listNotes, deleteNote } from '../memory/memoryNotes.js';
 
 function handleLaunchSession(
   req: http.IncomingMessage,
@@ -64,12 +66,56 @@ export function createWsServer(
   httpServer.on('request', (req, res) => {
     // CORS for localhost dev
     res.setHeader('Access-Control-Allow-Origin', '*');
-    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
     res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
 
     if (req.method === 'OPTIONS') {
       res.writeHead(204);
       res.end();
+      return;
+    }
+
+    // GET /api/memory/:sessionId/claude-md
+    const claudeMdGetMatch = req.method === 'GET' && req.url?.match(/^\/api\/memory\/([^/]+)\/claude-md$/);
+    if (claudeMdGetMatch) {
+      const sessionId = claudeMdGetMatch[1]!;
+      const workspace = getWorkspacePath(db, sessionId);
+      if (!workspace) { res.writeHead(404, { 'Content-Type': 'application/json' }); res.end(JSON.stringify({ error: 'session not found' })); return; }
+      const filePath = resolveClaudeMdPath(workspace);
+      const content = readFileSafe(filePath);
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ content, path: content !== null ? filePath : null }));
+      return;
+    }
+
+    // PUT /api/memory/:sessionId/claude-md
+    const claudeMdPutMatch = req.method === 'PUT' && req.url?.match(/^\/api\/memory\/([^/]+)\/claude-md$/);
+    if (claudeMdPutMatch) {
+      const sessionId = claudeMdPutMatch[1]!;
+      let body = '';
+      req.on('data', (c) => { body += c; });
+      req.on('end', () => {
+        try {
+          const workspace = getWorkspacePath(db, sessionId);
+          if (!workspace) { res.writeHead(404, { 'Content-Type': 'application/json' }); res.end(JSON.stringify({ error: 'session not found' })); return; }
+          const { content } = JSON.parse(body) as { content: string };
+          writeFileSafe(resolveClaudeMdPath(workspace), content);
+          res.writeHead(200, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ ok: true }));
+        } catch { res.writeHead(400, { 'Content-Type': 'application/json' }); res.end(JSON.stringify({ error: 'invalid body' })); }
+      });
+      return;
+    }
+
+    // GET /api/memory/:sessionId/auto-memory
+    const autoMemoryMatch = req.method === 'GET' && req.url?.match(/^\/api\/memory\/([^/]+)\/auto-memory$/);
+    if (autoMemoryMatch) {
+      const sessionId = autoMemoryMatch[1]!;
+      const workspace = getWorkspacePath(db, sessionId);
+      if (!workspace) { res.writeHead(404, { 'Content-Type': 'application/json' }); res.end(JSON.stringify({ error: 'session not found' })); return; }
+      const content = readFileSafe(resolveAutoMemoryPath(workspace));
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ content }));
       return;
     }
 
