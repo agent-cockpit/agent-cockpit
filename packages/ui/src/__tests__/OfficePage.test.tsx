@@ -52,6 +52,9 @@ vi.mock('@dnd-kit/core', () => ({
       {children}
     </div>
   ),
+  useSensors: (...sensors: unknown[]) => sensors,
+  useSensor: (_cls: unknown, _opts?: unknown) => ({}),
+  PointerSensor: class PointerSensor {},
 }))
 
 // Mock deriveAgentState

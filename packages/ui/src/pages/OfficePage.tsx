@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router'
-import { DndContext } from '@dnd-kit/core'
+import { DndContext, PointerSensor, useSensor, useSensors } from '@dnd-kit/core'
 import type { DragEndEvent, DragStartEvent } from '@dnd-kit/core'
 import { useStore } from '../store/index.js'
 import { useActiveSessions } from '../store/selectors.js'
@@ -20,6 +20,9 @@ export function OfficePage() {
   )
   const [activeDragId, setActiveDragId] = useState<string | null>(null)
   const navigate = useNavigate()
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
+  )
 
   function getPosition(sessionId: string, index: number) {
     return (
@@ -48,7 +51,7 @@ export function OfficePage() {
   }
 
   return (
-    <DndContext onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
+    <DndContext sensors={sensors} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
       <div
         className="relative w-full h-full overflow-hidden bg-background"
         data-testid="office-canvas"
