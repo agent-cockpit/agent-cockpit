@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: completed
-stopped_at: Completed 09-03-PLAN.md — human verify approved, all OFFICE requirements met, Phase 9 complete
-last_updated: "2026-04-07T17:08:25.999Z"
+stopped_at: Completed 09-04-PLAN.md — OFFICE-02 fully closed, elapsedMs and lastToolUsed forwarded to AgentHoverCard
+last_updated: "2026-04-07T17:25:26.438Z"
 last_activity: "2026-04-05 — Phase 3 complete: Ops layout shell, session list, detail panel, 5-tab nav, LaunchSessionModal wired"
 progress:
   total_phases: 9
   completed_phases: 9
-  total_plans: 25
-  completed_plans: 25
+  total_plans: 26
+  completed_plans: 26
   percent: 33
 ---
 
@@ -75,6 +75,7 @@ Progress: [███░░░░░░░] 33%
 | Phase 09-office-mode P01 | 2 | 3 tasks | 7 files |
 | Phase 09-office-mode P02 | 1 | 2 tasks | 4 files |
 | Phase 09-office-mode P03 | 1min | 2 tasks | 4 files |
+| Phase 09-office-mode P04 | 3min | 2 tasks | 4 files |
 
 ## Accumulated Context
 
@@ -152,6 +153,7 @@ Recent decisions affecting current work:
 - [Phase 09-office-mode]: useStore.getState() mock attached via Object.assign on the mock function — matches Zustand static method pattern
 - [Phase 09-office-mode]: PointerSensor with activationConstraint.distance=8 replaces dnd-kit default sensors to allow click events through without triggering drag
 - [Phase 09-office-mode]: activeDragId stored as separate useState to prevent positions state read during drag causing infinite re-render loop
+- [Phase 09-office-mode]: Radix HoverCard.Content must be mocked in tests to render children synchronously — portal-based conditional rendering prevents AgentHoverCard from mounting
 
 ### Pending Todos
 
@@ -164,6 +166,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-07T17:08:19.129Z
-Stopped at: Completed 09-03-PLAN.md — human verify approved, all OFFICE requirements met, Phase 9 complete
+Last session: 2026-04-07T17:25:26.436Z
+Stopped at: Completed 09-04-PLAN.md — OFFICE-02 fully closed, elapsedMs and lastToolUsed forwarded to AgentHoverCard
 Resume file: None
