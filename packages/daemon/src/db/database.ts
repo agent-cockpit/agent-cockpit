@@ -63,6 +63,16 @@ export function openDatabase(dbPath: string): Database.Database {
       workspace    TEXT NOT NULL,
       created_at   TEXT NOT NULL
     );
+
+    CREATE TABLE IF NOT EXISTS memory_notes (
+      note_id    TEXT PRIMARY KEY,
+      workspace  TEXT NOT NULL,
+      content    TEXT NOT NULL,
+      pinned     INTEGER NOT NULL DEFAULT 1,
+      created_at TEXT NOT NULL
+    );
+    CREATE INDEX IF NOT EXISTS idx_memory_notes_workspace
+      ON memory_notes (workspace);
   `);
 
   // Checkpoint scheduling: fires every 10s, non-blocking (unref so it doesn't keep process alive)
