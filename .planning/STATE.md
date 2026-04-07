@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: completed
-stopped_at: Completed 06-01-PLAN.md
-last_updated: "2026-04-06T23:39:27.257Z"
+stopped_at: Completed 07-01-PLAN.md
+last_updated: "2026-04-07T04:03:32.168Z"
 last_activity: "2026-04-05 — Phase 3 complete: Ops layout shell, session list, detail panel, 5-tab nav, LaunchSessionModal wired"
 progress:
   total_phases: 9
   completed_phases: 6
-  total_plans: 16
-  completed_plans: 16
+  total_plans: 19
+  completed_plans: 17
   percent: 33
 ---
 
@@ -66,6 +66,7 @@ Progress: [███░░░░░░░] 33%
 | Phase 05-timeline-replay P01 | 2min | 2 tasks | 4 files |
 | Phase 05-timeline-replay P03 | 3 | 1 tasks | 2 files |
 | Phase 06-diff-artifact-review P01 | 8 | 2 tasks | 2 files |
+| Phase 07-memory-panel P01 | 2min | 2 tasks | 6 files |
 
 ## Accumulated Context
 
@@ -119,6 +120,9 @@ Recent decisions affecting current work:
 - [Phase 05-03]: ToolCallEvent uses 'input' field (not 'toolInput') matching actual shared schema — InlineDetail renders event.input via JSON.stringify
 - [Phase 06-diff-artifact-review]: DiffPanel derives file tree from events array at render time (not stored in Zustand) — avoids synchronization complexity
 - [Phase 06-diff-artifact-review]: data-testid='diff-line-add' and 'diff-line-del' used for colorization assertions — more reliable than className checks in RTL
+- [Phase 07-01]: memory_notes table placed after codex_sessions in schema block — preserves append-only ordering and matches research spec
+- [Phase 07-01]: readFileSafe uses bare catch (not ENOENT check) — covers ENOENT and EACCES both returning null per behavior spec
+- [Phase 07-01]: MemoryPanel.test.tsx uses it.todo() only — stub component already exists at panels/MemoryPanel.tsx
 
 ### Pending Todos
 
@@ -131,6 +135,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-06T23:37:32.388Z
-Stopped at: Completed 06-01-PLAN.md
+Last session: 2026-04-07T04:03:32.166Z
+Stopped at: Completed 07-01-PLAN.md
 Resume file: None

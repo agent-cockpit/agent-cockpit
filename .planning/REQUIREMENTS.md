@@ -60,10 +60,10 @@ Requirements for initial release. Each maps to roadmap phases.
 
 ### Memory Panel
 
-- [ ] **MEM-01**: User can view project memory for a workspace, showing persistent instructions, project conventions, build/test commands, architecture notes, and prior accepted agent learnings, normalized from provider-specific files (CLAUDE.md, auto memory) into one surface
-- [ ] **MEM-02**: User can edit project memory directly in the UI, with changes written back to the provider-specific memory files
-- [ ] **MEM-03**: User can create new memory notes and pin them to a project
-- [ ] **MEM-04**: User can see agent-suggested memory updates and approve or reject them before they are written
+- [x] **MEM-01**: User can view project memory for a workspace, showing persistent instructions, project conventions, build/test commands, architecture notes, and prior accepted agent learnings, normalized from provider-specific files (CLAUDE.md, auto memory) into one surface
+- [x] **MEM-02**: User can edit project memory directly in the UI, with changes written back to the provider-specific memory files
+- [x] **MEM-03**: User can create new memory notes and pin them to a project
+- [x] **MEM-04**: User can see agent-suggested memory updates and approve or reject them before they are written
 
 ### Session Comparison
 
@@ -161,10 +161,10 @@ Which phases cover which requirements. Updated during roadmap creation.
 | DIFF-01 | Phase 6 | Complete |
 | DIFF-02 | Phase 6 | Complete |
 | DIFF-03 | Phase 6 | Complete |
-| MEM-01 | Phase 7 | Pending |
-| MEM-02 | Phase 7 | Pending |
-| MEM-03 | Phase 7 | Pending |
-| MEM-04 | Phase 7 | Pending |
+| MEM-01 | Phase 7 | Complete |
+| MEM-02 | Phase 7 | Complete |
+| MEM-03 | Phase 7 | Complete |
+| MEM-04 | Phase 7 | Complete |
 | COMP-01 | Phase 8 | Pending |
 | NOTIF-01 | Phase 2 | Complete |
 | NOTIF-02 | Phase 2 | Complete |
