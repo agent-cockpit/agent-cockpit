@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router'
 import { DndContext } from '@dnd-kit/core'
 import type { DragEndEvent, DragStartEvent } from '@dnd-kit/core'
 import { useStore } from '../store/index.js'
+import { useActiveSessions } from '../store/selectors.js'
 import { useLocalStorage } from '../hooks/useLocalStorage.js'
 import { deriveAgentState } from '../components/office/spriteStates.js'
 import { AgentSprite } from '../components/office/AgentSprite.js'
@@ -11,9 +12,7 @@ const CELL = 96
 const COLS = 5
 
 export function OfficePage() {
-  const sessions = useStore((s) =>
-    Object.values(s.sessions).filter((sess) => sess.status === 'active'),
-  )
+  const sessions = useActiveSessions()
   const events = useStore((s) => s.events)
   const [positions, setPositions] = useLocalStorage<Record<string, { x: number; y: number }>>(
     'cockpit.office.positions',

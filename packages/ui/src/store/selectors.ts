@@ -22,6 +22,24 @@ function shallowArrayEqual(a: SessionRecord[], b: SessionRecord[]): boolean {
 }
 
 /**
+ * Returns active sessions (status === 'active') with a stable array reference.
+ * Same memoization pattern as useFilteredSessions — prevents infinite loop in
+ * useSyncExternalStore when the selector creates a new array each call.
+ */
+export function useActiveSessions(): SessionRecord[] {
+  const cacheRef = useRef<SessionRecord[]>([])
+
+  return useStore((state) => {
+    const next = Object.values(state.sessions).filter((s) => s.status === 'active')
+    if (shallowArrayEqual(cacheRef.current, next)) {
+      return cacheRef.current
+    }
+    cacheRef.current = next
+    return next
+  })
+}
+
+/**
  * Returns filtered+sorted sessions.
  * Uses useRef to memoize the array reference so React 18's useSyncExternalStore
  * consistency check receives a stable snapshot when content hasn't changed.
