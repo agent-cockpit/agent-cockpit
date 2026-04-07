@@ -3,10 +3,10 @@ import http from 'node:http';
 import * as os from 'node:os';
 import * as path from 'node:path';
 import * as fs from 'node:fs';
-import { createWsServer } from '../ws/server.js';
+import { createWsServer, broadcast } from '../ws/server.js';
 import { openDatabase } from '../db/database.js';
 import { persistEvent } from '../db/queries.js';
-import { getWorkspacePath } from '../memory/memoryReader.js';
+import { getWorkspacePath, resolveAutoMemoryPath } from '../memory/memoryReader.js';
 import type Database from 'better-sqlite3';
 import type { NormalizedEvent } from '@cockpit/shared';
 
@@ -56,6 +56,48 @@ function httpPutJson(
   });
 }
 
+function httpPostJson(
+  port: number,
+  urlPath: string,
+  body: unknown,
+): Promise<{ status: number; body: unknown }> {
+  return new Promise((resolve, reject) => {
+    const payload = JSON.stringify(body);
+    const req = http.request(
+      {
+        hostname: 'localhost', port, path: urlPath, method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(payload) },
+      },
+      (res) => {
+        let raw = '';
+        res.on('data', (chunk) => { raw += chunk; });
+        res.on('end', () => resolve({ status: res.statusCode ?? 0, body: raw ? JSON.parse(raw) : null }));
+      },
+    );
+    req.on('error', reject);
+    req.write(payload);
+    req.end();
+  });
+}
+
+function httpDelete(
+  port: number,
+  urlPath: string,
+): Promise<{ status: number; body: unknown }> {
+  return new Promise((resolve, reject) => {
+    const req = http.request(
+      { hostname: 'localhost', port, path: urlPath, method: 'DELETE' },
+      (res) => {
+        let raw = '';
+        res.on('data', (chunk) => { raw += chunk; });
+        res.on('end', () => resolve({ status: res.statusCode ?? 0, body: raw ? JSON.parse(raw) : null }));
+      },
+    );
+    req.on('error', reject);
+    req.end();
+  });
+}
+
 function httpOptions(port: number, urlPath: string): Promise<{ status: number; headers: http.IncomingHttpHeaders }> {
   return new Promise((resolve, reject) => {
     const req = http.request(
@@ -94,12 +136,14 @@ function makeTmpDir(): string {
 
 let db: Database.Database;
 let httpServer: http.Server;
+let wss: import('ws').WebSocketServer;
 let port: number;
 
 beforeEach(async () => {
   db = openDatabase(':memory:');
   const server = createWsServer(db, 0);
   httpServer = server.httpServer;
+  wss = server.wss;
   await new Promise<void>((resolve) => {
     if (httpServer.listening) resolve();
     else httpServer.on('listening', resolve);
@@ -220,5 +264,108 @@ describe('CORS', () => {
     const methods = headers['access-control-allow-methods'] ?? '';
     expect(methods).toContain('PUT');
     expect(methods).toContain('DELETE');
+  });
+});
+
+// ---- Notes CRUD ----
+
+describe('Notes CRUD endpoints', () => {
+  it('POST /api/memory/notes creates a note and returns it with note_id', async () => {
+    const workspace = '/test/workspace';
+    const { status, body } = await httpPostJson(port, '/api/memory/notes', {
+      workspace,
+      content: 'Remember this',
+      pinned: true,
+    });
+    expect(status).toBe(201);
+    const note = body as { note_id: string; workspace: string; content: string; pinned: number };
+    expect(note.note_id).toBeTruthy();
+    expect(note.workspace).toBe(workspace);
+    expect(note.content).toBe('Remember this');
+    expect(note.pinned).toBe(1);
+  });
+
+  it('GET /api/memory/notes?workspace=X returns array of notes', async () => {
+    const workspace = '/test/workspace-list';
+    await httpPostJson(port, '/api/memory/notes', { workspace, content: 'Note 1' });
+    await httpPostJson(port, '/api/memory/notes', { workspace, content: 'Note 2' });
+
+    const { status, body } = await httpGetJson(port, `/api/memory/notes?workspace=${encodeURIComponent(workspace)}`);
+    expect(status).toBe(200);
+    const notes = body as Array<{ content: string }>;
+    expect(notes).toHaveLength(2);
+  });
+
+  it('GET /api/memory/notes returns empty array for unknown workspace', async () => {
+    const { status, body } = await httpGetJson(port, '/api/memory/notes?workspace=/no/such/workspace');
+    expect(status).toBe(200);
+    expect(body).toEqual([]);
+  });
+
+  it('DELETE /api/memory/notes/:noteId removes note and returns {ok: true}', async () => {
+    const workspace = '/test/workspace-delete';
+    const createResult = await httpPostJson(port, '/api/memory/notes', { workspace, content: 'To delete' });
+    const note = createResult.body as { note_id: string };
+
+    const { status, body } = await httpDelete(port, `/api/memory/notes/${note.note_id}`);
+    expect(status).toBe(200);
+    expect((body as { ok: boolean }).ok).toBe(true);
+
+    // Verify it's gone
+    const { body: listBody } = await httpGetJson(port, `/api/memory/notes?workspace=${encodeURIComponent(workspace)}`);
+    expect(listBody).toEqual([]);
+  });
+
+  it('POST /api/memory/notes returns 400 when workspace missing', async () => {
+    const { status } = await httpPostJson(port, '/api/memory/notes', { content: 'No workspace' });
+    expect(status).toBe(400);
+  });
+});
+
+// ---- Suggestions ----
+
+describe('Suggestions approve/reject', () => {
+  it('DELETE /api/memory/suggestions/:id returns {ok: true} even if id unknown', async () => {
+    const { status, body } = await httpDelete(port, '/api/memory/suggestions/some-key');
+    expect(status).toBe(200);
+    expect((body as { ok: boolean }).ok).toBe(true);
+  });
+
+  it('POST /api/memory/suggestions/:id/approve returns 404 when suggestion not registered', async () => {
+    const { status } = await httpPostJson(port, '/api/memory/suggestions/nonexistent-key/approve', {});
+    expect(status).toBe(404);
+  });
+
+  it('approve performs real disk write — appends suggestion value to MEMORY.md', async () => {
+    const workspace = makeTmpDir();
+    const sessionId = 'sess-suggest-01';
+    persistEvent(db, makeSessionStartEvent(sessionId, workspace));
+
+    // Pre-create MEMORY.md at the auto-memory path
+    const memoryPath = resolveAutoMemoryPath(workspace);
+    fs.mkdirSync(path.dirname(memoryPath), { recursive: true });
+    fs.writeFileSync(memoryPath, '# Memory\n\nExisting content', 'utf-8');
+
+    // Populate pendingSuggestions by calling broadcast with a memory_write event
+    const memoryKey = 'test-suggestion-key';
+    const suggestionValue = '- New remembered fact';
+    broadcast(wss, JSON.stringify({
+      type: 'memory_write',
+      suggested: true,
+      sessionId,
+      memoryKey,
+      value: suggestionValue,
+    }), db);
+
+    // Approve the suggestion
+    const { status, body } = await httpPostJson(port, `/api/memory/suggestions/${encodeURIComponent(memoryKey)}/approve`, {});
+    expect(status).toBe(200);
+    expect((body as { ok: boolean }).ok).toBe(true);
+
+    // Verify disk was actually written
+    const written = fs.readFileSync(memoryPath, 'utf-8');
+    expect(written).toContain('Existing content');
+    expect(written).toContain(suggestionValue);
+    expect(written.indexOf('Existing content')).toBeLessThan(written.indexOf(suggestionValue));
   });
 });

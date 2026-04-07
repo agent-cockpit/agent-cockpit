@@ -30,7 +30,7 @@ const { wss, httpServer } = createWsServer(db, WS_PORT);
 // Event pipeline: eventBus → persist → broadcast
 eventBus.on('event', (rawEvent) => {
   const saved = persistEvent(db, rawEvent);
-  broadcast(wss, JSON.stringify(saved));
+  broadcast(wss, JSON.stringify(saved), db);
 });
 
 // Graceful shutdown

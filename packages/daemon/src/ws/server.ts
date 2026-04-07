@@ -10,6 +10,9 @@ import { getEventsBySession } from '../db/queries.js';
 import { resolveClaudeMdPath, resolveAutoMemoryPath, readFileSafe, writeFileSafe, getWorkspacePath } from '../memory/memoryReader.js';
 import { insertNote, listNotes, deleteNote } from '../memory/memoryNotes.js';
 
+// Pending agent-suggested memory writes: memoryKey → { workspace, value }
+const pendingSuggestions = new Map<string, { workspace: string; value: string }>();
+
 function handleLaunchSession(
   req: http.IncomingMessage,
   res: http.ServerResponse,
@@ -133,6 +136,73 @@ export function createWsServer(
       return;
     }
 
+    // POST /api/memory/suggestions/:id/approve
+    const suggestApproveMatch = req.method === 'POST' && req.url?.match(/^\/api\/memory\/suggestions\/([^/]+)\/approve$/);
+    if (suggestApproveMatch) {
+      const suggestionId = decodeURIComponent(suggestApproveMatch[1]!);
+      const pending = pendingSuggestions.get(suggestionId);
+      if (!pending) {
+        res.writeHead(404, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: 'suggestion not found' }));
+        return;
+      }
+      const memoryPath = resolveAutoMemoryPath(pending.workspace);
+      const existing = readFileSafe(memoryPath) ?? '';
+      const updated = existing.trimEnd() + '\n\n' + pending.value;
+      writeFileSafe(memoryPath, updated);
+      pendingSuggestions.delete(suggestionId);
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ ok: true }));
+      return;
+    }
+
+    // DELETE /api/memory/suggestions/:id
+    const suggestRejectMatch = req.method === 'DELETE' && req.url?.match(/^\/api\/memory\/suggestions\/([^/]+)$/);
+    if (suggestRejectMatch) {
+      const suggestionId = decodeURIComponent(suggestRejectMatch[1]!);
+      pendingSuggestions.delete(suggestionId);
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ ok: true }));
+      return;
+    }
+
+    // DELETE /api/memory/notes/:noteId  (more specific — before GET notes)
+    const noteDeleteMatch = req.method === 'DELETE' && req.url?.match(/^\/api\/memory\/notes\/([^/]+)$/);
+    if (noteDeleteMatch) {
+      const noteId = noteDeleteMatch[1]!;
+      deleteNote(db, noteId);
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ ok: true }));
+      return;
+    }
+
+    // GET /api/memory/notes?workspace=<path>
+    const notesGetMatch = req.method === 'GET' && req.url?.startsWith('/api/memory/notes');
+    if (notesGetMatch) {
+      const url = new URL(req.url!, 'http://localhost');
+      const workspace = url.searchParams.get('workspace') ?? '';
+      const notes = listNotes(db, workspace);
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify(notes));
+      return;
+    }
+
+    // POST /api/memory/notes
+    if (req.method === 'POST' && req.url === '/api/memory/notes') {
+      let body = '';
+      req.on('data', (c) => { body += c; });
+      req.on('end', () => {
+        try {
+          const { workspace, content, pinned } = JSON.parse(body) as { workspace: string; content: string; pinned?: boolean };
+          if (!workspace || !content) { res.writeHead(400, { 'Content-Type': 'application/json' }); res.end(JSON.stringify({ error: 'workspace and content required' })); return; }
+          const note = insertNote(db, { workspace, content, pinned });
+          res.writeHead(201, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify(note));
+        } catch { res.writeHead(400, { 'Content-Type': 'application/json' }); res.end(JSON.stringify({ error: 'invalid body' })); }
+      });
+      return;
+    }
+
     res.writeHead(404);
     res.end();
   });
@@ -162,7 +232,19 @@ export function createWsServer(
   return { wss, httpServer };
 }
 
-export function broadcast(wss: WebSocketServer, payload: string): void {
+export function broadcast(wss: WebSocketServer, payload: string, db?: Database.Database): void {
+  // Populate pendingSuggestions when a memory_write event with suggested=true is broadcast
+  if (db) {
+    try {
+      const parsed = JSON.parse(payload) as { type?: string; suggested?: boolean; sessionId?: string; memoryKey?: string; value?: unknown };
+      if (parsed.type === 'memory_write' && parsed.suggested === true) {
+        const workspace = getWorkspacePath(db, parsed.sessionId ?? '');
+        if (workspace && parsed.memoryKey) {
+          pendingSuggestions.set(parsed.memoryKey, { workspace, value: String(parsed.value ?? '') });
+        }
+      }
+    } catch { /* ignore parse errors */ }
+  }
   wss.clients.forEach((client) => {
     if (client.readyState === WebSocket.OPEN) {
       client.send(payload);
