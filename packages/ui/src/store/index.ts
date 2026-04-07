@@ -6,6 +6,17 @@ import { applyEventToEvents } from './eventsSlice.js'
 
 export type SessionStatus = 'active' | 'ended' | 'error'
 
+export interface SessionSummary {
+  sessionId: string
+  provider: string
+  workspacePath: string
+  startedAt: string
+  endedAt: string | null
+  approvalCount: number
+  filesChanged: number
+  finalStatus: 'active' | 'ended' | 'error'
+}
+
 export interface SessionRecord {
   sessionId: string
   provider: 'claude' | 'codex'
@@ -44,7 +55,16 @@ interface EventsSlice {
   bulkApplyEvents: (sessionId: string, events: NormalizedEvent[]) => void
 }
 
-export type AppStore = SessionsSlice & UiSlice & WsSlice & EventsSlice
+interface HistorySlice {
+  historySessions: Record<string, SessionSummary>
+  historyMode: boolean
+  compareSelectionIds: string[]
+  bulkApplySessions: (sessions: SessionSummary[]) => void
+  setHistoryMode: (on: boolean) => void
+  toggleCompareSelection: (id: string) => void
+}
+
+export type AppStore = SessionsSlice & UiSlice & WsSlice & EventsSlice & HistorySlice
 
 export const useStore = create<AppStore>()(
   subscribeWithSelector((set) => ({
@@ -75,5 +95,28 @@ export const useStore = create<AppStore>()(
     lastSeenSequence: 0,
     setWsStatus: (s) => set({ wsStatus: s }),
     recordSequence: (n) => set({ lastSeenSequence: n }),
+
+    // historySlice
+    historySessions: {},
+    historyMode: false,
+    compareSelectionIds: [],
+    bulkApplySessions: (sessions) =>
+      set((s) => ({
+        historySessions: {
+          ...s.historySessions,
+          ...Object.fromEntries(sessions.map((sess) => [sess.sessionId, sess])),
+        },
+      })),
+    setHistoryMode: (on) => set({ historyMode: on }),
+    toggleCompareSelection: (id) =>
+      set((s) => {
+        const current = s.compareSelectionIds
+        if (current.includes(id)) {
+          return { compareSelectionIds: current.filter((x) => x !== id) }
+        }
+        // Max 2 selections — replace oldest if already have 2
+        const next = current.length >= 2 ? [current[1]!, id] : [...current, id]
+        return { compareSelectionIds: next }
+      }),
   }))
 )

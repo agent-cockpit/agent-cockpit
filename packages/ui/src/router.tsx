@@ -18,6 +18,11 @@ export const router = createBrowserRouter([
         ),
       },
       {
+        path: 'history',
+        lazy: () =>
+          import('./pages/HistoryPage.js').then((m) => ({ Component: m.HistoryPage })),
+      },
+      {
         path: 'session/:sessionId',
         Component: SessionDetailPanel,
         children: [
