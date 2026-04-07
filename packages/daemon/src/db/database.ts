@@ -73,6 +73,25 @@ export function openDatabase(dbPath: string): Database.Database {
     );
     CREATE INDEX IF NOT EXISTS idx_memory_notes_workspace
       ON memory_notes (workspace);
+
+    CREATE VIRTUAL TABLE IF NOT EXISTS search_fts USING fts5(
+      content,
+      source_type UNINDEXED,
+      source_id UNINDEXED,
+      session_id UNINDEXED,
+      tokenize='unicode61'
+    );
+  `);
+
+  // One-time backfill: index any rows that existed before Phase 8
+  // INSERT OR IGNORE is idempotent — re-running on restart will silently skip already-indexed rowids
+  db.exec(`
+    INSERT OR IGNORE INTO search_fts(rowid, content, source_type, source_id, session_id)
+      SELECT sequence_number, payload, 'event', CAST(sequence_number AS TEXT), session_id FROM events;
+    INSERT OR IGNORE INTO search_fts(rowid, content, source_type, source_id, session_id)
+      SELECT rowid, proposed_action, 'approval', approval_id, session_id FROM approvals;
+    INSERT OR IGNORE INTO search_fts(rowid, content, source_type, source_id, session_id)
+      SELECT rowid, content, 'memory_note', note_id, workspace FROM memory_notes;
   `);
 
   // Checkpoint scheduling: fires every 10s, non-blocking (unref so it doesn't keep process alive)

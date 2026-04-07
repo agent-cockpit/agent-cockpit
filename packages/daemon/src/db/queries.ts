@@ -1,6 +1,80 @@
 import type Database from 'better-sqlite3';
 import type { NormalizedEvent } from '@cockpit/shared';
 
+export interface SearchResult {
+  sourceType: 'event' | 'approval' | 'memory_note'
+  sourceId: string
+  sessionId: string
+  snippet: string
+}
+
+export interface SessionSummary {
+  sessionId: string
+  provider: string
+  workspacePath: string
+  startedAt: string
+  endedAt: string | null
+  approvalCount: number
+  filesChanged: number
+  finalStatus: 'active' | 'ended' | 'error'
+}
+
+export function indexForSearch(
+  db: Database.Database,
+  text: string,
+  sourceType: 'event' | 'approval' | 'memory_note',
+  sourceId: string | number,
+  sessionId: string,
+): void {
+  db.prepare(`INSERT INTO search_fts(content, source_type, source_id, session_id) VALUES (?, ?, ?, ?)`)
+    .run(text, sourceType, String(sourceId), sessionId);
+}
+
+export function searchAll(db: Database.Database, query: string): SearchResult[] {
+  if (!query.trim()) return [];
+  // Wrap in double-quotes to force phrase query and prevent FTS5 syntax injection
+  const sanitized = '"' + query.replace(/"/g, '""') + '"';
+  const rows = db.prepare(`
+    SELECT source_type AS sourceType, source_id AS sourceId, session_id AS sessionId,
+           snippet(search_fts, 0, '<b>', '</b>', '...', 20) AS snippet
+    FROM search_fts
+    WHERE search_fts MATCH ?
+    ORDER BY rank
+    LIMIT 50
+  `).all(sanitized) as SearchResult[];
+  return rows;
+}
+
+export function getAllSessions(db: Database.Database): SessionSummary[] {
+  const rows = db.prepare(`
+    SELECT
+      e.session_id AS sessionId,
+      COALESCE(JSON_EXTRACT(e.payload, '$.provider'), 'unknown') AS provider,
+      COALESCE(JSON_EXTRACT(e.payload, '$.workspacePath'), '') AS workspacePath,
+      e.timestamp AS startedAt,
+      (SELECT timestamp FROM events WHERE session_id = e.session_id AND type = 'session_end'
+       ORDER BY sequence_number DESC LIMIT 1) AS endedAt,
+      (SELECT COUNT(*) FROM approvals WHERE session_id = e.session_id) AS approvalCount,
+      (SELECT COUNT(DISTINCT JSON_EXTRACT(payload, '$.filePath'))
+       FROM events WHERE session_id = e.session_id AND type = 'file_change') AS filesChanged
+    FROM events e
+    WHERE e.type = 'session_start'
+    ORDER BY e.timestamp DESC
+  `).all() as Array<{
+    sessionId: string; provider: string; workspacePath: string; startedAt: string;
+    endedAt: string | null; approvalCount: number; filesChanged: number;
+  }>;
+  return rows.map(r => ({
+    ...r,
+    finalStatus: r.endedAt ? 'ended' : 'active',
+  } as SessionSummary));
+}
+
+export function getSessionSummary(db: Database.Database, sessionId: string): SessionSummary | null {
+  const all = getAllSessions(db);
+  return all.find(s => s.sessionId === sessionId) ?? null;
+}
+
 export function persistEvent(
   db: Database.Database,
   event: NormalizedEvent,
