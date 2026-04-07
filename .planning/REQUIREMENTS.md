@@ -25,8 +25,8 @@ Requirements for initial release. Each maps to roadmap phases.
 ### Office Mode
 
 - [x] **OFFICE-01**: User can see each active agent as an animated visual entity whose animation reflects its current state (planning, coding, reading, testing, waiting, blocked, completed, failed)
-- [ ] **OFFICE-02**: User can hover an agent to see its card showing: provider badge, task title, status, repo/branch, pending approvals count, last tool used, and elapsed time
-- [ ] **OFFICE-03**: User can click an agent in Office mode to open its detailed Ops view
+- [x] **OFFICE-02**: User can hover an agent to see its card showing: provider badge, task title, status, repo/branch, pending approvals count, last tool used, and elapsed time
+- [x] **OFFICE-03**: User can click an agent in Office mode to open its detailed Ops view
 - [x] **OFFICE-04**: User can drag agents to rearrange their positions and customize the office layout, with layout persisted locally
 
 ### Ops Mode
@@ -141,8 +141,8 @@ Which phases cover which requirements. Updated during roadmap creation.
 | SESS-03 | Phase 3 | Complete |
 | SESS-04 | Phase 3 | Complete |
 | OFFICE-01 | Phase 9 | Complete |
-| OFFICE-02 | Phase 9 | Pending |
-| OFFICE-03 | Phase 9 | Pending |
+| OFFICE-02 | Phase 9 | Complete |
+| OFFICE-03 | Phase 9 | Complete |
 | OFFICE-04 | Phase 9 | Complete |
 | OPS-01 | Phase 3 | Complete |
 | OPS-02 | Phase 3 | Complete |

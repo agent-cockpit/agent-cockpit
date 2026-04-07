@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: completed
-stopped_at: Completed 09-01-PLAN.md
-last_updated: "2026-04-07T14:19:37.037Z"
+stopped_at: Completed 09-02-PLAN.md
+last_updated: "2026-04-07T14:23:20.234Z"
 last_activity: "2026-04-05 — Phase 3 complete: Ops layout shell, session list, detail panel, 5-tab nav, LaunchSessionModal wired"
 progress:
   total_phases: 9
   completed_phases: 8
   total_plans: 25
-  completed_plans: 23
+  completed_plans: 24
   percent: 33
 ---
 
@@ -73,6 +73,7 @@ Progress: [███░░░░░░░] 33%
 | Phase 08-session-history-search P02 | 2 | 2 tasks | 5 files |
 | Phase 08-session-history-search P03 | 4 | 2 tasks | 9 files |
 | Phase 09-office-mode P01 | 2 | 3 tasks | 7 files |
+| Phase 09-office-mode P02 | 1 | 2 tasks | 4 files |
 
 ## Accumulated Context
 
@@ -144,6 +145,8 @@ Recent decisions affecting current work:
 - [Phase 09-office-mode]: @radix-ui/react-hover-card installed in Plan 01 alongside dnd-kit to front-load all Office Mode dependencies
 - [Phase 09-office-mode]: tool_call subcases use regex test on lowercased toolName (read|view|grep|search → reading, write|edit|create|apply → coding, test|run|exec|bash → testing)
 - [Phase 09-office-mode]: useLocalStorage lazy initializer wraps localStorage.getItem in try/catch to handle both SSR and QuotaExceededError
+- [Phase 09-office-mode]: AgentHoverCard receives elapsedMs as prop — prevents Date.now() flakiness in tests and gives OfficePage full control over refresh cadence
+- [Phase 09-office-mode]: task title uses workspacePath basename — will improve when SessionRecord gains a title field
 
 ### Pending Todos
 
@@ -156,6 +159,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-07T14:19:37.034Z
-Stopped at: Completed 09-01-PLAN.md
+Last session: 2026-04-07T14:23:20.232Z
+Stopped at: Completed 09-02-PLAN.md
 Resume file: None
