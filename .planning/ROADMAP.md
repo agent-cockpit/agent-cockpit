@@ -148,9 +148,9 @@ Plans:
 **Plans**: 3 plans
 
 Plans:
-- [ ] 07-01-PLAN.md — Wave 0: memory_notes DB schema, memoryReader + memoryNotes modules, test scaffolds (MEM-01, MEM-02, MEM-03, MEM-04)
-- [ ] 07-02-PLAN.md — Daemon REST endpoints: CLAUDE.md read/write, auto-memory read, notes CRUD, suggestions approve/reject (MEM-01, MEM-02, MEM-03, MEM-04)
-- [ ] 07-03-PLAN.md — MemoryPanel.tsx full implementation + all RTL tests green (MEM-01, MEM-02, MEM-03, MEM-04)
+- [ ] 08-01-PLAN.md — FTS5 virtual table migration + searchAll/getAllSessions/getSessionSummary queries + TDD (HIST-01, HIST-02, COMP-01)
+- [ ] 08-02-PLAN.md — Daemon REST endpoints (search, sessions list, session summary) + Zustand HistorySlice + /history route (HIST-01, HIST-02, COMP-01)
+- [ ] 08-03-PLAN.md — SearchBar, HistoryPage, ComparePanel components + all RTL tests green (HIST-01, HIST-02, COMP-01)
 
 ### Phase 9: Office Mode
 **Goal**: Office mode shows every active agent as an animated pixel-art entity whose animation reflects its current state, with a hover card, click-through to Ops mode, and a draggable layout that persists locally — all rendering above 45fps with 10 concurrent sessions.
@@ -165,9 +165,9 @@ Plans:
 **Plans**: 3 plans
 
 Plans:
-- [ ] 07-01-PLAN.md — Wave 0: memory_notes DB schema, memoryReader + memoryNotes modules, test scaffolds (MEM-01, MEM-02, MEM-03, MEM-04)
-- [ ] 07-02-PLAN.md — Daemon REST endpoints: CLAUDE.md read/write, auto-memory read, notes CRUD, suggestions approve/reject (MEM-01, MEM-02, MEM-03, MEM-04)
-- [ ] 07-03-PLAN.md — MemoryPanel.tsx full implementation + all RTL tests green (MEM-01, MEM-02, MEM-03, MEM-04)
+- [ ] 09-01-PLAN.md — To be planned
+- [ ] 09-02-PLAN.md — To be planned
+- [ ] 09-03-PLAN.md — To be planned
 
 ## Progress
 
@@ -183,5 +183,5 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8 →
 | 5. Timeline & Replay | 3/3 | Complete   | 2026-04-06 |
 | 6. Diff & Artifact Review | 1/1 | Complete   | 2026-04-06 |
 | 7. Memory Panel | 3/3 | Complete   | 2026-04-07 |
-| 8. Session History & Search | 0/? | Not started | - |
+| 8. Session History & Search | 0/3 | Not started | - |
 | 9. Office Mode | 0/? | Not started | - |
