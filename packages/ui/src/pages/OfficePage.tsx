@@ -60,6 +60,9 @@ export function OfficePage() {
           const sessionEvents = events[session.sessionId] ?? []
           const lastEvent = sessionEvents.at(-1)
           const agentState = deriveAgentState(session, lastEvent)
+          const elapsedMs = Date.now() - Date.parse(session.startedAt)
+          const lastToolUsed =
+            lastEvent?.type === 'tool_call' ? (lastEvent.toolName as string | undefined) : undefined
           return (
             <AgentSprite
               key={session.sessionId}
@@ -68,6 +71,8 @@ export function OfficePage() {
               position={getPosition(session.sessionId, i)}
               isDragging={activeDragId === session.sessionId}
               onClick={() => handleSpriteClick(session.sessionId)}
+              elapsedMs={elapsedMs}
+              lastToolUsed={lastToolUsed}
             />
           )
         })}

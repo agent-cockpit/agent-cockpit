@@ -34,11 +34,21 @@ vi.mock('../hooks/useLocalStorage.js', () => ({
   },
 }))
 
-// Mock AgentSprite to avoid dnd-kit context requirement in tests
+// Capture props passed to each AgentSprite for assertion
+const capturedSpriteProps: Record<string, { elapsedMs?: number; lastToolUsed?: string }> = {}
 vi.mock('../components/office/AgentSprite.js', () => ({
-  AgentSprite: ({ session, onClick }: { session: { sessionId: string }; onClick: () => void }) => (
-    <div data-testid={`sprite-${session.sessionId}`} onClick={onClick} />
-  ),
+  AgentSprite: (props: {
+    session: { sessionId: string }
+    onClick: () => void
+    elapsedMs?: number
+    lastToolUsed?: string
+  }) => {
+    capturedSpriteProps[props.session.sessionId] = {
+      elapsedMs: props.elapsedMs,
+      lastToolUsed: props.lastToolUsed,
+    }
+    return <div data-testid={`sprite-${props.session.sessionId}`} onClick={props.onClick} />
+  },
 }))
 
 // Mock dnd-kit DndContext
@@ -87,6 +97,7 @@ beforeEach(() => {
   mockNavigate.mockReset()
   mockSelectSession.mockReset()
   mockSetPositions.mockReset()
+  Object.keys(capturedSpriteProps).forEach(k => delete capturedSpriteProps[k])
 
   // Default store: two active sessions, no events
   mockUseStore.mockImplementation((selector: (s: unknown) => unknown) => {
@@ -159,5 +170,55 @@ describe('OfficePage', () => {
     render(<OfficePage />)
     fireEvent.click(screen.getByTestId('sprite-sess-2'))
     expect(mockNavigate).toHaveBeenCalledWith('/session/sess-2/approvals')
+  })
+
+  it('passes elapsedMs computed from session.startedAt to AgentSprite', () => {
+    const now = Date.now()
+    const startedAt = new Date(now - 60_000).toISOString()
+    const SESSION_TIMED = makeSession({ sessionId: 'sess-timed', startedAt })
+    mockUseStore.mockImplementation((selector: (s: unknown) => unknown) => {
+      const state = { sessions: { 'sess-timed': SESSION_TIMED }, events: {} }
+      return selector(state)
+    })
+    render(<OfficePage />)
+    const elapsed = capturedSpriteProps['sess-timed']?.elapsedMs ?? 0
+    // Allow 5s tolerance for test execution time
+    expect(elapsed).toBeGreaterThanOrEqual(55_000)
+    expect(elapsed).toBeLessThan(65_000)
+  })
+
+  it('passes lastToolUsed from last tool_call event to AgentSprite', () => {
+    const toolCallEvent = { type: 'tool_call', toolName: 'Bash', sessionId: 'sess-1' }
+    mockUseStore.mockImplementation((selector: (s: unknown) => unknown) => {
+      const state = {
+        sessions: { 'sess-1': SESSION_1 },
+        events: { 'sess-1': [toolCallEvent] },
+      }
+      return selector(state)
+    })
+    render(<OfficePage />)
+    expect(capturedSpriteProps['sess-1']?.lastToolUsed).toBe('Bash')
+  })
+
+  it('passes lastToolUsed=undefined when no events for session', () => {
+    mockUseStore.mockImplementation((selector: (s: unknown) => unknown) => {
+      const state = { sessions: { 'sess-1': SESSION_1 }, events: {} }
+      return selector(state)
+    })
+    render(<OfficePage />)
+    expect(capturedSpriteProps['sess-1']?.lastToolUsed).toBeUndefined()
+  })
+
+  it('passes lastToolUsed=undefined when last event is not tool_call', () => {
+    const nonToolEvent = { type: 'file_change', sessionId: 'sess-1' }
+    mockUseStore.mockImplementation((selector: (s: unknown) => unknown) => {
+      const state = {
+        sessions: { 'sess-1': SESSION_1 },
+        events: { 'sess-1': [nonToolEvent] },
+      }
+      return selector(state)
+    })
+    render(<OfficePage />)
+    expect(capturedSpriteProps['sess-1']?.lastToolUsed).toBeUndefined()
   })
 })

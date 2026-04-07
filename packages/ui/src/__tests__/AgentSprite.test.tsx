@@ -46,6 +46,7 @@ const defaultProps = {
   position: { x: 100, y: 200 },
   isDragging: false,
   onClick: vi.fn(),
+  elapsedMs: 0,
 }
 
 describe('AgentSprite', () => {
