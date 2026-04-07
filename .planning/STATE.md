@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: completed
-stopped_at: Completed 07-02-PLAN.md
-last_updated: "2026-04-07T04:10:01.182Z"
+stopped_at: Completed 07-03-PLAN.md
+last_updated: "2026-04-07T04:15:13.265Z"
 last_activity: "2026-04-05 — Phase 3 complete: Ops layout shell, session list, detail panel, 5-tab nav, LaunchSessionModal wired"
 progress:
   total_phases: 9
-  completed_phases: 6
+  completed_phases: 7
   total_plans: 19
-  completed_plans: 18
+  completed_plans: 19
   percent: 33
 ---
 
@@ -68,6 +68,7 @@ Progress: [███░░░░░░░] 33%
 | Phase 06-diff-artifact-review P01 | 8 | 2 tasks | 2 files |
 | Phase 07-memory-panel P01 | 2min | 2 tasks | 6 files |
 | Phase 07-memory-panel P02 | 5min | 2 tasks | 4 files |
+| Phase 07-memory-panel P03 | 3min | 2 tasks | 2 files |
 
 ## Accumulated Context
 
@@ -126,6 +127,9 @@ Recent decisions affecting current work:
 - [Phase 07-01]: MemoryPanel.test.tsx uses it.todo() only — stub component already exists at panels/MemoryPanel.tsx
 - [Phase 07-02]: broadcast() receives optional db param to enable suggestion side-effect Map population without breaking existing call sites
 - [Phase 07-02]: pendingSuggestions Map at module scope in server.ts — survives across requests, cleared by approve/reject delete
+- [Phase 07-memory-panel]: dismissedIds Set used for optimistic card removal after approve/reject without waiting for store update
+- [Phase 07-memory-panel]: claudeMdLoaded flag prevents flash of No CLAUDE.md found empty state before fetch resolves
+- [Phase 07-memory-panel]: Suggestion ID derived from event.id ?? event.memoryKey ?? event.timestamp — MemoryWriteEvent lacks explicit id field
 
 ### Pending Todos
 
@@ -138,6 +142,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-07T04:10:01.180Z
-Stopped at: Completed 07-02-PLAN.md
+Last session: 2026-04-07T04:15:13.262Z
+Stopped at: Completed 07-03-PLAN.md
 Resume file: None
