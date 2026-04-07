@@ -18,6 +18,7 @@ export function MemoryPanel() {
   const { sessionId } = useParams<{ sessionId: string }>()
   const session = useStore((s) => s.sessions[sessionId ?? ''])
   const events = useStore((s) => getSessionEvents(s, sessionId ?? ''))
+  const historyMode = useStore((s) => s.historyMode)
 
   // CLAUDE.md state
   const [claudeMd, setClaudeMd] = useState<string | null>(undefined as unknown as null)
@@ -163,6 +164,11 @@ export function MemoryPanel() {
 
   return (
     <div className="flex flex-col gap-0 p-4 overflow-y-auto h-full">
+      {historyMode && (
+        <div className="text-xs text-blue-700 bg-blue-50 border border-blue-200 rounded px-3 py-2 mb-2" data-testid="history-mode-banner">
+          Read-only — viewing a past session
+        </div>
+      )}
       {/* Section 1: CLAUDE.md Editor */}
       <section>
         <h2 className="text-sm font-semibold mb-2">CLAUDE.md</h2>
@@ -176,28 +182,37 @@ export function MemoryPanel() {
         ) : claudeMd === null ? (
           <div className="text-xs text-gray-500">
             No CLAUDE.md found.{' '}
-            <button
-              onClick={createClaudeMd}
-              className="text-blue-600 underline"
-            >
-              Create one
-            </button>
+            {!historyMode && (
+              <button
+                onClick={createClaudeMd}
+                className="text-blue-600 underline"
+              >
+                Create one
+              </button>
+            )}
           </div>
         ) : (
           <>
-            <textarea
-              value={editContent}
-              onChange={(e) => setEditContent(e.target.value)}
-              className="w-full h-64 font-mono text-xs border rounded p-2 resize-y"
-              aria-label="CLAUDE.md content"
-            />
-            <button
-              onClick={handleSave}
-              disabled={saving}
-              className="mt-2 px-3 py-1 text-sm bg-blue-600 text-white rounded disabled:opacity-50"
-            >
-              {saving ? 'Saving…' : 'Save'}
-            </button>
+            {!historyMode && (
+              <textarea
+                value={editContent}
+                onChange={(e) => setEditContent(e.target.value)}
+                className="w-full h-64 font-mono text-xs border rounded p-2 resize-y"
+                aria-label="CLAUDE.md content"
+              />
+            )}
+            {historyMode && (
+              <pre className="text-xs font-mono whitespace-pre-wrap bg-gray-50 border rounded p-2">{editContent}</pre>
+            )}
+            {!historyMode && (
+              <button
+                onClick={handleSave}
+                disabled={saving}
+                className="mt-2 px-3 py-1 text-sm bg-blue-600 text-white rounded disabled:opacity-50"
+              >
+                {saving ? 'Saving…' : 'Save'}
+              </button>
+            )}
           </>
         )}
       </section>
@@ -223,37 +238,41 @@ export function MemoryPanel() {
             className="flex items-start gap-2 mb-2 p-2 border rounded"
           >
             <p className="flex-1 text-xs whitespace-pre-wrap">{note.content}</p>
-            <button
-              onClick={() => handleDeleteNote(note.note_id)}
-              className="text-xs text-red-600"
-            >
-              Delete
-            </button>
+            {!historyMode && (
+              <button
+                onClick={() => handleDeleteNote(note.note_id)}
+                className="text-xs text-red-600"
+              >
+                Delete
+              </button>
+            )}
           </div>
         ))}
-        {showNewNoteForm ? (
-          <div className="mt-2">
-            <textarea
-              value={newNoteText}
-              onChange={(e) => setNewNoteText(e.target.value)}
-              placeholder="Note content…"
-              className="w-full h-24 text-xs border rounded p-2"
-              aria-label="New note content"
-            />
+        {!historyMode && (
+          showNewNoteForm ? (
+            <div className="mt-2">
+              <textarea
+                value={newNoteText}
+                onChange={(e) => setNewNoteText(e.target.value)}
+                placeholder="Note content…"
+                className="w-full h-24 text-xs border rounded p-2"
+                aria-label="New note content"
+              />
+              <button
+                onClick={handleCreateNote}
+                className="mt-1 px-3 py-1 text-sm bg-green-600 text-white rounded"
+              >
+                Save Note
+              </button>
+            </div>
+          ) : (
             <button
-              onClick={handleCreateNote}
-              className="mt-1 px-3 py-1 text-sm bg-green-600 text-white rounded"
+              onClick={() => setShowNewNoteForm(true)}
+              className="text-xs text-blue-600 mt-1"
             >
-              Save Note
+              + New Note
             </button>
-          </div>
-        ) : (
-          <button
-            onClick={() => setShowNewNoteForm(true)}
-            className="text-xs text-blue-600 mt-1"
-          >
-            + New Note
-          </button>
+          )
         )}
       </section>
 
@@ -273,20 +292,22 @@ export function MemoryPanel() {
               >
                 <p className="text-xs font-mono font-semibold">{ev.memoryKey}</p>
                 <p className="text-xs mt-1 whitespace-pre-wrap">{ev.value}</p>
-                <div className="flex gap-2 mt-2">
-                  <button
-                    onClick={() => handleApprove(e)}
-                    className="text-xs px-2 py-1 bg-green-600 text-white rounded"
-                  >
-                    Approve
-                  </button>
-                  <button
-                    onClick={() => handleReject(e)}
-                    className="text-xs px-2 py-1 bg-red-600 text-white rounded"
-                  >
-                    Reject
-                  </button>
-                </div>
+                {!historyMode && (
+                  <div className="flex gap-2 mt-2">
+                    <button
+                      onClick={() => handleApprove(e)}
+                      className="text-xs px-2 py-1 bg-green-600 text-white rounded"
+                    >
+                      Approve
+                    </button>
+                    <button
+                      onClick={() => handleReject(e)}
+                      className="text-xs px-2 py-1 bg-red-600 text-white rounded"
+                    >
+                      Reject
+                    </button>
+                  </div>
+                )}
               </div>
             )
           })

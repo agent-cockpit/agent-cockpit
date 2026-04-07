@@ -87,4 +87,11 @@ describe('OpsLayout', () => {
     render(<OpsLayout />)
     expect(screen.getByRole('button', { name: /launch session/i })).toBeInTheDocument()
   })
+
+  it('Test 9: sidebar contains a "History" link navigating to /history', () => {
+    render(<OpsLayout />)
+    const historyLink = screen.getByRole('link', { name: /history/i })
+    expect(historyLink).toBeInTheDocument()
+    expect(historyLink).toHaveAttribute('href', '/history')
+  })
 })

@@ -394,3 +394,47 @@ describe('MEM-04: Suggested memory writes', () => {
     })
   })
 })
+
+// ─── HIST-02: Read-only guard when historyMode=true ───────────────────────────
+
+describe('HIST-02: Read-only guard when historyMode', () => {
+  it('Test 10: historyMode=false — edit controls are present', async () => {
+    useStore.setState({
+      sessions: { [SESSION_ID]: makeSession() },
+      historyMode: false,
+      events: {
+        [SESSION_ID]: [makeMemoryWriteEvent('key1', 'val1', true)],
+      },
+    })
+    renderPanel()
+
+    // CLAUDE.md textarea and save button should be present
+    const textarea = await screen.findByRole('textbox', { name: /CLAUDE\.md content/i })
+    expect(textarea).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /save/i })).toBeInTheDocument()
+    expect(screen.getByText(/\+ New Note/i)).toBeInTheDocument()
+  })
+
+  it('Test 11: historyMode=true — all edit controls are absent', async () => {
+    useStore.setState({
+      sessions: { [SESSION_ID]: makeSession() },
+      historyMode: true,
+      events: {
+        [SESSION_ID]: [makeMemoryWriteEvent('key1', 'val1', true)],
+      },
+    })
+    renderPanel()
+
+    // Wait for panel to load
+    await screen.findByTestId('history-mode-banner')
+
+    // Edit controls must be absent
+    expect(screen.queryByRole('button', { name: /save/i })).not.toBeInTheDocument()
+    expect(screen.queryByText(/\+ New Note/i)).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /approve/i })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /reject/i })).not.toBeInTheDocument()
+
+    // Read-only banner must be visible
+    expect(screen.getByTestId('history-mode-banner')).toBeInTheDocument()
+  })
+})
