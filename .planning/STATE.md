@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: completed
-stopped_at: Completed 07-03-PLAN.md
-last_updated: "2026-04-07T04:19:04.744Z"
+stopped_at: Completed 08-01-PLAN.md
+last_updated: "2026-04-07T12:41:30.071Z"
 last_activity: "2026-04-05 — Phase 3 complete: Ops layout shell, session list, detail panel, 5-tab nav, LaunchSessionModal wired"
 progress:
   total_phases: 9
   completed_phases: 7
-  total_plans: 19
-  completed_plans: 19
+  total_plans: 22
+  completed_plans: 20
   percent: 33
 ---
 
@@ -69,6 +69,7 @@ Progress: [███░░░░░░░] 33%
 | Phase 07-memory-panel P01 | 2min | 2 tasks | 6 files |
 | Phase 07-memory-panel P02 | 5min | 2 tasks | 4 files |
 | Phase 07-memory-panel P03 | 3min | 2 tasks | 2 files |
+| Phase 08-session-history-search P01 | 2 | 2 tasks | 4 files |
 
 ## Accumulated Context
 
@@ -130,6 +131,9 @@ Recent decisions affecting current work:
 - [Phase 07-memory-panel]: dismissedIds Set used for optimistic card removal after approve/reject without waiting for store update
 - [Phase 07-memory-panel]: claudeMdLoaded flag prevents flash of No CLAUDE.md found empty state before fetch resolves
 - [Phase 07-memory-panel]: Suggestion ID derived from event.id ?? event.memoryKey ?? event.timestamp — MemoryWriteEvent lacks explicit id field
+- [Phase 08-session-history-search]: FTS5 external content table (content='') with manual INSERT — avoids full-table scan, idempotent backfill via INSERT OR IGNORE on openDatabase()
+- [Phase 08-session-history-search]: searchAll wraps user query in double-quotes + escapes internal double-quotes to prevent FTS5 syntax injection
+- [Phase 08-session-history-search]: persistEvent extracts specific text fields for FTS5 indexing rather than full JSON blob — keeps index focused and results relevant
 
 ### Pending Todos
 
@@ -142,6 +146,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-07T04:15:13.262Z
-Stopped at: Completed 07-03-PLAN.md
+Last session: 2026-04-07T12:41:30.069Z
+Stopped at: Completed 08-01-PLAN.md
 Resume file: None

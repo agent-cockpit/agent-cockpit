@@ -183,5 +183,5 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8 →
 | 5. Timeline & Replay | 3/3 | Complete   | 2026-04-06 |
 | 6. Diff & Artifact Review | 1/1 | Complete   | 2026-04-06 |
 | 7. Memory Panel | 3/3 | Complete   | 2026-04-07 |
-| 8. Session History & Search | 0/3 | Not started | - |
+| 8. Session History & Search | 1/3 | In Progress|  |
 | 9. Office Mode | 0/? | Not started | - |

@@ -67,7 +67,7 @@ Requirements for initial release. Each maps to roadmap phases.
 
 ### Session Comparison
 
-- [ ] **COMP-01**: User can manually select two sessions and view them side-by-side in a read-only comparison showing: provider, runtime, approval count, files changed, and final status
+- [x] **COMP-01**: User can manually select two sessions and view them side-by-side in a read-only comparison showing: provider, runtime, approval count, files changed, and final status
 
 ### Notifications
 
@@ -76,8 +76,8 @@ Requirements for initial release. Each maps to roadmap phases.
 
 ### History & Search
 
-- [ ] **HIST-01**: User can search across sessions, tasks/titles, memory items, file-change records, and approval history to answer questions like "what happened yesterday on repo X?" or "which session edited file Y?"
-- [ ] **HIST-02**: User can browse a searchable, filterable session history list and reopen any past session to view its timeline, memory, and diffs
+- [x] **HIST-01**: User can search across sessions, tasks/titles, memory items, file-change records, and approval history to answer questions like "what happened yesterday on repo X?" or "which session edited file Y?"
+- [x] **HIST-02**: User can browse a searchable, filterable session history list and reopen any past session to view its timeline, memory, and diffs
 
 ## v2 Requirements
 
@@ -165,11 +165,11 @@ Which phases cover which requirements. Updated during roadmap creation.
 | MEM-02 | Phase 7 | Complete |
 | MEM-03 | Phase 7 | Complete |
 | MEM-04 | Phase 7 | Complete |
-| COMP-01 | Phase 8 | Pending |
+| COMP-01 | Phase 8 | Complete |
 | NOTIF-01 | Phase 2 | Complete |
 | NOTIF-02 | Phase 2 | Complete |
-| HIST-01 | Phase 8 | Pending |
-| HIST-02 | Phase 8 | Pending |
+| HIST-01 | Phase 8 | Complete |
+| HIST-02 | Phase 8 | Complete |
 
 **Coverage:**
 - v1 requirements: 39 total
