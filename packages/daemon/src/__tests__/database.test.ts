@@ -1,10 +1,11 @@
-import { describe, it, expect, afterEach } from 'vitest';
+import { describe, it, expect, afterEach, beforeEach } from 'vitest';
 import { openDatabase } from '../db/database.js';
 import { persistEvent, getEventsSince, getEventsBySession } from '../db/queries.js';
 import type { NormalizedEvent } from '@cockpit/shared';
 import * as os from 'node:os';
 import * as path from 'node:path';
 import * as fs from 'node:fs';
+import type { Database } from 'better-sqlite3';
 
 // Helper: valid NormalizedEvent (no sequenceNumber — DB assigns it)
 function makeEvent(overrides: Partial<NormalizedEvent> = {}): NormalizedEvent {
@@ -196,5 +197,124 @@ describe('getEventsBySession', () => {
       expect(events.every((e) => e.sessionId === sid)).toBe(true);
     }
     db.close();
+  });
+});
+
+describe('claude_sessions table and cache', () => {
+  let db: Database.Database;
+
+  beforeEach(() => {
+    db = openDatabase(':memory:');
+  });
+
+  afterEach(() => {
+    db.close();
+  });
+
+  it('claude_sessions table is created with correct schema', () => {
+    // Query sqlite_master for table 'claude_sessions'
+    const tableRow = db.prepare(
+      "SELECT name FROM sqlite_master WHERE type='table' AND name='claude_sessions'"
+    ).get();
+    expect(tableRow).toBeDefined();
+
+    // Query table schema to verify columns: session_id (PK), claude_id, workspace, created_at
+    const schema = db.prepare('PRAGMA table_info(claude_sessions)').all() as Array<{
+      name: string;
+      type: string;
+      pk: number;
+    }>;
+
+    const columnNames = schema.map(col => col.name);
+    expect(columnNames).toContain('session_id');
+    expect(columnNames).toContain('claude_id');
+    expect(columnNames).toContain('workspace');
+    expect(columnNames).toContain('created_at');
+
+    // Verify session_id is the primary key
+    const sessionPk = schema.find(col => col.name === 'session_id');
+    expect(sessionPk?.pk).toBe(1);
+  });
+
+  it('idx_claude_sessions_claude_id index exists', () => {
+    // Query sqlite_master for index 'idx_claude_sessions_claude_id'
+    const indexRow = db.prepare(
+      "SELECT name FROM sqlite_master WHERE type='index' AND name='idx_claude_sessions_claude_id'"
+    ).get();
+    expect(indexRow).toBeDefined();
+  });
+
+  it('initializeClaudeSessionCache() returns Map populated from database rows', () => {
+    // Manually insert test row into claude_sessions
+    const testClaudeId = 'test-cache-1';
+    const testSessionId = 'aaaaaaaa-0000-0000-0000-000000000001';
+    db.prepare(
+      'INSERT INTO claude_sessions (session_id, claude_id, workspace, created_at) VALUES (?, ?, ?, ?)'
+    ).run(testSessionId, testClaudeId, '/test/workspace', new Date().toISOString());
+
+    // Import initializeClaudeSessionCache - will fail until function exists in Plan 01
+    const { initializeClaudeSessionCache } = require('../db/database.js');
+    const cache = initializeClaudeSessionCache(db);
+
+    expect(cache).toBeInstanceOf(Map);
+    expect(cache.size).toBe(1);
+    expect(cache.get(testClaudeId)).toBe(testSessionId);
+  });
+
+  it('initializeClaudeSessionCache() returns empty Map when table is empty', () => {
+    // Import initializeClaudeSessionCache - will fail until function exists in Plan 01
+    const { initializeClaudeSessionCache } = require('../db/database.js');
+    const cache = initializeClaudeSessionCache(db);
+
+    expect(cache).toBeInstanceOf(Map);
+    expect(cache.size).toBe(0);
+  });
+
+  it('getClaudeSessionId() returns existing mapping or null', () => {
+    // Import setClaudeSessionId and getClaudeSessionId - will fail until functions exist in Plan 01
+    const { setClaudeSessionId, getClaudeSessionId } = require('../db/queries.js');
+
+    // Insert test mapping
+    const testClaudeId = 'test-get-1';
+    const testSessionId = 'bbbbbbbb-0000-0000-0000-000000000001';
+    setClaudeSessionId(db, testSessionId, testClaudeId, '/test/workspace');
+
+    // Query back
+    const result = getClaudeSessionId(db, testClaudeId);
+    expect(result).toBe(testSessionId);
+
+    // Query non-existent claude_id
+    const missing = getClaudeSessionId(db, 'does-not-exist');
+    expect(missing).toBeNull();
+  });
+
+  it('setClaudeSessionId() inserts new mapping and INSERT OR IGNORE prevents duplicates', () => {
+    // Import setClaudeSessionId - will fail until function exists in Plan 01
+    const { setClaudeSessionId } = require('../db/queries.js');
+
+    const testClaudeId = 'test-dup-1';
+    const testSessionId = 'cccccccc-0000-0000-0000-000000000001';
+
+    // Insert first mapping
+    setClaudeSessionId(db, testSessionId, testClaudeId, '/test/workspace');
+
+    // Verify row exists
+    const row1 = db.prepare('SELECT COUNT(*) as count FROM claude_sessions WHERE claude_id = ?')
+      .get(testClaudeId) as { count: number };
+    expect(row1.count).toBe(1);
+
+    // Try to insert duplicate with same claude_id
+    const duplicateSessionId = 'dddddddd-0000-0000-0000-000000000001';
+    setClaudeSessionId(db, duplicateSessionId, testClaudeId, '/test/workspace');
+
+    // Verify still only 1 row exists (INSERT OR IGNORE worked)
+    const row2 = db.prepare('SELECT COUNT(*) as count FROM claude_sessions WHERE claude_id = ?')
+      .get(testClaudeId) as { count: number };
+    expect(row2.count).toBe(1);
+
+    // Verify original session_id is preserved
+    const result = db.prepare('SELECT session_id FROM claude_sessions WHERE claude_id = ?')
+      .get(testClaudeId) as { session_id: string };
+    expect(result.session_id).toBe(testSessionId);
   });
 });
