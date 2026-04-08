@@ -182,7 +182,11 @@ Plans:
   2. Each approval shows type, risk level, proposed action, affected paths, and "why risky" hint
   3. Approve, deny, and always-allow buttons send correct `approval_decision` WebSocket messages to the daemon
   4. Acting on an approval removes it from the inbox and the pending count updates immediately
-**Plans**: TBD
+**Plans**: 2 plans
+
+Plans:
+- [ ] 10-01-PLAN.md — approvalsSlice + sendWsMessage export + store wiring (APPR-01, APPR-03, APPR-04)
+- [ ] 10-02-PLAN.md — ApprovalInbox full implementation with RTL tests (APPR-01, APPR-02, APPR-03, APPR-04)
 
 ### Phase 11: Notifications UI
 **Goal**: In-app notifications (toast/badge) fire when an approval is needed or a session ends, and OS-level `new Notification()` fires when the browser tab is in the background — wired through `useSessionEvents.ts` onmessage handler.
@@ -193,7 +197,11 @@ Plans:
   1. An in-app toast or badge fires within one second of an `approval_request` or `session_end` event arriving over WebSocket
   2. A browser `new Notification()` fires for `approval_request`, `session_failed`, and `session_completed` events when the tab is not focused
   3. Notification helpers are importable by the browser (in `packages/ui` or `packages/shared`)
-**Plans**: TBD
+**Plans**: 2 plans
+
+Plans:
+- [ ] 10-01-PLAN.md — approvalsSlice + sendWsMessage export + store wiring (APPR-01, APPR-03, APPR-04)
+- [ ] 10-02-PLAN.md — ApprovalInbox full implementation with RTL tests (APPR-01, APPR-02, APPR-03, APPR-04)
 
 ### Phase 12: Search + Session Filter Fixes
 **Goal**: SearchBar is mounted and usable in HistoryPage; LaunchSessionModal uses the correct absolute API URL; the live session list supports project and recency filters matching the SESS-04 requirement.
@@ -204,7 +212,11 @@ Plans:
   1. Typing in the SearchBar in HistoryPage returns FTS5-backed results from `/api/search?q=`
   2. LaunchSessionModal POST to create a session succeeds in development (no 404 on relative URL)
   3. The live session list can be filtered by project name (discrete select) and recency (last hour / today / this week)
-**Plans**: TBD
+**Plans**: 2 plans
+
+Plans:
+- [ ] 10-01-PLAN.md — approvalsSlice + sendWsMessage export + store wiring (APPR-01, APPR-03, APPR-04)
+- [ ] 10-02-PLAN.md — ApprovalInbox full implementation with RTL tests (APPR-01, APPR-02, APPR-03, APPR-04)
 
 ## Progress
 
