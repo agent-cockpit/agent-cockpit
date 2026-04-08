@@ -253,6 +253,7 @@ describe('claude_sessions table and cache', () => {
     ).run(testSessionId, testClaudeId, '/test/workspace', new Date().toISOString());
 
     // Import initializeClaudeSessionCache - will fail until function exists in Plan 01
+    // @ts-ignore - Function doesn't exist yet
     const { initializeClaudeSessionCache } = require('../db/database.js');
     const cache = initializeClaudeSessionCache(db);
 
@@ -263,6 +264,7 @@ describe('claude_sessions table and cache', () => {
 
   it('initializeClaudeSessionCache() returns empty Map when table is empty', () => {
     // Import initializeClaudeSessionCache - will fail until function exists in Plan 01
+    // @ts-ignore - Function doesn't exist yet
     const { initializeClaudeSessionCache } = require('../db/database.js');
     const cache = initializeClaudeSessionCache(db);
 
@@ -272,6 +274,7 @@ describe('claude_sessions table and cache', () => {
 
   it('getClaudeSessionId() returns existing mapping or null', () => {
     // Import setClaudeSessionId and getClaudeSessionId - will fail until functions exist in Plan 01
+    // @ts-ignore - Functions don't exist yet
     const { setClaudeSessionId, getClaudeSessionId } = require('../db/queries.js');
 
     // Insert test mapping
@@ -290,6 +293,7 @@ describe('claude_sessions table and cache', () => {
 
   it('setClaudeSessionId() inserts new mapping and INSERT OR IGNORE prevents duplicates', () => {
     // Import setClaudeSessionId - will fail until function exists in Plan 01
+    // @ts-ignore - Function doesn't exist yet
     const { setClaudeSessionId } = require('../db/queries.js');
 
     const testClaudeId = 'test-dup-1';

@@ -74,6 +74,15 @@ export function openDatabase(dbPath: string): Database.Database {
     CREATE INDEX IF NOT EXISTS idx_memory_notes_workspace
       ON memory_notes (workspace);
 
+    CREATE TABLE IF NOT EXISTS claude_sessions (
+      session_id   TEXT PRIMARY KEY,
+      claude_id    TEXT NOT NULL,
+      workspace    TEXT NOT NULL,
+      created_at   TEXT NOT NULL
+    );
+    CREATE INDEX IF NOT EXISTS idx_claude_sessions_claude_id
+      ON claude_sessions (claude_id);
+
     CREATE VIRTUAL TABLE IF NOT EXISTS search_fts USING fts5(
       content,
       source_type UNINDEXED,
