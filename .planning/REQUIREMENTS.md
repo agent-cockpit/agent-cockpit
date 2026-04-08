@@ -38,10 +38,10 @@ Requirements for initial release. Each maps to roadmap phases.
 
 ### Approvals
 
-- [ ] **APPR-01**: User can see all pending approvals from Claude and Codex in a single unified inbox
+- [x] **APPR-01**: User can see all pending approvals from Claude and Codex in a single unified inbox
 - [ ] **APPR-02**: User can see each approval classified by type (shell command, network access, file change, sandbox escalation, MCP tool call, user-input elicitation) and risk level
-- [ ] **APPR-03**: User can approve once, deny once, or always-allow a similar action within the session for each pending approval
-- [ ] **APPR-04**: User can inspect an approval in detail (proposed action, reason, affected files/host, "why risky" hint, last related event) before deciding
+- [x] **APPR-03**: User can approve once, deny once, or always-allow a similar action within the session for each pending approval
+- [x] **APPR-04**: User can inspect an approval in detail (proposed action, reason, affected files/host, "why risky" hint, last related event) before deciding
 - [x] **APPR-05**: System auto-denies any approval that has not received a decision within its timeout window, unblocking the agent with a deny response
 - [x] **APPR-06**: All approval decisions (approve/deny/always-allow/timeout) are persisted locally and visible in session history
 
@@ -148,10 +148,10 @@ Which phases cover which requirements. Updated during roadmap creation.
 | OPS-02 | Phase 3 | Complete |
 | OPS-03 | Phase 3 | Complete |
 | OPS-04 | Phase 3 | Complete |
-| APPR-01 | Phase 10 | Pending |
+| APPR-01 | Phase 10 | Complete |
 | APPR-02 | Phase 10 | Pending |
-| APPR-03 | Phase 10 | Pending |
-| APPR-04 | Phase 10 | Pending |
+| APPR-03 | Phase 10 | Complete |
+| APPR-04 | Phase 10 | Complete |
 | APPR-05 | Phase 2 | Complete |
 | APPR-06 | Phase 2 | Complete |
 | TIMELINE-01 | Phase 5 | Complete |

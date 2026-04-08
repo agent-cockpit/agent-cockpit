@@ -234,6 +234,6 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8 →
 | 7. Memory Panel | 3/3 | Complete   | 2026-04-07 |
 | 8. Session History & Search | 3/3 | Complete   | 2026-04-07 |
 | 9. Office Mode | 4/4 | Complete   | 2026-04-07 |
-| 10. Approval Inbox UI | 0/0 | Pending | — |
+| 10. Approval Inbox UI | 1/2 | In Progress|  |
 | 11. Notifications UI | 0/0 | Pending | — |
 | 12. Search + Session Filter Fixes | 0/0 | Pending | — |

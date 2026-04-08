@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: completed
-stopped_at: Completed 09-04-PLAN.md — OFFICE-02 fully closed, elapsedMs and lastToolUsed forwarded to AgentHoverCard
-last_updated: "2026-04-07T17:32:45.067Z"
+stopped_at: Completed 10-01-PLAN.md — approvalsSlice, sendWsMessage, and AppStore approvals wiring complete
+last_updated: "2026-04-08T03:55:46.116Z"
 last_activity: "2026-04-05 — Phase 3 complete: Ops layout shell, session list, detail panel, 5-tab nav, LaunchSessionModal wired"
 progress:
-  total_phases: 9
+  total_phases: 12
   completed_phases: 9
-  total_plans: 26
-  completed_plans: 26
+  total_plans: 28
+  completed_plans: 27
   percent: 33
 ---
 
@@ -76,6 +76,7 @@ Progress: [███░░░░░░░] 33%
 | Phase 09-office-mode P02 | 1 | 2 tasks | 4 files |
 | Phase 09-office-mode P03 | 1min | 2 tasks | 4 files |
 | Phase 09-office-mode P04 | 3min | 2 tasks | 4 files |
+| Phase 10-approval-inbox-ui P01 | 2min | 2 tasks | 4 files |
 
 ## Accumulated Context
 
@@ -154,6 +155,7 @@ Recent decisions affecting current work:
 - [Phase 09-office-mode]: PointerSensor with activationConstraint.distance=8 replaces dnd-kit default sensors to allow click events through without triggering drag
 - [Phase 09-office-mode]: activeDragId stored as separate useState to prevent positions state read during drag causing infinite re-render loop
 - [Phase 09-office-mode]: Radix HoverCard.Content must be mocked in tests to render children synchronously — portal-based conditional rendering prevents AgentHoverCard from mounting
+- [Phase 10-approval-inbox-ui]: approvalsSlice uses Pick<ApprovalsSlice> instead of Pick<AppStore> to avoid circular import — AppStore extends ApprovalsSlice so callers are type-compatible
 
 ### Pending Todos
 
@@ -166,6 +168,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-07T17:25:26.436Z
-Stopped at: Completed 09-04-PLAN.md — OFFICE-02 fully closed, elapsedMs and lastToolUsed forwarded to AgentHoverCard
+Last session: 2026-04-08T03:55:46.114Z
+Stopped at: Completed 10-01-PLAN.md — approvalsSlice, sendWsMessage, and AppStore approvals wiring complete
 Resume file: None
