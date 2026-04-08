@@ -21,7 +21,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [x] **Phase 7: Memory Panel** - Read/edit project memory, create notes, approve agent-suggested memory updates (completed 2026-04-07)
 - [x] **Phase 8: Session History & Search** - Full-text search across sessions, searchable history list, side-by-side session comparison (completed 2026-04-07)
 - [x] **Phase 9: Office Mode** - Pixel-art spatial visualization of active agents with state-driven animations and layout persistence (completed 2026-04-07)
-- [ ] **Phase 10: Approval Inbox UI** - Implement ApprovalInbox with store subscription, approval detail rendering, and ws.send decision flow (gap closure)
+- [x] **Phase 10: Approval Inbox UI** - Implement ApprovalInbox with store subscription, approval detail rendering, and ws.send decision flow (gap closure) (completed 2026-04-08)
 - [ ] **Phase 11: Notifications UI** - Wire in-app and OS-level notifications to useSessionEvents onmessage handler (gap closure)
 - [ ] **Phase 12: Search + Session Filter Fixes** - Mount SearchBar in HistoryPage, fix LaunchSessionModal URL, add project/recency filters to live session list (gap closure)
 
@@ -234,6 +234,6 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8 →
 | 7. Memory Panel | 3/3 | Complete   | 2026-04-07 |
 | 8. Session History & Search | 3/3 | Complete   | 2026-04-07 |
 | 9. Office Mode | 4/4 | Complete   | 2026-04-07 |
-| 10. Approval Inbox UI | 1/2 | In Progress|  |
+| 10. Approval Inbox UI | 2/2 | Complete   | 2026-04-08 |
 | 11. Notifications UI | 0/0 | Pending | — |
 | 12. Search + Session Filter Fixes | 0/0 | Pending | — |
