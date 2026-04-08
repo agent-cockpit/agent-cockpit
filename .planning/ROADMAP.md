@@ -21,6 +21,9 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [x] **Phase 7: Memory Panel** - Read/edit project memory, create notes, approve agent-suggested memory updates (completed 2026-04-07)
 - [x] **Phase 8: Session History & Search** - Full-text search across sessions, searchable history list, side-by-side session comparison (completed 2026-04-07)
 - [x] **Phase 9: Office Mode** - Pixel-art spatial visualization of active agents with state-driven animations and layout persistence (completed 2026-04-07)
+- [ ] **Phase 10: Approval Inbox UI** - Implement ApprovalInbox with store subscription, approval detail rendering, and ws.send decision flow (gap closure)
+- [ ] **Phase 11: Notifications UI** - Wire in-app and OS-level notifications to useSessionEvents onmessage handler (gap closure)
+- [ ] **Phase 12: Search + Session Filter Fixes** - Mount SearchBar in HistoryPage, fix LaunchSessionModal URL, add project/recency filters to live session list (gap closure)
 
 ## Phase Details
 
@@ -169,10 +172,44 @@ Plans:
 - [ ] 09-02-PLAN.md — AgentSprite (draggable, animated, hover trigger) + AgentHoverCard (OFFICE-02 fields)
 - [ ] 09-03-PLAN.md — OfficePage (DndContext canvas, position persistence, navigation) + route + nav link
 
+### Phase 10: Approval Inbox UI
+**Goal**: ApprovalInbox.tsx renders all pending approvals from the Zustand store with full detail (proposed action, risk classification, why risky, affected paths), and the user can approve, deny, or always-allow each decision — wired end-to-end via WebSocket back to the daemon.
+**Depends on**: Phase 9
+**Requirements**: APPR-01, APPR-02, APPR-03, APPR-04
+**Gap Closure**: Closes gaps from v1.0 audit — ApprovalInbox stub, no ws.send() in UI
+**Success Criteria** (what must be TRUE):
+  1. Pending approvals from the Zustand store are listed in ApprovalInbox with session context visible
+  2. Each approval shows type, risk level, proposed action, affected paths, and "why risky" hint
+  3. Approve, deny, and always-allow buttons send correct `approval_decision` WebSocket messages to the daemon
+  4. Acting on an approval removes it from the inbox and the pending count updates immediately
+**Plans**: TBD
+
+### Phase 11: Notifications UI
+**Goal**: In-app notifications (toast/badge) fire when an approval is needed or a session ends, and OS-level `new Notification()` fires when the browser tab is in the background — wired through `useSessionEvents.ts` onmessage handler.
+**Depends on**: Phase 10
+**Requirements**: NOTIF-01, NOTIF-02
+**Gap Closure**: Closes gaps from v1.0 audit — notificationHelpers in wrong package, no Notification() calls
+**Success Criteria** (what must be TRUE):
+  1. An in-app toast or badge fires within one second of an `approval_request` or `session_end` event arriving over WebSocket
+  2. A browser `new Notification()` fires for `approval_request`, `session_failed`, and `session_completed` events when the tab is not focused
+  3. Notification helpers are importable by the browser (in `packages/ui` or `packages/shared`)
+**Plans**: TBD
+
+### Phase 12: Search + Session Filter Fixes
+**Goal**: SearchBar is mounted and usable in HistoryPage; LaunchSessionModal uses the correct absolute API URL; the live session list supports project and recency filters matching the SESS-04 requirement.
+**Depends on**: Phase 11
+**Requirements**: HIST-01, SESS-02, SESS-04
+**Gap Closure**: Closes gaps from v1.0 audit — SearchBar unmounted, relative URL 404, missing filters
+**Success Criteria** (what must be TRUE):
+  1. Typing in the SearchBar in HistoryPage returns FTS5-backed results from `/api/search?q=`
+  2. LaunchSessionModal POST to create a session succeeds in development (no 404 on relative URL)
+  3. The live session list can be filtered by project name (discrete select) and recency (last hour / today / this week)
+**Plans**: TBD
+
 ## Progress
 
 **Execution Order:**
-Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8 → 9
+Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8 → 9 → 10 → 11 → 12
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
@@ -185,3 +222,6 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8 →
 | 7. Memory Panel | 3/3 | Complete   | 2026-04-07 |
 | 8. Session History & Search | 3/3 | Complete   | 2026-04-07 |
 | 9. Office Mode | 4/4 | Complete   | 2026-04-07 |
+| 10. Approval Inbox UI | 0/0 | Pending | — |
+| 11. Notifications UI | 0/0 | Pending | — |
+| 12. Search + Session Filter Fixes | 0/0 | Pending | — |

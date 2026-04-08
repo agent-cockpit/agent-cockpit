@@ -18,9 +18,9 @@ Requirements for initial release. Each maps to roadmap phases.
 ### Session Management
 
 - [x] **SESS-01**: User can see all active Claude Code and Codex sessions discovered automatically in one UI
-- [x] **SESS-02**: User can launch a new Claude or Codex session from the browser UI by selecting a repo and provider
+- [ ] **SESS-02**: User can launch a new Claude or Codex session from the browser UI by selecting a repo and provider
 - [x] **SESS-03**: User can attach to an already-running session and begin receiving its events
-- [x] **SESS-04**: User can filter the session list by project, provider, status, and recency
+- [ ] **SESS-04**: User can filter the session list by project, provider, status, and recency
 
 ### Office Mode
 
@@ -38,10 +38,10 @@ Requirements for initial release. Each maps to roadmap phases.
 
 ### Approvals
 
-- [x] **APPR-01**: User can see all pending approvals from Claude and Codex in a single unified inbox
-- [x] **APPR-02**: User can see each approval classified by type (shell command, network access, file change, sandbox escalation, MCP tool call, user-input elicitation) and risk level
-- [x] **APPR-03**: User can approve once, deny once, or always-allow a similar action within the session for each pending approval
-- [x] **APPR-04**: User can inspect an approval in detail (proposed action, reason, affected files/host, "why risky" hint, last related event) before deciding
+- [ ] **APPR-01**: User can see all pending approvals from Claude and Codex in a single unified inbox
+- [ ] **APPR-02**: User can see each approval classified by type (shell command, network access, file change, sandbox escalation, MCP tool call, user-input elicitation) and risk level
+- [ ] **APPR-03**: User can approve once, deny once, or always-allow a similar action within the session for each pending approval
+- [ ] **APPR-04**: User can inspect an approval in detail (proposed action, reason, affected files/host, "why risky" hint, last related event) before deciding
 - [x] **APPR-05**: System auto-denies any approval that has not received a decision within its timeout window, unblocking the agent with a deny response
 - [x] **APPR-06**: All approval decisions (approve/deny/always-allow/timeout) are persisted locally and visible in session history
 
@@ -71,12 +71,12 @@ Requirements for initial release. Each maps to roadmap phases.
 
 ### Notifications
 
-- [x] **NOTIF-01**: User receives in-app notifications when a session needs approval, fails, or completes
-- [x] **NOTIF-02**: User receives desktop/browser OS-level notifications for approval needed, session failed, and session completed events (when the browser tab is in the background)
+- [ ] **NOTIF-01**: User receives in-app notifications when a session needs approval, fails, or completes
+- [ ] **NOTIF-02**: User receives desktop/browser OS-level notifications for approval needed, session failed, and session completed events (when the browser tab is in the background)
 
 ### History & Search
 
-- [x] **HIST-01**: User can search across sessions, tasks/titles, memory items, file-change records, and approval history to answer questions like "what happened yesterday on repo X?" or "which session edited file Y?"
+- [ ] **HIST-01**: User can search across sessions, tasks/titles, memory items, file-change records, and approval history to answer questions like "what happened yesterday on repo X?" or "which session edited file Y?"
 - [x] **HIST-02**: User can browse a searchable, filterable session history list and reopen any past session to view its timeline, memory, and diffs
 
 ## v2 Requirements
@@ -137,9 +137,9 @@ Which phases cover which requirements. Updated during roadmap creation.
 | DAEMON-04 | Phase 2 | Complete |
 | DAEMON-05 | Phase 4 | Complete |
 | SESS-01 | Phase 3 | Complete |
-| SESS-02 | Phase 3 | Complete |
+| SESS-02 | Phase 12 | Pending |
 | SESS-03 | Phase 3 | Complete |
-| SESS-04 | Phase 3 | Complete |
+| SESS-04 | Phase 12 | Pending |
 | OFFICE-01 | Phase 9 | Complete |
 | OFFICE-02 | Phase 9 | Complete |
 | OFFICE-03 | Phase 9 | Complete |
@@ -148,10 +148,10 @@ Which phases cover which requirements. Updated during roadmap creation.
 | OPS-02 | Phase 3 | Complete |
 | OPS-03 | Phase 3 | Complete |
 | OPS-04 | Phase 3 | Complete |
-| APPR-01 | Phase 2 | Complete |
-| APPR-02 | Phase 2 | Complete |
-| APPR-03 | Phase 2 | Complete |
-| APPR-04 | Phase 2 | Complete |
+| APPR-01 | Phase 10 | Pending |
+| APPR-02 | Phase 10 | Pending |
+| APPR-03 | Phase 10 | Pending |
+| APPR-04 | Phase 10 | Pending |
 | APPR-05 | Phase 2 | Complete |
 | APPR-06 | Phase 2 | Complete |
 | TIMELINE-01 | Phase 5 | Complete |
@@ -166,15 +166,16 @@ Which phases cover which requirements. Updated during roadmap creation.
 | MEM-03 | Phase 7 | Complete |
 | MEM-04 | Phase 7 | Complete |
 | COMP-01 | Phase 8 | Complete |
-| NOTIF-01 | Phase 2 | Complete |
-| NOTIF-02 | Phase 2 | Complete |
-| HIST-01 | Phase 8 | Complete |
+| NOTIF-01 | Phase 11 | Pending |
+| NOTIF-02 | Phase 11 | Pending |
+| HIST-01 | Phase 12 | Pending |
 | HIST-02 | Phase 8 | Complete |
 
 **Coverage:**
 - v1 requirements: 39 total
 - Mapped to phases: 39
 - Unmapped: 0 ✓
+- Pending (gap closure phases 10–12): 9
 
 ---
 *Requirements defined: 2026-04-04*
