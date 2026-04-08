@@ -87,3 +87,14 @@ export function useSessionEvents(): void {
     }
   }, [])
 }
+
+/**
+ * Send a JSON message over the daemon WebSocket.
+ * No-ops silently if the connection is not open — caller should
+ * disable UI actions when wsStatus !== 'connected'.
+ */
+export function sendWsMessage(msg: object): void {
+  if (ws?.readyState === WebSocket.OPEN) {
+    ws.send(JSON.stringify(msg))
+  }
+}

@@ -3,6 +3,8 @@ import { subscribeWithSelector } from 'zustand/middleware'
 import type { NormalizedEvent } from '@cockpit/shared'
 import { applyEventToSessions } from './sessionsSlice.js'
 import { applyEventToEvents } from './eventsSlice.js'
+import { applyEventToApprovals } from './approvalsSlice.js'
+import type { ApprovalsSlice } from './approvalsSlice.js'
 
 export type SessionStatus = 'active' | 'ended' | 'error'
 
@@ -64,7 +66,7 @@ interface HistorySlice {
   toggleCompareSelection: (id: string) => void
 }
 
-export type AppStore = SessionsSlice & UiSlice & WsSlice & EventsSlice & HistorySlice
+export type AppStore = SessionsSlice & UiSlice & WsSlice & EventsSlice & HistorySlice & ApprovalsSlice
 
 export const useStore = create<AppStore>()(
   subscribeWithSelector((set) => ({
@@ -74,12 +76,16 @@ export const useStore = create<AppStore>()(
       set((state) => ({
         ...applyEventToSessions(state, event),
         ...applyEventToEvents(state, event),
+        ...applyEventToApprovals(state, event),
       })),
 
     // eventsSlice
     events: {},
     bulkApplyEvents: (sessionId, evs) =>
       set((s) => ({ events: { ...s.events, [sessionId]: evs } })),
+
+    // approvalsSlice
+    pendingApprovalsBySession: {},
 
     // uiSlice
     selectedSessionId: null,
