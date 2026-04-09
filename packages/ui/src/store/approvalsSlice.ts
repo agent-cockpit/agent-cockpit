@@ -55,5 +55,5 @@ export function applyEventToApprovals(
     }
   }
 
-  return state
+  return { pendingApprovalsBySession: state.pendingApprovalsBySession }
 }

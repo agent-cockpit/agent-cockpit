@@ -155,6 +155,74 @@ export function getClaudeSessionId(
   return row?.session_id ?? null;
 }
 
+/**
+ * Returns session IDs that already have a session_start event with a non-empty workspacePath.
+ * Used at daemon startup to pre-populate initStartedSessions so restarts don't re-emit.
+ */
+/**
+ * Returns session IDs that have a session_start but no session_end and whose
+ * last event is older than the given cutoff ISO timestamp.
+ * Used at startup to emit session_end for dead sessions so the UI shows them as ended.
+ */
+export function getOrphanedSessionIds(db: Database.Database, cutoffIso: string): string[] {
+  const rows = db.prepare<[string], { session_id: string }>(`
+    SELECT DISTINCT e.session_id
+    FROM events e
+    WHERE e.type = 'session_start'
+      AND NOT EXISTS (
+        SELECT 1 FROM events WHERE session_id = e.session_id AND type = 'session_end'
+      )
+      AND (
+        SELECT MAX(timestamp) FROM events WHERE session_id = e.session_id
+      ) < ?
+  `).all(cutoffIso);
+  return rows.map(r => r.session_id);
+}
+
+export function getStartedSessionIds(db: Database.Database): string[] {
+  const rows = db.prepare<[], { session_id: string }>(
+    `SELECT DISTINCT session_id FROM events
+     WHERE type = 'session_start'
+     AND JSON_EXTRACT(payload, '$.workspacePath') != ''`
+  ).all();
+  return rows.map(r => r.session_id);
+}
+
+/**
+ * Backfill session_start events for sessions in claude_sessions that lack one.
+ * Runs at daemon startup — idempotent (INSERT only for sessions with no session_start).
+ * Fixes sessions created before the synthetic-session-start logic was added.
+ */
+export function backfillSessionStarts(db: Database.Database): void {
+  const missing = db.prepare<[], { session_id: string; workspace: string; created_at: string }>(`
+    SELECT cs.session_id, cs.workspace, cs.created_at
+    FROM claude_sessions cs
+    WHERE cs.workspace != ''
+      AND NOT EXISTS (
+        SELECT 1 FROM events
+        WHERE session_id = cs.session_id AND type = 'session_start'
+        AND JSON_EXTRACT(payload, '$.workspacePath') != ''
+      )
+  `).all();
+
+  const insert = db.prepare(`
+    INSERT INTO events (session_id, type, schema_version, payload, timestamp)
+    VALUES (?, 'session_start', 1, ?, ?)
+  `);
+
+  for (const row of missing) {
+    const payload = JSON.stringify({
+      schemaVersion: 1,
+      sessionId: row.session_id,
+      type: 'session_start',
+      provider: 'claude',
+      workspacePath: row.workspace,
+      timestamp: row.created_at,
+    });
+    insert.run(row.session_id, payload, row.created_at);
+  }
+}
+
 export function setClaudeSessionId(
   db: Database.Database,
   sessionId: string,

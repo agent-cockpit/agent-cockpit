@@ -7,6 +7,7 @@ import {
   insertApproval,
   updateApprovalDecision,
   insertAlwaysAllowRule,
+  getApprovalById,
 } from './approvalStore.js';
 
 // Module-level set tracking active (pending) approval IDs
@@ -48,15 +49,25 @@ export class ApprovalQueue {
     decision: 'approve' | 'deny' | 'always_allow',
     db: Database.Database,
   ): void {
-    // No-op if unknown
-    if (!pendingSet.has(approvalId)) {
-      return;
+    const isLive = pendingSet.has(approvalId);
+
+    // When not in-memory (daemon restarted since approval arrived), fall back to DB.
+    // We still need to emit approval_resolved so the UI removes the card on refresh.
+    if (!isLive) {
+      const row = getApprovalById(db, approvalId);
+      // No-op if unknown or already decided
+      if (!row || row.status !== 'pending') return;
     }
 
-    // Claim atomically
-    pendingSet.delete(approvalId);
+    // Claim in-memory state if live
+    if (isLive) {
+      pendingSet.delete(approvalId);
+    }
     const event = pendingEvents.get(approvalId);
     pendingEvents.delete(approvalId);
+
+    // Resolve sessionId: prefer live event, fall back to DB row
+    const sessionId = event?.sessionId ?? getApprovalById(db, approvalId)?.sessionId ?? '';
 
     const status =
       decision === 'approve'
@@ -78,10 +89,10 @@ export class ApprovalQueue {
       });
     }
 
-    // Emit approval_resolved event
+    // Emit approval_resolved event so it's persisted and replayed on UI refresh
     const resolvedEvent: NormalizedEvent = {
       schemaVersion: 1,
-      sessionId: event?.sessionId ?? '',
+      sessionId,
       timestamp: new Date().toISOString(),
       type: 'approval_resolved',
       approvalId,
@@ -89,7 +100,7 @@ export class ApprovalQueue {
     } as NormalizedEvent;
     eventBus.emit('event', resolvedEvent);
 
-    // Call resolveApproval on the hook server (Claude) — no-op if not a Claude approval
+    // Call resolveApproval on the hook server (Claude) — no-op if approval already timed out
     const hookDecision =
       decision === 'approve' ? 'allow' : decision === 'deny' ? 'deny' : 'allow';
     resolveApproval(approvalId, hookDecision);
@@ -98,13 +109,12 @@ export class ApprovalQueue {
   }
 
   handleTimeout(approvalId: string, db: Database.Database): void {
-    // No-op if unknown
-    if (!pendingSet.has(approvalId)) {
-      return;
+    const isLive = pendingSet.has(approvalId);
+    if (!isLive) {
+      const row = getApprovalById(db, approvalId);
+      if (!row || row.status !== 'pending') return;
     }
-
-    // Claim atomically
-    pendingSet.delete(approvalId);
+    if (isLive) pendingSet.delete(approvalId);
     const event = pendingEvents.get(approvalId);
     pendingEvents.delete(approvalId);
 
@@ -116,7 +126,7 @@ export class ApprovalQueue {
     // Emit approval_resolved with timeout decision
     const expiredEvent: NormalizedEvent = {
       schemaVersion: 1,
-      sessionId: event?.sessionId ?? '',
+      sessionId: event?.sessionId ?? getApprovalById(db, approvalId)?.sessionId ?? '',
       timestamp: new Date().toISOString(),
       type: 'approval_resolved',
       approvalId,

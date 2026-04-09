@@ -33,40 +33,54 @@ export function connectDaemon(): void {
     return
   }
 
+  console.log('[WS] connectDaemon called, lastSeenSequence:', lastSeenSequence)
   setWsStatus('connecting')
   const url = `${WS_URL}?lastSeenSequence=${lastSeenSequence}`
-  ws = new WebSocket(url)
+  const socket = new WebSocket(url)
+  ws = socket
+  console.log('[WS] socket created, readyState:', socket.readyState)
 
-  ws.onopen = () => {
+  socket.onopen = () => {
+    console.log('[WS] connected')
     retries = 0
     setWsStatus('connected')
   }
 
-  ws.onmessage = (e) => {
+  socket.onmessage = (e) => {
     try {
       const event = JSON.parse(e.data as string)
+      console.log('[WS] message received:', event.type, event.sequenceNumber)
       if (typeof event.sequenceNumber === 'number') {
         recordSequence(event.sequenceNumber)
       }
       applyEvent(event)
-    } catch {
-      // Ignore malformed messages — daemon should only send valid JSON
+    } catch (err) {
+      console.error('[WS] applyEvent error:', err)
     }
   }
 
-  ws.onclose = () => {
+  socket.onclose = (e) => {
+    console.log('[WS] socket closed, code:', e.code, 'wasClean:', e.wasClean, 'ws===socket:', ws === socket)
+    // Only take ownership if this socket is still the active one.
+    // In React StrictMode, cleanup closes a connecting socket while a new one
+    // is already assigned to `ws` — the stale onclose must not null it out.
+    if (ws !== socket) return
     setWsStatus('disconnected')
     ws = null
     if (retries < MAX_RETRIES) {
       // Exponential backoff with jitter: 500ms → 30s max
       const delay = Math.min(500 * 2 ** retries + Math.random() * 200, 30_000)
       retries++
+      console.log('[WS] retrying in', delay, 'ms, attempt', retries)
       retryTimer = setTimeout(connectDaemon, delay)
+    } else {
+      console.warn('[WS] max retries reached, giving up')
     }
   }
 
-  ws.onerror = () => {
-    ws?.close()
+  socket.onerror = (e) => {
+    console.error('[WS] socket error:', e)
+    socket.close()
   }
 }
 

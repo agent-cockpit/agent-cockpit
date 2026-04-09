@@ -10,6 +10,7 @@ export function SessionListPanel() {
   const navigate = useNavigate()
   const sessions = useFilteredSessions()
   const selectedSessionId = useStore((s) => s.selectedSessionId)
+  console.log('[DEBUG] sessions:', sessions, 'store sessions:', useStore.getState().sessions, 'wsStatus:', useStore.getState().wsStatus, 'lastSeenSequence:', useStore.getState().lastSeenSequence)
   const [launchOpen, setLaunchOpen] = useState(false)
 
   function handleCardClick(sessionId: string) {

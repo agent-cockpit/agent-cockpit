@@ -1,7 +1,7 @@
 import { openDatabase, initializeClaudeSessionCache } from './db/database.js';
-import { persistEvent } from './db/queries.js';
+import { persistEvent, getStartedSessionIds, backfillSessionStarts, getOrphanedSessionIds } from './db/queries.js';
 import { createWsServer, broadcast } from './ws/server.js';
-import { createHookServer } from './adapters/claude/hookServer.js';
+import { createHookServer, initStartedSessions } from './adapters/claude/hookServer.js';
 import { setClaudeSessionCache, setClaudeSessionDb } from './adapters/claude/hookParser.js';
 import { approvalQueue } from './approvals/approvalQueue.js';
 import { eventBus } from './eventBus.js';
@@ -20,11 +20,18 @@ const claudeSessionCache = initializeClaudeSessionCache(db);
 setClaudeSessionCache(claudeSessionCache);
 setClaudeSessionDb(db);
 
+// Backfill session_start events for sessions in claude_sessions that lack one (idempotent)
+backfillSessionStarts(db);
+
+// Pre-populate started sessions so daemon restarts don't re-emit session_start for existing sessions
+initStartedSessions(getStartedSessionIds(db));
+
 // Hook server — started after DB and cache initialization, before WS
 const hookServer = createHookServer(
   HOOK_PORT,
   (event) => eventBus.emit('event', event),
   (approvalId, event) => approvalQueue.register(approvalId, event, db),
+  (approvalId) => approvalQueue.handleTimeout(approvalId, db),
 );
 
 hookServer.once('listening', () => {
@@ -38,6 +45,19 @@ eventBus.on('event', (rawEvent) => {
   const saved = persistEvent(db, rawEvent);
   broadcast(wss, JSON.stringify(saved), db);
 });
+
+// Close orphaned sessions: sessions with session_start but no session_end and no activity in 2h
+// Runs after eventBus is wired so the emitted events are persisted and broadcast
+const twoHoursAgo = new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString();
+for (const sessionId of getOrphanedSessionIds(db, twoHoursAgo)) {
+  eventBus.emit('event', {
+    schemaVersion: 1,
+    sessionId,
+    type: 'session_end',
+    provider: 'claude',
+    timestamp: new Date().toISOString(),
+  } as import('@cockpit/shared').NormalizedEvent);
+}
 
 // Graceful shutdown
 function shutdown(db: Database.Database, wss: WebSocketServer, hookServer: http.Server): void {
