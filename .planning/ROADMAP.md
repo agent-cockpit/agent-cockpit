@@ -34,11 +34,11 @@ Plans:
 **Plans**: 5 plans
 
 Plans:
-- [ ] 10.2-00-PLAN.md — Catalog all backend features, events, and UI states (research)
-- [ ] 10.2-01-PLAN.md — Test PixelLab MCP API: animation templates, costs, output format (research)
-- [ ] 10.2-02-PLAN.md — Gather space pixel art references and style recommendations (research)
-- [ ] 10.2-03-PLAN.md — Build 2000-image generation budget and ordered asset manifest (research)
-- [ ] 10.2-04-PLAN.md — Design consultation: confirm character, palette, states, background (interactive)
+- [x] 10.2-00-PLAN.md — Catalog all backend features, events, and UI states (research)
+- [x] 10.2-01-PLAN.md — Test PixelLab MCP API: animation templates, costs, output format (research)
+- [x] 10.2-02-PLAN.md — Gather space pixel art references and style recommendations (research)
+- [x] 10.2-03-PLAN.md — Build 2000-image generation budget and ordered asset manifest (research)
+- [x] 10.2-04-PLAN.md — Design consultation: confirm character, palette, states, background (interactive)
 
 ### Phase 11: Notifications UI
 **Goal**: In-app notifications (toast/badge) fire when an approval is needed or a session ends, and OS-level `new Notification()` fires when the browser tab is in the background — wired through `useSessionEvents.ts` onmessage handler.
@@ -54,3 +54,29 @@ Plans:
 Plans:
 - [ ] 10-01-PLAN.md — approvalsSlice + sendWsMessage export + store wiring (APPR-01, APPR-03, APPR-04)
 - [ ] 10-02-PLAN.md — ApprovalInbox full implementation with RTL tests (APPR-01, APPR-02, APPR-03, APPR-04)
+
+### Phase 12: Search and Session Fixes
+**Goal**: Fix known search and session display issues identified in v1.0 audit.
+**Depends on**: Phase 11
+**Plans**: TBD
+
+### Phase 13: Pixel Art Generation and Integration
+**Goal**: Generate all 10 character sprite sheets using PixelLab MCP, build the sprite sheet assembly pipeline, and integrate into the Office Mode UI — replacing the placeholder `agent-sheet.png` reference with a full multi-character, 64px, 8-direction animated system.
+**Depends on**: Phase 10.2
+**Design Brief**: `.planning/phases/10.2-pixel-art-preproduction/10.2-04-DESIGN-DECISIONS.md`
+**Budget**: 2000 images available (~562 planned)
+**Success Criteria** (what must be TRUE):
+  1. All 10 character types generated with base sprite + idle + blocked/completed/failed animations, 8 directions, 64px
+  2. `public/sprites/{character}-sheet.png` exists for all 10 characters
+  3. `AgentSprite.tsx` assigns character by sessionId hash, renders at 64px, supports 8 directions
+  4. CSS state classes apply correct glow color for color-states and correct animation row for unique-animation states
+  5. Office Mode background renders the space station grid floor tileset
+  6. All Tier 2/3 assets (icons, badges, loading animation) generated and wired
+**Plans**: 5 plans (TBD — planned in Phase 13 planning session)
+
+Plans:
+- [ ] 13-00-PLAN.md — Generate Astronaut end-to-end and build sprite sheet pipeline (validate before bulk)
+- [ ] 13-01-PLAN.md — Generate remaining 9 characters (bulk generation)
+- [ ] 13-02-PLAN.md — AgentSprite.tsx multi-character support + sessionId→character mapping
+- [ ] 13-03-PLAN.md — CSS state system (glow colors + unique animation rows) + Office background tiles
+- [ ] 13-04-PLAN.md — Tier 2/3 assets: icons, risk badges, loading animation
