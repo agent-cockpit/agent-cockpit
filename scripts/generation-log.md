@@ -1,5 +1,21 @@
 # Phase 13 — Sprite Generation Log
 
+## Robot
+
+| Character | character_id | Base status | Idle frames | Blocked frames | Completed frames | Failed frames | Sheet status |
+|-----------|-------------|-------------|-------------|----------------|-----------------|---------------|--------------|
+| robot | c4388cfb-6cf0-4b71-92b6-67d622da74c7 | done | 4 per dir | 8 per dir | 9 per dir | 7 per dir | done |
+
+**Animation IDs in ZIP:**
+- `animating-87f0090a` → idle (4 frames × 8 dirs)
+- `animating-4225c6db` → blocked (8 frames × 8 dirs)
+- `animating-ee13fedb` → completed (9 frames × 8 dirs)
+- `falling_backward-753b95bc` → failed (7 frames × 8 dirs)
+
+**Sprite sheet:** `packages/ui/public/sprites/robot-sheet.png` — 576×2048px
+
+---
+
 ## Astronaut
 
 | Character | character_id | Base status | Idle frames | Blocked frames | Completed frames | Failed frames | Sheet status |
