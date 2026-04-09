@@ -144,3 +144,24 @@ export function getEventsSince(
     sequenceNumber: row.sequence_number,
   }));
 }
+
+export function getClaudeSessionId(
+  db: Database.Database,
+  claudeId: string
+): string | null {
+  const row = db.prepare(
+    'SELECT session_id FROM claude_sessions WHERE claude_id = ?'
+  ).get(claudeId) as { session_id: string } | undefined;
+  return row?.session_id ?? null;
+}
+
+export function setClaudeSessionId(
+  db: Database.Database,
+  sessionId: string,
+  claudeId: string,
+  workspace: string
+): void {
+  db.prepare(
+    'INSERT OR IGNORE INTO claude_sessions (session_id, claude_id, workspace, created_at) VALUES (?, ?, ?, ?)'
+  ).run(sessionId, claudeId, workspace, new Date().toISOString());
+}

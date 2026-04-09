@@ -1,6 +1,6 @@
 import { describe, it, expect, afterEach, beforeEach } from 'vitest';
-import { openDatabase } from '../db/database.js';
-import { persistEvent, getEventsSince, getEventsBySession } from '../db/queries.js';
+import { openDatabase, initializeClaudeSessionCache } from '../db/database.js';
+import { persistEvent, getEventsSince, getEventsBySession, getClaudeSessionId, setClaudeSessionId } from '../db/queries.js';
 import type { NormalizedEvent } from '@cockpit/shared';
 import * as os from 'node:os';
 import * as path from 'node:path';
@@ -252,9 +252,6 @@ describe('claude_sessions table and cache', () => {
       'INSERT INTO claude_sessions (session_id, claude_id, workspace, created_at) VALUES (?, ?, ?, ?)'
     ).run(testSessionId, testClaudeId, '/test/workspace', new Date().toISOString());
 
-    // Import initializeClaudeSessionCache - will fail until function exists in Plan 01
-    // @ts-ignore - Function doesn't exist yet
-    const { initializeClaudeSessionCache } = require('../db/database.js');
     const cache = initializeClaudeSessionCache(db);
 
     expect(cache).toBeInstanceOf(Map);
@@ -263,9 +260,6 @@ describe('claude_sessions table and cache', () => {
   });
 
   it('initializeClaudeSessionCache() returns empty Map when table is empty', () => {
-    // Import initializeClaudeSessionCache - will fail until function exists in Plan 01
-    // @ts-ignore - Function doesn't exist yet
-    const { initializeClaudeSessionCache } = require('../db/database.js');
     const cache = initializeClaudeSessionCache(db);
 
     expect(cache).toBeInstanceOf(Map);
@@ -273,10 +267,6 @@ describe('claude_sessions table and cache', () => {
   });
 
   it('getClaudeSessionId() returns existing mapping or null', () => {
-    // Import setClaudeSessionId and getClaudeSessionId - will fail until functions exist in Plan 01
-    // @ts-ignore - Functions don't exist yet
-    const { setClaudeSessionId, getClaudeSessionId } = require('../db/queries.js');
-
     // Insert test mapping
     const testClaudeId = 'test-get-1';
     const testSessionId = 'bbbbbbbb-0000-0000-0000-000000000001';
@@ -292,10 +282,6 @@ describe('claude_sessions table and cache', () => {
   });
 
   it('setClaudeSessionId() inserts new mapping and INSERT OR IGNORE prevents duplicates', () => {
-    // Import setClaudeSessionId - will fail until function exists in Plan 01
-    // @ts-ignore - Function doesn't exist yet
-    const { setClaudeSessionId } = require('../db/queries.js');
-
     const testClaudeId = 'test-dup-1';
     const testSessionId = 'cccccccc-0000-0000-0000-000000000001';
 
