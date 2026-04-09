@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: completed
-stopped_at: Completed 10.1-01-PLAN.md — claude_sessions database layer with getClaudeSessionId and setClaudeSessionId
-last_updated: "2026-04-09T01:11:40.130Z"
+stopped_at: Completed 10.1-02-PLAN.md — hookParser DB-backed cache and daemon startup wiring
+last_updated: "2026-04-09T01:15:31.490Z"
 last_activity: "2026-04-05 — Phase 3 complete: Ops layout shell, session list, detail panel, 5-tab nav, LaunchSessionModal wired"
 progress:
   total_phases: 2
-  completed_phases: 0
+  completed_phases: 1
   total_plans: 3
-  completed_plans: 2
+  completed_plans: 3
   percent: 33
 ---
 
@@ -79,6 +79,7 @@ Progress: [███░░░░░░░] 33%
 | Phase 10-approval-inbox-ui P01 | 2min | 2 tasks | 4 files |
 | Phase 10-approval-inbox-ui P02 | 2min | 2 tasks | 2 files |
 | Phase 10.1-session-tracking-bug-fix P01 | 8 | 3 tasks | 3 files |
+| Phase 10.1-session-tracking-bug-fix P02 | 5 | 2 tasks | 3 files |
 
 ## Accumulated Context
 
@@ -162,6 +163,8 @@ Recent decisions affecting current work:
 - [Phase 10-approval-inbox-ui]: Buttons use aria-label for RTL role+name queries — ensures accessible names are unambiguous even with icon-only future variants
 - [Phase 10.1-session-tracking-bug-fix]: claude_id must be UNIQUE NOT NULL (not just NOT NULL) so INSERT OR IGNORE fires on duplicate claude_id
 - [Phase 10.1-session-tracking-bug-fix]: INSERT OR IGNORE enforces first-write-wins semantics for claude_id mapping — same claude_id always maps to same UUID
+- [Phase 10.1-session-tracking-bug-fix]: setClaudeSessionDb() added alongside setClaudeSessionCache() — tests inject db via module-level setter rather than per-call parameter, keeping parseHookPayload signature unchanged
+- [Phase 10.1-session-tracking-bug-fix]: SubagentStart and SubagentStop pass payload.cwd as workspace to claude_sessions — consistent with SessionStart workspace tracking
 
 ### Pending Todos
 
@@ -174,6 +177,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-09T01:11:40.128Z
-Stopped at: Completed 10.1-01-PLAN.md — claude_sessions database layer with getClaudeSessionId and setClaudeSessionId
+Last session: 2026-04-09T01:15:26.700Z
+Stopped at: Completed 10.1-02-PLAN.md — hookParser DB-backed cache and daemon startup wiring
 Resume file: None
