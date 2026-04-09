@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: completed
-stopped_at: Completed 10.2-01-PLAN.md — PixelLab animation API research document
-last_updated: "2026-04-09T18:26:58.655Z"
+stopped_at: Completed 10.2-03-PLAN.md — pixel art generation budget plan and ordered asset manifest
+last_updated: "2026-04-09T18:32:12.201Z"
 last_activity: "2026-04-05 — Phase 3 complete: Ops layout shell, session list, detail panel, 5-tab nav, LaunchSessionModal wired"
 progress:
   total_phases: 3
   completed_phases: 1
-  total_plans: 8
-  completed_plans: 6
+  total_plans: 9
+  completed_plans: 7
   percent: 33
 ---
 
@@ -83,6 +83,7 @@ Progress: [███░░░░░░░] 33%
 | Phase 10.2-pixel-art-preproduction P00 | 2min | 4 tasks | 1 files |
 | Phase 10.2-pixel-art-preproduction P02 | 4 | 4 tasks | 1 files |
 | Phase 10.2-pixel-art-preproduction P01 | 8min | 4 tasks | 1 files |
+| Phase 10.2-pixel-art-preproduction P03 | 3 | 4 tasks | 1 files |
 
 ## Accumulated Context
 
@@ -176,6 +177,9 @@ Recent decisions affecting current work:
 - [Phase 10.2-pixel-art-preproduction]: PixelLab standard mode costs 1 generation flat regardless of direction count or quality settings; template animations cost 1 gen/direction vs 20-40 for custom
 - [Phase 10.2-pixel-art-preproduction]: South-only animation strategy: generate animations for south direction only reduces 8-state sprite cost from 32 gens to 8 gens; chibi proportions required at 32px for glowing visor readability
 - [Phase 10.2-pixel-art-preproduction]: PixelLab sprite sheet must be assembled manually — API returns individual frame PNGs not a sprite sheet; post-processing step required in generation pipeline
+- [Phase 10.2-pixel-art-preproduction]: South-only animation strategy: 8 gens for all 8 AgentAnimStates vs 32 (4-dir) — current AgentSprite renders single-direction only; reserve directional capability by creating with n_directions:4 but animating south only
+- [Phase 10.2-pixel-art-preproduction]: 64-item generation manifest uses only 63 of 2000 images; budget risk is near-zero; tier allocation caps are organizational discipline not budget protection
+- [Phase 10.2-pixel-art-preproduction]: Prototype-first ordering: lock anchor character_id from 1-3 prototype attempts before queueing any animation jobs; prevents wasting animation budget on rejected character design
 
 ### Pending Todos
 
@@ -188,6 +192,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-09T18:26:58.653Z
-Stopped at: Completed 10.2-01-PLAN.md — PixelLab animation API research document
+Last session: 2026-04-09T18:32:12.199Z
+Stopped at: Completed 10.2-03-PLAN.md — pixel art generation budget plan and ordered asset manifest
 Resume file: None
