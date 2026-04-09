@@ -70,8 +70,16 @@ async function buildRow(framePaths: string[], maxFrames: number): Promise<Buffer
   for (let i = 0; i < maxFrames; i++) {
     // Use the frame if available, otherwise repeat the last frame
     const framePath = framePaths[Math.min(i, framePaths.length - 1)]
+    // Resize frame to FRAME_SIZE×FRAME_SIZE before compositing
+    const resized = await sharp(framePath)
+      .resize(FRAME_SIZE, FRAME_SIZE, {
+        fit: 'contain',
+        background: { r: 0, g: 0, b: 0, alpha: 0 },
+      })
+      .png()
+      .toBuffer()
     compositeInputs.push({
-      input: framePath,
+      input: resized,
       top: 0,
       left: i * FRAME_SIZE,
     })
