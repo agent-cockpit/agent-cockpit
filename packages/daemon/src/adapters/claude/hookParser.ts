@@ -1,6 +1,8 @@
 import { randomUUID } from 'node:crypto';
 import type { NormalizedEvent } from '@cockpit/shared';
+import type Database from 'better-sqlite3';
 import { classifyRisk, requiresHumanApproval } from './riskClassifier.js';
+import { getClaudeSessionId, setClaudeSessionId } from '../../db/queries.js';
 
 export type HookPayload = {
   session_id: string;
@@ -15,14 +17,55 @@ export type HookPayload = {
 };
 
 // Module-level session ID cache: Claude session_id → UUID
-const sessionIdCache = new Map<string, string>();
+// Replaced by DB-backed three-tier lookup; initialized at daemon startup
+let claudeSessionCache = new Map<string, string>();
 
-function getOrCreateSessionId(claudeSessionId: string): string {
-  let uuid = sessionIdCache.get(claudeSessionId);
-  if (!uuid) {
-    uuid = randomUUID();
-    sessionIdCache.set(claudeSessionId, uuid);
+// Module-level DB reference — set by daemon entrypoint at startup
+let claudeSessionDb: Database.Database | null = null;
+
+/** Called by daemon entrypoint to inject the pre-populated cache from claude_sessions table. */
+export function setClaudeSessionCache(newCache: Map<string, string>): void {
+  claudeSessionCache = newCache;
+}
+
+/** Called by daemon entrypoint to inject the DB instance for three-tier lookup. */
+export function setClaudeSessionDb(db: Database.Database | null): void {
+  claudeSessionDb = db;
+}
+
+/**
+ * Three-tier session ID lookup:
+ *   Tier 1 — in-memory cache (fast path, avoids DB round-trip)
+ *   Tier 2 — DB lookup (survives daemon restart when cache is cold)
+ *   Tier 3 — create new UUID and persist mapping
+ */
+export function getOrCreateSessionId(
+  claudeSessionId: string,
+  workspace: string = '',
+  db: Database.Database | null = claudeSessionDb,
+  cache: Map<string, string> = claudeSessionCache,
+): string {
+  // Tier 1: fast cache lookup
+  const cached = cache.get(claudeSessionId);
+  if (cached) {
+    return cached;
   }
+
+  // Tier 2: DB lookup — recover mapping after restart
+  if (db) {
+    const existing = getClaudeSessionId(db, claudeSessionId);
+    if (existing) {
+      cache.set(claudeSessionId, existing);
+      return existing;
+    }
+  }
+
+  // Tier 3: create new UUID and persist
+  const uuid = randomUUID();
+  if (db) {
+    setClaudeSessionId(db, uuid, claudeSessionId, workspace);
+  }
+  cache.set(claudeSessionId, uuid);
   return uuid;
 }
 
@@ -34,7 +77,7 @@ function baseFields(payload: HookPayload): {
 } {
   return {
     schemaVersion: 1,
-    sessionId: getOrCreateSessionId(payload.session_id),
+    sessionId: getOrCreateSessionId(payload.session_id, payload.cwd ?? ''),
     timestamp: new Date().toISOString(),
     provider: 'claude',
   };
@@ -114,7 +157,10 @@ export function parseHookPayload(payload: HookPayload): {
 
     case 'SubagentStart': {
       // Use agent_id as the subagent session identifier, mapped to a UUID
-      const subagentSessionId = getOrCreateSessionId(payload.agent_id ?? randomUUID());
+      const subagentSessionId = getOrCreateSessionId(
+        payload.agent_id ?? randomUUID(),
+        payload.cwd ?? '',
+      );
       return {
         event: {
           ...base,
@@ -126,7 +172,10 @@ export function parseHookPayload(payload: HookPayload): {
     }
 
     case 'SubagentStop': {
-      const subagentSessionId = getOrCreateSessionId(payload.agent_id ?? randomUUID());
+      const subagentSessionId = getOrCreateSessionId(
+        payload.agent_id ?? randomUUID(),
+        payload.cwd ?? '',
+      );
       return {
         event: {
           ...base,
