@@ -72,7 +72,7 @@ Plans:
   4. CSS state classes apply correct glow color for color-states and correct animation row for unique-animation states
   5. Office Mode background renders the space station grid floor tileset
   6. All Tier 2/3 assets (icons, badges, loading animation) generated and wired
-**Plans**: 5 plans (TBD — planned in Phase 13 planning session)
+**Plans**: 5 plans
 
 Plans:
 - [ ] 13-00-PLAN.md — Generate Astronaut end-to-end and build sprite sheet pipeline (validate before bulk)
