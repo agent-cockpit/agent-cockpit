@@ -21,6 +21,25 @@ Plans:
 - [ ] 10.1-01-PLAN.md — Create claude_sessions table, cache initialization, and query functions (SESS-01)
 - [ ] 10.1-02-PLAN.md — Refactor hookParser with DB-backed cache and wire daemon startup (SESS-01)
 
+### Phase 10.2: Pixel Art Pre-Production
+**Goal**: Research and plan the pixel art visual redesign before spending any generation budget — catalog backend features, learn the PixelLab API, gather space theme references, plan the 2000-image budget, and lock design decisions with the user.
+**Depends on**: Phase 10.1
+**Theme**: Space
+**Success Criteria** (what must be TRUE):
+  1. Every backend feature and UI state the art must represent is documented
+  2. PixelLab animation costs and capabilities are understood from hands-on testing
+  3. Space-themed visual references are gathered with concrete style recommendations
+  4. A generation manifest exists that fits within the 2000-image budget
+  5. The user has confirmed a locked design brief (character type, palette, state styles, background)
+**Plans**: 5 plans
+
+Plans:
+- [ ] 10.2-00-PLAN.md — Catalog all backend features, events, and UI states (research)
+- [ ] 10.2-01-PLAN.md — Test PixelLab MCP API: animation templates, costs, output format (research)
+- [ ] 10.2-02-PLAN.md — Gather space pixel art references and style recommendations (research)
+- [ ] 10.2-03-PLAN.md — Build 2000-image generation budget and ordered asset manifest (research)
+- [ ] 10.2-04-PLAN.md — Design consultation: confirm character, palette, states, background (interactive)
+
 ### Phase 11: Notifications UI
 **Goal**: In-app notifications (toast/badge) fire when an approval is needed or a session ends, and OS-level `new Notification()` fires when the browser tab is in the background — wired through `useSessionEvents.ts` onmessage handler.
 **Depends on**: Phase 10
