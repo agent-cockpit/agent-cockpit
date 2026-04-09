@@ -76,7 +76,7 @@ export function openDatabase(dbPath: string): Database.Database {
 
     CREATE TABLE IF NOT EXISTS claude_sessions (
       session_id   TEXT PRIMARY KEY,
-      claude_id    TEXT NOT NULL,
+      claude_id    TEXT NOT NULL UNIQUE,
       workspace    TEXT NOT NULL,
       created_at   TEXT NOT NULL
     );
@@ -120,4 +120,17 @@ export function openDatabase(dbPath: string): Database.Database {
   }
 
   return db;
+}
+
+export function initializeClaudeSessionCache(
+  db: Database.Database
+): Map<string, string> {
+  const cache = new Map<string, string>();
+  const rows = db.prepare(
+    'SELECT claude_id, session_id FROM claude_sessions'
+  ).all() as Array<{ claude_id: string; session_id: string }>;
+  for (const row of rows) {
+    cache.set(row.claude_id, row.session_id);
+  }
+  return cache;
 }
