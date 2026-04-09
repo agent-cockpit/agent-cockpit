@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { openDatabase } from '../db/database.js';
-import type { Database } from 'better-sqlite3';
+import type BetterSqlite3 from 'better-sqlite3';
 
 import { parseHookPayload, setClaudeSessionCache, setClaudeSessionDb } from '../adapters/claude/hookParser.js';
 import type { HookPayload } from '../adapters/claude/hookParser.js';
@@ -27,7 +27,7 @@ function makeSubagentStart(overrides: Partial<HookPayload> = {}): HookPayload {
 }
 
 describe('parseHookPayload session mapping persistence', () => {
-  let db: Database.Database;
+  let db: BetterSqlite3.Database;
 
   beforeEach(() => {
     db = openDatabase(':memory:');
@@ -92,6 +92,8 @@ describe('parseHookPayload session mapping persistence', () => {
     });
 
     const result = parseHookPayload(payload);
+    expect(result.event.type).toBe('subagent_spawn');
+    if (result.event.type !== 'subagent_spawn') return;
     expect(result.event.subagentSessionId).toBeDefined();
 
     // Verify claude_sessions row has correct workspace

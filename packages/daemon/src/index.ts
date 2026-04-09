@@ -1,7 +1,8 @@
-import { openDatabase } from './db/database.js';
+import { openDatabase, initializeClaudeSessionCache } from './db/database.js';
 import { persistEvent } from './db/queries.js';
 import { createWsServer, broadcast } from './ws/server.js';
 import { createHookServer } from './adapters/claude/hookServer.js';
+import { setClaudeSessionCache, setClaudeSessionDb } from './adapters/claude/hookParser.js';
 import { approvalQueue } from './approvals/approvalQueue.js';
 import { eventBus } from './eventBus.js';
 import type { WebSocketServer } from 'ws';
@@ -14,7 +15,12 @@ const HOOK_PORT = parseInt(process.env['COCKPIT_HOOK_PORT'] ?? '3002', 10);
 
 const db = openDatabase(DB_PATH);
 
-// Hook server — started after DB, before WS
+// Initialize Claude session ID cache from persisted table — must happen before hook server starts
+const claudeSessionCache = initializeClaudeSessionCache(db);
+setClaudeSessionCache(claudeSessionCache);
+setClaudeSessionDb(db);
+
+// Hook server — started after DB and cache initialization, before WS
 const hookServer = createHookServer(
   HOOK_PORT,
   (event) => eventBus.emit('event', event),
