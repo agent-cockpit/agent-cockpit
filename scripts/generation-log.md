@@ -29,6 +29,22 @@
 
 **Sprite sheet:** `packages/ui/public/sprites/astronaut-sheet.png`
 - Dimensions: 576×2048px (9 cols × 64px wide = 576; 32 rows × 64px tall = 2048)
+
+---
+
+## Alien
+
+| Character | character_id | Base status | Idle frames | Blocked frames | Completed frames | Failed frames | Sheet status |
+|-----------|-------------|-------------|-------------|----------------|-----------------|---------------|--------------|
+| alien | a3c2ae45-dc07-41e0-8bd6-0dd30beed8da | done | 4 per dir | 8 per dir | 9 per dir | 7 per dir | done |
+
+**Animation IDs in ZIP:**
+- `animating-c35e5cdf` → idle (4 frames × 8 dirs)
+- `animating-1c2d3257` → blocked (8 frames × 8 dirs)
+- `animating-363203d4` → completed (9 frames × 8 dirs)
+- `falling_backward-e1001753` → failed (7 frames × 8 dirs)
+
+**Sprite sheet:** `packages/ui/public/sprites/alien-sheet.png` — 576×2048px
 - Layout: 32 rows total (4 states × 8 directions)
   - Rows 0–7: idle (breathing-idle, 4 frames)
   - Rows 8–15: blocked (fight-stance-idle-8-frames, 8 frames)
