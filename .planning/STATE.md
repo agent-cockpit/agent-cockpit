@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: completed
-stopped_at: Completed 10.2-02-PLAN.md — pixel art visual references and prompt strategy document
-last_updated: "2026-04-09T18:23:44.719Z"
+stopped_at: Completed 10.2-01-PLAN.md — PixelLab animation API research document
+last_updated: "2026-04-09T18:26:58.655Z"
 last_activity: "2026-04-05 — Phase 3 complete: Ops layout shell, session list, detail panel, 5-tab nav, LaunchSessionModal wired"
 progress:
   total_phases: 3
   completed_phases: 1
   total_plans: 8
-  completed_plans: 5
+  completed_plans: 6
   percent: 33
 ---
 
@@ -82,6 +82,7 @@ Progress: [███░░░░░░░] 33%
 | Phase 10.1-session-tracking-bug-fix P02 | 5 | 2 tasks | 3 files |
 | Phase 10.2-pixel-art-preproduction P00 | 2min | 4 tasks | 1 files |
 | Phase 10.2-pixel-art-preproduction P02 | 4 | 4 tasks | 1 files |
+| Phase 10.2-pixel-art-preproduction P01 | 8min | 4 tasks | 1 files |
 
 ## Accumulated Context
 
@@ -172,6 +173,9 @@ Recent decisions affecting current work:
 - [Phase 10.2-pixel-art-preproduction]: Option A Deep Space Terminal palette recommended — dark void background with phosphor green primary and per-state accent colors
 - [Phase 10.2-pixel-art-preproduction]: Three-layer state signal: CSS glow color (primary), floating 8x8 icon above head (secondary), body pose silhouette (tertiary)
 - [Phase 10.2-pixel-art-preproduction]: PixelLab anchor-prompt approach: generate base character first, then state delta prompts for consistency across 8 sprite states
+- [Phase 10.2-pixel-art-preproduction]: PixelLab standard mode costs 1 generation flat regardless of direction count or quality settings; template animations cost 1 gen/direction vs 20-40 for custom
+- [Phase 10.2-pixel-art-preproduction]: South-only animation strategy: generate animations for south direction only reduces 8-state sprite cost from 32 gens to 8 gens; chibi proportions required at 32px for glowing visor readability
+- [Phase 10.2-pixel-art-preproduction]: PixelLab sprite sheet must be assembled manually — API returns individual frame PNGs not a sprite sheet; post-processing step required in generation pipeline
 
 ### Pending Todos
 
@@ -184,6 +188,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-09T18:23:44.717Z
-Stopped at: Completed 10.2-02-PLAN.md — pixel art visual references and prompt strategy document
+Last session: 2026-04-09T18:26:58.653Z
+Stopped at: Completed 10.2-01-PLAN.md — PixelLab animation API research document
 Resume file: None
