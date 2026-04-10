@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.1
 milestone_name: — 2D Pixel Art Game Experience
 status: planning
-stopped_at: Completed 15-01-PLAN.md
-last_updated: "2026-04-10T18:37:18.440Z"
+stopped_at: Completed 15-02-PLAN.md
+last_updated: "2026-04-10T18:42:27.908Z"
 last_activity: 2026-04-10 — v1.1 roadmap written (7 phases, 16 plans)
 progress:
   total_phases: 13
   completed_phases: 3
   total_plans: 22
-  completed_plans: 19
+  completed_plans: 20
   percent: 0
 ---
 
@@ -86,6 +86,8 @@ Recent decisions affecting current work:
 
 All v1.0 decisions remain active and respected.
 - [Phase 15]: Added _loop stop-guard (rafId===null check) to prevent update() firing after stop() when a pending rAF callback exists
+- [Phase 15]: Global HTMLCanvasElement.getContext and ResizeObserver stubs added to setupTests.ts to prevent jsdom crashes in all canvas-using tests
+- [Phase 15]: GameEngine subclassed inline (anonymous class) inside OfficePage useEffect for clarity and co-location
 
 ### Roadmap Evolution
 
@@ -105,8 +107,8 @@ None yet — requirements phase will surface tasks.
 
 ## Session Continuity
 
-Last session: 2026-04-10T18:37:18.438Z
-Stopped at: Completed 15-01-PLAN.md
+Last session: 2026-04-10T18:42:27.905Z
+Stopped at: Completed 15-02-PLAN.md
 Resume file: None
 
 *Updated after each plan completion*
