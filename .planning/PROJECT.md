@@ -2,118 +2,110 @@
 
 ## What This Is
 
-Agent Mission Control is a local, browser-based control room for coding agents — starting with Claude Code and Codex. It combines a pixel-art spatial visualization layer (Office mode) with a serious operational control plane (Ops mode) for approvals, memory, replay, diffs, and session orchestration. It is aimed at individual developers who run multiple agent sessions and want unified visibility and control, without switching between terminals and tools.
+Agent Mission Control is a local, browser-based control room for coding agents — starting with Claude Code and Codex. It combines a pixel-art spatial visualization layer (Office mode) with a serious operational control plane (Ops mode) for approvals, memory, replay, diffs and session orchestration. It is aimed at individual developers who run multiple agent sessions and want unified visibility and control, without switching between terminals and tools. **v1.1 adds 2D pixel art game mechanics for Office mode — player-controlled movement, NPC agents that move to activity zones, ambient music, sound effects, and save/load functionality.**
 
 ## Core Value
 
-One unified approval, memory, and replay layer across Claude Code and Codex — so developers can run agents productively, not just watch them.
+One unified approval, memory and replay layer across Claude Code and Codex — so developers can run agents productively, not just watch them.
 
 ## Requirements
 
 ### Validated
 
-(None yet — ship to validate)
+- ✓ **Session Management** — v1.0-Phase 03
+- ✓ **Office Mode** — v1.0-Phase 09
+- ✓ **Ops Mode** — v1.0-Phase 03
+- ✓ **Approval Inbox** — v1.0-Phase 10
+- ✓ **Timeline & Replay** — v1.0-Phase 05
+- ✓ **Diff & Artifact Review** — v1.0-Phase 06
+- ✓ **Memory Panel** — v1.0-Phase 07
+- ✓ **Popup-based Navigation** — v1.0-Phase 14
+- ✓ **MapSidebar** — v1.0-Phase 14
 
 ### Active
 
-**Session Management**
-- [ ] Discover and display all active Claude Code and Codex sessions
-- [ ] Launch or attach to sessions from the browser UI
-- [ ] Track session lifecycle (start, progress, completion, failure)
-- [ ] Persist session metadata locally (survives browser refresh and app restart)
-- [ ] Filter sessions by project, provider, status, and recency
+**Game Engine Foundation**
+- [ ] Game loop running at 60 FPS with requestAnimationFrame
+- [ ] GameState store (separate from React state, updated per frame)
+- [ ] Camera/viewport system with smooth following and bounds
 
-**Office Mode**
-- [ ] Show each active agent as a distinct animated visual entity
-- [ ] Update agent state/animation from normalized session events
-- [ ] Agent card/popover shows: provider, task, status, repo/branch, pending approvals, last tool used, elapsed time
-- [ ] Click agent to open detailed Ops view
+**Player Controls**
+- [ ] WASD and arrow key movement (smooth pixel-based, not tile-jumping)
+- [ ] Click-to-teleport to agent positions (instant, no pathfinding)
+- [ ] Mouse/keyboard input tracking for game logic
 
-**Ops Mode**
-- [ ] Session list panel
-- [ ] Selected session detail panel
-- [ ] Timeline/replay panel per session
-- [ ] File/diff panel per session
-- [ ] Memory panel per project
-- [ ] Artifacts/log panel
-- [ ] Fast switching between sessions without losing context
+**NPC Agent Behavior**
+- [ ] Agents walk to "coding workstation" zone when coding state
+- [ ] Agents walk to "meeting room" zone when waiting for approval
+- [ ] Agents stay in place for other states (completed, failed, reading, planning)
+- [ ] NPC movement is smooth interpolation between positions
 
-**Approval Inbox**
-- [ ] Aggregate pending approvals from all providers into one queue
-- [ ] Classify approvals by type (shell, network, file change, sandbox, MCP tool, user input)
-- [ ] Show risk level, proposed action, affected files, and "why risky" hint per approval
-- [ ] Support: approve once, deny once, always allow within session
-- [ ] Persist all approval decisions locally
+**Audio System**
+- [ ] Ambient office background music with continuous loop
+- [ ] Sound effects: walking, interacting, approval granted/denied
+- [ ] Volume control to mute/unmute music and SFX
 
-**Timeline & Replay**
-- [ ] Replayable event timeline per session (prompts, plans, tool calls, commands, file changes, approvals, subagents, memory events, completion)
-- [ ] Scrub timeline, jump to approval/file-change events, filter by event type
+**Save/Load System**
+- [ ] Quick save (F5) and quick load (F9) slots
+- [ ] Auto-save on key actions
+- [ ] Export/import save data as JSON
+- [ ] Saved data: player position, game state, session data
 
-**Diff & Artifact Review**
-- [ ] File tree of changed files per session
-- [ ] Raw diff view per file
-- [ ] Session summary: files touched, final status
+**Game UI Overlays**
+- [ ] HUD with minimap (top-right corner)
+- [ ] Pause menu (ESC key)
+- [ ] Settings menu (audio, graphics, controls)
+- [ ] Action prompts ("Press SPACE to interact")
 
-**Memory Panel**
-- [ ] View and edit project memory (CLAUDE.md, auto memory, project conventions)
-- [ ] Create new memory notes; approve agent-suggested memory updates
-- [ ] Pin memory to project; distinguish shared vs local-only notes
-- [ ] Normalize provider-specific memory into one editable surface
-
-**Session Comparison**
-- [ ] Side-by-side read-only comparison of two sessions
-- [ ] Compare: provider, runtime, approvals, files changed, final status
-
-**Notifications**
-- [ ] In-app and desktop/browser notifications for: approval needed, session failed, session completed, subagent returned, provider disconnected
-
-**Search & History**
-- [ ] Search across sessions, tasks, memory, file-change records, approval history
-- [ ] Searchable session history with filtering
-
-**Local Daemon**
-- [ ] Local daemon for provider integration, event normalization, WebSocket updates, and SQLite persistence
-- [ ] Unified event model normalizing Claude and Codex events into a common schema
-- [ ] Claude adapter: hook ingestion, subagent lifecycle, memory reading, permission/approval signal ingestion
-- [ ] Codex adapter: JSONL event stream parsing, approval event handling, app-server integration, session resume
+**Particle Effects**
+- [ ] Dust particles when walking on floor tiles
+- [ ] Sparkle effects when interacting with agents
+- [ ] Success/damage indicators for agent events
 
 ### Out of Scope
 
-- Full cloud-hosted orchestration of remote agents — local-first only in v1
+- Full cloud-hosted orchestration of remote agents — local-first only
 - Replacing Claude Code or Codex — this is a control layer, not a runtime
-- Enterprise features (SSO, RBAC, audit export) — out of v1 scope
-- Full multi-user collaboration — deferred to post-MVP
-- Battle mode (automatic prompt fan-out) — post-MVP
-- Approval macros/policy rules — post-MVP
-- Branch-per-agent workflows — post-MVP
-- LAN/remote viewing — post-MVP
-- Skins/themes marketplace — cosmetics don't block MVP
+- Enterprise features (SSO, RBAC, audit export)
+- Battle mode (automatic prompt fan-out)
+- Approval macros/policy rules
+- Branch-per-agent workflows
+- LAN/remote viewing
+- Skins/themes marketplace
+- Quest/challenge systems beyond natural gameplay
+- Inventory system beyond session management
 
 ## Context
 
-- **Inspiration**: Pixel Agents (VS Code extension) proves agent visualization is compelling but is VS Code-bound, Claude-specific, and partly heuristic. This product evolves that concept into a browser-first, provider-agnostic control room.
+- **Inspiration**: Pixel Agents (VS Code extension) proves agent visualization is compelling but is VS Code-bound, Claude-specific, and partly heuristic. v1.0 evolved that concept into a browser-first, provider-agnostic control room with popup navigation. v1.1 adds game mechanics for engagement and delight.
 - **Integration surfaces**: Claude Code exposes lifecycle hooks with structured JSON, persistent memory (CLAUDE.md, auto memory), and subagent support. Codex exposes JSONL event streams, resumable sessions, configurable approval policy, and an app-server for rich clients.
 - **Target users**: Primary — solo developer running multiple Claude/Codex sessions wanting unified visibility. Secondary — small technical team. Tertiary — creator/OSS dev who values demoability.
-- **Existing codebase**: This repo (`agent-cockpit`) is a greenfield implementation.
+- **Existing codebase**: v1.0 complete with React frontend (Vite), local daemon (Node.js, SQLite), WebSocket real-time updates, Zustand state management, 9 character types with sprite sheets, Radix UI components.
+- **Game mechanics research**: Canvas API for rendering, requestAnimationFrame game loops, Web Audio API for sound, localStorage for save data, collision detection, smooth interpolation (lerp), camera systems.
 
 ## Constraints
 
-- **Architecture**: Local daemon + browser UI — no cloud backend required for core functionality
-- **Privacy**: All session data stored locally by default; browser UI binds to localhost; remote access is opt-in only
-- **Security**: Secrets redacted in command previews; sensitive paths/env vars redacted where feasible; destructive actions require explicit user approval
-- **Stack**: React frontend (Vite), Canvas/Pixi for Office mode, Monaco/diff component for file review; TypeScript daemon with WebSocket server, SQLite persistence
-- **Performance**: UI must stay responsive with at least 10 concurrent visible sessions
+- **Architecture**: Local daemon + browser UI with game engine — no cloud backend for core functionality
+- **Performance**: 60 FPS target, sub-50ms frame time budget, responsive with 10+ concurrent agents
+- **Stack**: React + Canvas API hybrid (Canvas for game layer, React for UI overlay), TypeScript, Vite, Zustand
+- **Audio**: Web Audio API, no external audio engines
+- **Storage**: localStorage + IndexedDB for save persistence, no server-side saves
+- **Compatibility**: Modern browsers (Chrome, Firefox, Safari, Edge), desktop-first (mobile exploration later)
+- **Privacy**: All session data stored locally; game state also local
 
 ## Key Decisions
 
 | Decision | Rationale | Outcome |
 |----------|-----------|---------|
-| Browser-first, local daemon architecture | Overcomes VS Code extension limitations; supports cross-editor usage; Codex app-server designed for this pattern | — Pending |
-| Claude adapter uses hooks (not transcript observation) | Transcript heuristics misfire; hooks give structured, reliable lifecycle events | — Pending |
-| Codex adapter: app-server + JSONL exec path | App-server provides approvals + streaming; JSONL exec is fallback | — Pending |
-| SQLite for v1 persistence | Sufficient for local-first use; enables replay, search, crash recovery | — Pending |
-| Office mode is a mode, not the only mode | Prevents "too gimmicky" failure mode; Ops mode is the reason to stay | — Pending |
-| Human approvals are central, not optional | Safety-first; keeps execution controls from becoming unsafe | — Pending |
+| Browser-first, local daemon architecture | Overcomes VS Code extension limitations; supports cross-editor usage | ✓ Good |
+| Claude adapter uses hooks (not transcript observation) | Transcript heuristics misfire; hooks give structured, reliable lifecycle events | ✓ Good |
+| Codex adapter: app-server + JSONL exec path | App-server provides approvals + streaming; JSONL exec is fallback | ✓ Good |
+| SQLite for v1 persistence | Sufficient for local-first use; enables replay, search, crash recovery | ✓ Good |
+| Canvas for game layer, React for UI overlay | Canvas gives 60 FPS performance; React handles UI state cleanly | — Pending |
+| Popup-based navigation (v1.0) | Prevents "too gimmicky" failure mode; Ops mode remains accessible | ✓ Good |
+| NPC movement zones based on agent state | Simple, understandable behavior pattern; easy to extend later | — Pending |
+| Teleport on agent click (not pathfind) | Faster UX; pathfinding deferred to future if needed | — Pending |
+| WASD for player movement | Classic game control scheme; familiar to gamers | — Pending |
 
 ---
-*Last updated: 2026-04-04 after initialization from PRD*
+*Last updated: 2026-04-10 after v1.1 milestone kickoff*

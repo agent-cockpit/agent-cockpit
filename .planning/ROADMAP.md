@@ -94,3 +94,122 @@ Plans:
 - [ ] 14-03-PLAN.md — Build InstancePopupHub (Radix Dialog + Tabs) and MapSidebar (slim active session list)
 - [ ] 14-04-PLAN.md — Router switch (OfficePage as index), sprite-click → popup, OpsLayout nav simplification, HistoryPopup
 - [ ] 14-05-PLAN.md — User character on map, sidebar camera focus wiring, human-verify checkpoint
+
+---
+
+## v1.1 — 2D Pixel Art Game Experience
+
+### Phase 15: Game Engine Foundation
+**Goal:** A stable 60 FPS game loop runs on the Office map page, with a GameState store (separate from React state), a Canvas rendering layer mounted behind the existing React UI, and a camera system that smoothly follows a target position with lerp and world-edge clamping.
+**Depends on:** Phase 14
+**Requirements:** game-loop, gamestate-store, camera-system
+**Success Criteria** (what must be TRUE):
+  1. `requestAnimationFrame` loop maintains 60 FPS; delta time is passed to all update functions
+  2. `GameState` object is updated every frame without triggering React re-renders
+  3. Canvas element is mounted and sized to match the viewport, sitting below the React overlay
+  4. Camera lerps toward its target position and stops at world bounds
+  5. Existing React UI (sidebar, popups, top bar) renders correctly on top of the Canvas layer
+**Plans:** 3 plans
+
+Plans:
+- [ ] 15-01-PLAN.md — GameEngine class (rAF loop, delta time, pause/resume) + GameState types
+- [ ] 15-02-PLAN.md — Canvas mount in OfficePage + Camera system (lerp, bounds, follow)
+- [ ] 15-03-PLAN.md — Wire existing sprite rendering into Canvas (replace CSS-positioned sprites)
+
+### Phase 16: Player Controls
+**Goal:** The user's character on the map responds to WASD/arrow key input with smooth pixel-based movement, and clicking an agent character teleports the camera focus to that agent instantly.
+**Depends on:** Phase 15
+**Requirements:** player-movement, click-to-teleport, input-tracking
+**Success Criteria** (what must be TRUE):
+  1. WASD and arrow keys move the player character at a consistent speed (frame-rate independent)
+  2. Player character faces the direction of movement (8-directional sprite selection)
+  3. Player cannot walk outside world bounds
+  4. Clicking an agent on the map instantly moves the camera to center on that agent
+  5. Keyboard input does not conflict with text inputs or popup interactions
+**Plans:** 2 plans
+
+Plans:
+- [ ] 16-01-PLAN.md — Input system (keyboard state tracking, WASD movement, bounds clamping)
+- [ ] 16-02-PLAN.md — Click-to-teleport camera focus + direction-aware sprite selection on move
+
+### Phase 17: NPC Agent Behavior
+**Goal:** Agent NPCs on the map walk smoothly to zone positions based on their session state — coding agents move to the workstation zone, agents waiting for approval move to the meeting room zone — using linear interpolation (no pathfinding).
+**Depends on:** Phase 16
+**Requirements:** npc-zone-movement, session-state-sync
+**Success Criteria** (what must be TRUE):
+  1. When a session transitions to `coding` state, its NPC walks to the workstation zone (lerp, not instant)
+  2. When a session transitions to `waiting` (approval pending), its NPC walks to the meeting room zone
+  3. NPCs in all other states (completed, failed, reading, planning) remain in their last position
+  4. Multiple NPCs reaching the same zone spread out into sub-positions (no overlap)
+  5. NPC positions are driven by live session state from the Zustand store
+**Plans:** 2 plans
+
+Plans:
+- [ ] 17-01-PLAN.md — Zone definitions (workstation, meeting room) + NPC lerp movement system
+- [ ] 17-02-PLAN.md — Session state → zone assignment wiring + multi-NPC spread logic
+
+### Phase 18: Audio System
+**Goal:** Ambient office background music plays on loop with volume control, and discrete sound effects fire for key game events (walking, approval granted/denied, agent spawn/despawn, popup open/close).
+**Depends on:** Phase 17
+**Requirements:** ambient-music, sfx-events, volume-control
+**Success Criteria** (what must be TRUE):
+  1. Ambient music starts after first user interaction (respects browser autoplay policy) and loops seamlessly
+  2. Mute/unmute toggle and separate music/SFX volume sliders work correctly
+  3. SFX fires for: player footsteps, approval granted, approval denied, agent spawn, popup open
+  4. Audio context is created once and reused (no multiple AudioContext instances)
+  5. All audio state (muted, volumes) persists across page reloads via localStorage
+**Plans:** 2 plans
+
+Plans:
+- [ ] 18-01-PLAN.md — Web Audio API setup, ambient music loop, mute/volume controls
+- [ ] 18-02-PLAN.md — SFX system: event → sound wiring for key game events
+
+### Phase 19: Save/Load System
+**Goal:** The player can quick-save (F5) and quick-load (F9) game state, with auto-save on key transitions, and full JSON export/import for backup.
+**Depends on:** Phase 18
+**Requirements:** quick-save, auto-save, json-export
+**Success Criteria** (what must be TRUE):
+  1. F5 saves player position, camera position, and NPC zone positions to localStorage
+  2. F9 restores the saved state with no visual jump (positions applied before first render)
+  3. Auto-save triggers on: agent state change, approval decision, session end
+  4. Export produces a valid JSON file downloadable by the browser
+  5. Import reads the JSON file and restores all saved fields, validating schema before applying
+**Plans:** 2 plans
+
+Plans:
+- [ ] 19-01-PLAN.md — SaveSystem class (quick save/load slots, localStorage schema)
+- [ ] 19-02-PLAN.md — Auto-save triggers + JSON export/import UI (settings panel)
+
+### Phase 20: Game UI Overlays
+**Goal:** A HUD with a minimap (top-right) and pending-approval counter (top-left) is rendered as a React overlay. ESC opens a pause menu with resume, settings (audio volumes, reduced motion), and help (keybindings). Action prompts appear when the player is near an agent.
+**Depends on:** Phase 19
+**Requirements:** hud-minimap, pause-menu, settings-menu, action-prompts
+**Success Criteria** (what must be TRUE):
+  1. Minimap renders a scaled-down view of the world with agent positions and player dot, updating every frame
+  2. Approval counter badge shows live count of pending approvals, clicking navigates to inbox
+  3. ESC toggles pause: game loop pauses, pause menu overlays the screen
+  4. Settings menu has working sliders for music volume, SFX volume, and a reduced-motion toggle
+  5. "Press SPACE to interact" prompt appears when player is within 2 tiles of an agent and disappears otherwise
+**Plans:** 3 plans
+
+Plans:
+- [ ] 20-01-PLAN.md — HUD component (minimap canvas, approval counter badge)
+- [ ] 20-02-PLAN.md — Pause menu + settings menu (audio controls, reduced motion)
+- [ ] 20-03-PLAN.md — Action prompt system (proximity detection + prompt display)
+
+### Phase 21: Particle Effects
+**Goal:** Three particle effects provide visual feedback for key moments: dust when the player walks, sparkles when interacting with an agent, and success/damage indicators when a session completes or fails.
+**Depends on:** Phase 20
+**Requirements:** particle-dust, particle-sparkle, particle-events
+**Success Criteria** (what must be TRUE):
+  1. Small dust puffs appear at player feet each time a step is taken on floor tiles
+  2. Sparkle burst fires at agent position when the player opens an agent's popup
+  3. Green success burst fires at agent position on `session_completed` event
+  4. Red damage indicator fires at agent position on `session_failed` event
+  5. Particles are rendered on the Canvas layer and do not cause React re-renders
+  6. Particle count is capped (max 200 active) to avoid performance regression
+**Plans:** 2 plans
+
+Plans:
+- [ ] 21-01-PLAN.md — ParticleSystem class (emitter, update loop, Canvas rendering, cap)
+- [ ] 21-02-PLAN.md — Wire dust/sparkle/success/damage emitters to game events
