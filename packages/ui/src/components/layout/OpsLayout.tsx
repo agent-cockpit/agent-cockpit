@@ -2,6 +2,7 @@ import { Outlet } from 'react-router'
 import { useState } from 'react'
 import { MapSidebar } from './MapSidebar.js'
 import { HistoryPopup } from '../office/HistoryPopup.js'
+import { scrollToSession } from '../../pages/OfficePage.js'
 
 export function OpsLayout() {
   const [historyOpen, setHistoryOpen] = useState(false)
@@ -18,7 +19,7 @@ export function OpsLayout() {
             History
           </button>
         </div>
-        <MapSidebar onFocusSession={() => {}} />
+        <MapSidebar onFocusSession={scrollToSession} />
       </aside>
       <main className="flex-1 overflow-hidden">
         <Outlet />
