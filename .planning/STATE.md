@@ -1,16 +1,16 @@
 ---
 gsd_state_version: 1.0
 milestone: v1.1
-milestone_name: 2d-pixel-art-game-experience
+milestone_name: — 2D Pixel Art Game Experience
 status: planning
-stopped_at: null
-last_updated: "2026-04-10T17:10:00.000Z"
-last_activity: 2026-04-10 — v1.1 milestone kickoff
+stopped_at: Completed 15-01-PLAN.md
+last_updated: "2026-04-10T18:37:18.440Z"
+last_activity: 2026-04-10 — v1.1 roadmap written (7 phases, 16 plans)
 progress:
-  total_phases: 7
-  completed_phases: 0
-  total_plans: 16
-  completed_plans: 0
+  total_phases: 13
+  completed_phases: 3
+  total_plans: 22
+  completed_plans: 19
   percent: 0
 ---
 
@@ -85,6 +85,7 @@ Recent decisions affecting current work:
 - v1.1: Save data: player position, game state, session data (not agent positions)
 
 All v1.0 decisions remain active and respected.
+- [Phase 15]: Added _loop stop-guard (rafId===null check) to prevent update() firing after stop() when a pending rAF callback exists
 
 ### Roadmap Evolution
 
@@ -104,8 +105,8 @@ None yet — requirements phase will surface tasks.
 
 ## Session Continuity
 
-Last session: 2026-04-10T17:00:00.000Z
-Stopped at: null
+Last session: 2026-04-10T18:37:18.438Z
+Stopped at: Completed 15-01-PLAN.md
 Resume file: None
 
 *Updated after each plan completion*
