@@ -172,3 +172,23 @@
 **Note:** Original description ("medicine woman in traditional headdress combined with space suit elements") failed content filter repeatedly. Successful description: "indigenous healer in traditional headdress and space suit, carrying medicine bag, wise expression, pixel art, chibi style"
 
 **Sprite sheet:** `packages/ui/public/sprites/medicine-woman-sheet.png` — 576×2048px
+
+---
+
+## Tier 2/3 Icons and Badges
+
+| Asset | Object ID | Size | Output |
+|-------|-----------|------|--------|
+| icon-timeline | 8e5421f0-6155-41ea-be22-3b2aa6467d69 | 32×32 | icon-timeline.png |
+| icon-memory | e80d11d6-ab8c-4864-94a7-17132131ad74 | 32×32 | icon-memory.png |
+| icon-approvals | cfd43670-1837-4da2-9271-9759b8d25c41 | 32×32 | icon-approvals.png |
+| icon-diff | a17a45d2-7e25-44fe-a9b1-925844585fad | 32×32 | icon-diff.png |
+| icon-history | a9cac5bd-4360-49aa-a34a-b1b58924fab6 | 32×32 | icon-history.png |
+| badge-low | 3c3161c9-30cf-4b82-954c-540517519e63 | 48×48 | badge-low.png |
+| badge-medium | 88dd0f65-8782-4b17-b430-fac606283191 | 48×48 | badge-medium.png |
+| badge-high | 12e4e61e-3647-49f6-a11c-fd4c01aad38e | 48×48 | badge-high.png |
+| badge-critical | dcabffcb-89b6-407c-8a20-44c341eee1e1 | 48×48 | badge-critical.png |
+| loading-animation | 8be9f8bc-cd82-4d0c-9e39-2b5d8dd0ceea | 32×32 | loading-animation.png |
+
+**Tool:** `create_map_object` — all generated 2026-04-10
+**Note:** Map objects stored 8h only — regenerate from IDs if needed

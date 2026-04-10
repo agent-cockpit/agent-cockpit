@@ -5,11 +5,13 @@ import { useFilteredSessions } from '../../store/selectors.js'
 import { SessionFilters } from '../sessions/SessionFilters.js'
 import { SessionCard } from '../sessions/SessionCard.js'
 import { LaunchSessionModal } from '../sessions/LaunchSessionModal.js'
+import { LoadingSpinner } from '../LoadingSpinner.js'
 
 export function SessionListPanel() {
   const navigate = useNavigate()
   const sessions = useFilteredSessions()
   const selectedSessionId = useStore((s) => s.selectedSessionId)
+  const wsStatus = useStore((s) => s.wsStatus)
   console.log('[DEBUG] sessions:', sessions, 'store sessions:', useStore.getState().sessions, 'wsStatus:', useStore.getState().wsStatus, 'lastSeenSequence:', useStore.getState().lastSeenSequence)
   const [launchOpen, setLaunchOpen] = useState(false)
 
@@ -20,6 +22,12 @@ export function SessionListPanel() {
 
   return (
     <div className="flex flex-col flex-1 overflow-hidden">
+      {wsStatus === 'connecting' && (
+        <div className="flex items-center gap-1 px-3 py-1 text-xs text-muted-foreground">
+          <LoadingSpinner className="w-4 h-4" />
+          <span>Connecting...</span>
+        </div>
+      )}
       <SessionFilters />
 
       <div className="px-3 py-2">

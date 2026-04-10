@@ -61,9 +61,35 @@ async function validateCharacter(character: string): Promise<boolean> {
   return allOk
 }
 
+const TIER2_ASSETS = [
+  'icon-timeline',
+  'icon-memory',
+  'icon-approvals',
+  'icon-diff',
+  'icon-history',
+  'badge-low',
+  'badge-medium',
+  'badge-high',
+  'badge-critical',
+  'loading-animation',
+] as const
+
 async function validateTier2(): Promise<boolean> {
-  console.log('tier2 check pending')
-  return true
+  const spritesDir = path.join(ROOT, 'packages', 'ui', 'public', 'sprites')
+  let allOk = true
+
+  for (const asset of TIER2_ASSETS) {
+    const filePath = path.join(spritesDir, `${asset}.png`)
+    const check = await checkFile(filePath)
+    if (!check.ok) {
+      console.error(`FAIL: ${check.error}`)
+      allOk = false
+    } else {
+      console.log(`OK: ${filePath}`)
+    }
+  }
+
+  return allOk
 }
 
 async function main(): Promise<void> {

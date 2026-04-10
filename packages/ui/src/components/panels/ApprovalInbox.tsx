@@ -4,6 +4,8 @@ import { useStore } from '../../store/index.js'
 import { sendWsMessage } from '../../hooks/useSessionEvents.js'
 import { EMPTY_APPROVALS } from '../../store/approvalsSlice.js'
 import type { PendingApproval } from '../../store/approvalsSlice.js'
+import { RiskBadge } from '../RiskBadge.js'
+import type { RiskLevel } from '../RiskBadge.js'
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -12,17 +14,6 @@ function formatActionType(actionType: string): string {
     .split('_')
     .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
     .join(' ')
-}
-
-const RISK_COLORS: Record<string, string> = {
-  critical: 'text-red-700 bg-red-100 border-red-300',
-  high: 'text-orange-700 bg-orange-100 border-orange-300',
-  medium: 'text-yellow-700 bg-yellow-100 border-yellow-300',
-  low: 'text-green-700 bg-green-100 border-green-300',
-}
-
-function riskBadgeClass(riskLevel: string): string {
-  return RISK_COLORS[riskLevel] ?? 'text-gray-700 bg-gray-100 border-gray-300'
 }
 
 // ─── ApprovalCard ─────────────────────────────────────────────────────────────
@@ -42,11 +33,7 @@ function ApprovalCard({ approval, disabled, onDecision }: ApprovalCardProps) {
       {/* Header: action type + risk badge */}
       <div className="flex items-center gap-2 mb-2">
         <span className="text-sm font-semibold">{formatActionType(approval.actionType)}</span>
-        <span
-          className={`text-xs border rounded px-1.5 py-0.5 font-medium ${riskBadgeClass(approval.riskLevel)}`}
-        >
-          {approval.riskLevel}
-        </span>
+        <RiskBadge level={approval.riskLevel as RiskLevel} />
       </div>
 
       {/* Proposed action */}
