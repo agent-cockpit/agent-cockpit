@@ -72,3 +72,19 @@
 - `animating-2ab17eb3` → blocked (8 frames × 8 dirs)
 - `animating-a99a4339` → completed (9 frames × 8 dirs)
 - `falling_backward-d4c4df67` → failed (7 frames × 8 dirs)
+
+---
+
+## Monkey
+
+| Character | character_id | Base status | Idle frames | Blocked frames | Completed frames | Failed frames | Sheet status |
+|-----------|-------------|-------------|-------------|----------------|-----------------|---------------|--------------|
+| monkey | d3014ddb-e8ae-4176-b329-e523b29e1542 | done | 4 per dir | 8 per dir | 9 per dir | 7 per dir | done |
+
+**Animation IDs in ZIP:**
+- `animating-d1a175ef` → idle (4 frames × 8 dirs)
+- `animating-91b60393` → blocked (8 frames × 8 dirs)
+- `animating-ea06a4c0` → completed (9 frames × 8 dirs)
+- `falling_backward-64a40733` → failed (7 frames × 8 dirs)
+
+**Sprite sheet:** `packages/ui/public/sprites/monkey-sheet.png` — 576×2048px
