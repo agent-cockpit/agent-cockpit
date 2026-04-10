@@ -86,7 +86,7 @@ Plans:
 **Goal:** Transform the entire Agent Cockpit navigation model. Office map IS the app — default landing view. Agent characters on map. Clicking agent character opens popup hub with all session detail tabs. Sidebar minimal (name+status only). History becomes global popup. No approvals regressions.
 **Requirements**: routing-default, panel-sessionid-fallback, popup-hub, sidebar-minimal, sidebar-focus, history-popup, nav-simplified, user-character, approvals-regression
 **Depends on:** Phase 13
-**Plans:** 3/5 plans executed
+**Plans:** 4/5 plans executed
 
 Plans:
 - [ ] 14-01-PLAN.md — Install @radix-ui/react-dialog + @radix-ui/react-tabs, create Wave 0 test stubs

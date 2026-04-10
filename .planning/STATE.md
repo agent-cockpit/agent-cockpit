@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: executing
-stopped_at: Completed 14-03-PLAN.md — InstancePopupHub and MapSidebar built
-last_updated: "2026-04-10T16:22:10.756Z"
+stopped_at: Completed 14-04-PLAN.md — OfficePage as default route, History as popup
+last_updated: "2026-04-10T16:34:01.747Z"
 last_activity: 2026-04-10 — InstancePopupHub and MapSidebar built, all components use store-selected sessionId
 progress:
   total_phases: 6
   completed_phases: 2
   total_plans: 19
-  completed_plans: 16
+  completed_plans: 17
   percent: 81
 ---
 
@@ -87,6 +87,7 @@ Progress: [█████████░] 81%
 | Phase 14 P01 | 177 | 2 tasks | 4 files |
 | Phase 14 P02 | 4min | 2 tasks | 4 files |
 | Phase 14 P03 | 9min | 3 tasks | 5 files |
+| Phase 14 P04 | 529 | 2 tasks | 6 files |
 
 ## Accumulated Context
 
@@ -183,6 +184,10 @@ Recent decisions affecting current work:
 - [Phase 10.2-pixel-art-preproduction]: South-only animation strategy: 8 gens for all 8 AgentAnimStates vs 32 (4-dir) — current AgentSprite renders single-direction only; reserve directional capability by creating with n_directions:4 but animating south only
 - [Phase 10.2-pixel-art-preproduction]: 64-item generation manifest uses only 63 of 2000 images; budget risk is near-zero; tier allocation caps are organizational discipline not budget protection
 - [Phase 10.2-pixel-art-preproduction]: Prototype-first ordering: lock anchor character_id from 1-3 prototype attempts before queueing any animation jobs; prevents wasting animation budget on rejected character design
+- [Phase 14]: Keep /session/:sessionId routes for HistoryPage deep links (historyMode compatibility)
+- [Phase 14]: OfficePage sprite click triggers popup state, not router navigation
+- [Phase 14]: History accessible via modal popup, not separate route
+- [Phase 14]: OpsLayout sidebar shows MapSidebar (active sessions only)
 
 ### Roadmap Evolution
 
@@ -199,6 +204,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-10T16:22:10.752Z
-Stopped at: Completed 14-03-PLAN.md — InstancePopupHub and MapSidebar built
+Last session: 2026-04-10T16:34:01.744Z
+Stopped at: Completed 14-04-PLAN.md — OfficePage as default route, History as popup
 Resume file: None
