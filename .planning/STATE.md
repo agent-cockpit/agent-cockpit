@@ -3,8 +3,8 @@ gsd_state_version: 1.0
 milestone: v1.1
 milestone_name: — 2D Pixel Art Game Experience
 status: planning
-stopped_at: "Completed 15-03-PLAN.md (awaiting checkpoint:human-verify)"
-last_updated: "2026-04-10T18:52:45.874Z"
+stopped_at: Completed 15-03-PLAN.md (human-verify approved)
+last_updated: "2026-04-10T19:01:15.881Z"
 last_activity: 2026-04-10 — v1.1 roadmap written (7 phases, 16 plans)
 progress:
   total_phases: 13
@@ -91,6 +91,9 @@ All v1.0 decisions remain active and respected.
 - [Phase 15-game-engine-foundation]: Static blit only in Phase 15 (col=0); animation stepping deferred to Phase 20
 - [Phase 15-game-engine-foundation]: AgentSprite.tsx no longer exports React component — only drawAgentSprite() canvas function
 - [Phase 15-game-engine-foundation]: DnD (@dnd-kit) removed from OfficePage/AgentSprite; gameState.npcs is now the source of truth for NPC positions
+- [Phase 15-game-engine-foundation]: Static blit only in Phase 15 (col=0 always); animation frame stepping deferred to Phase 20
+- [Phase 15-game-engine-foundation]: DnD (@dnd-kit) fully removed from OfficePage and AgentSprite; gameState.npcs is sole NPC position source of truth
+- [Phase 15-game-engine-foundation]: AgentSprite.tsx no longer exports React component — only drawAgentSprite() canvas function; imageCache as useRef Map
 
 ### Roadmap Evolution
 
@@ -110,8 +113,8 @@ None yet — requirements phase will surface tasks.
 
 ## Session Continuity
 
-Last session: 2026-04-10T18:52:45.872Z
-Stopped at: Completed 15-03-PLAN.md (awaiting checkpoint:human-verify)
+Last session: 2026-04-10T19:01:06.036Z
+Stopped at: Completed 15-03-PLAN.md (human-verify approved)
 Resume file: None
 
 *Updated after each plan completion*
