@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: executing
-stopped_at: Completed 14-04-PLAN.md — OfficePage as default route, History as popup
-last_updated: "2026-04-10T16:34:01.747Z"
+stopped_at: Completed 14-05-PLAN.md — User character on map, sidebar camera focus, verification
+last_updated: "2026-04-10T16:49:20.636Z"
 last_activity: 2026-04-10 — InstancePopupHub and MapSidebar built, all components use store-selected sessionId
 progress:
   total_phases: 6
-  completed_phases: 2
+  completed_phases: 3
   total_plans: 19
-  completed_plans: 17
+  completed_plans: 18
   percent: 81
 ---
 
@@ -88,6 +88,7 @@ Progress: [█████████░] 81%
 | Phase 14 P02 | 4min | 2 tasks | 4 files |
 | Phase 14 P03 | 9min | 3 tasks | 5 files |
 | Phase 14 P04 | 529 | 2 tasks | 6 files |
+| Phase 14 P05 | 2min | 2 tasks | 2 files |
 
 ## Accumulated Context
 
@@ -188,6 +189,9 @@ Recent decisions affecting current work:
 - [Phase 14]: OfficePage sprite click triggers popup state, not router navigation
 - [Phase 14]: History accessible via modal popup, not separate route
 - [Phase 14]: OpsLayout sidebar shows MapSidebar (active sessions only)
+- [Phase 14]: Module-level scroll singleton (scrollToSession) is simpler than React context for OpsLayout→OfficePage callback
+- [Phase 14]: User character rendered as static div with purple circle + 'YOU' label at fixed position (col=2, row=5)
+- [Phase 14]: Sprite ref wrapper pattern enables scrollIntoView without breaking dnd-kit draggable
 
 ### Roadmap Evolution
 
@@ -204,6 +208,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-10T16:34:01.744Z
-Stopped at: Completed 14-04-PLAN.md — OfficePage as default route, History as popup
+Last session: 2026-04-10T16:49:20.631Z
+Stopped at: Completed 14-05-PLAN.md — User character on map, sidebar camera focus, verification
 Resume file: None
