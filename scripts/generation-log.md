@@ -45,6 +45,22 @@
 - `falling_backward-e1001753` → failed (7 frames × 8 dirs)
 
 **Sprite sheet:** `packages/ui/public/sprites/alien-sheet.png` — 576×2048px
+
+---
+
+## Hologram
+
+| Character | character_id | Base status | Idle frames | Blocked frames | Completed frames | Failed frames | Sheet status |
+|-----------|-------------|-------------|-------------|----------------|-----------------|---------------|--------------|
+| hologram | ba5d7c02-678c-41a3-a27a-3b546a21dcf6 | done | 4 per dir | 8 per dir | 9 per dir | 7 per dir | done |
+
+**Animation IDs in ZIP:**
+- `animating-143603db` → idle (4 frames × 8 dirs)
+- `animating-98515b59` → blocked (8 frames × 8 dirs)
+- `animating-45f4e55c` → completed (9 frames × 8 dirs)
+- `falling_backward-b0db7a33` → failed (7 frames × 8 dirs)
+
+**Sprite sheet:** `packages/ui/public/sprites/hologram-sheet.png` — 576×2048px
 - Layout: 32 rows total (4 states × 8 directions)
   - Rows 0–7: idle (breathing-idle, 4 frames)
   - Rows 8–15: blocked (fight-stance-idle-8-frames, 8 frames)
