@@ -1,10 +1,11 @@
-import React from 'react'
+import React, { useState, useEffect } from 'react'
 import { useDraggable } from '@dnd-kit/core'
 import { CSS } from '@dnd-kit/utilities'
 import * as HoverCard from '@radix-ui/react-hover-card'
 import type { SessionRecord } from '../../store/index.js'
-import { STATE_CSS_CLASSES } from './spriteStates.js'
-import type { AgentAnimState } from './spriteStates.js'
+import { STATE_CSS_CLASSES, STATE_ROW_OFFSET, DIRECTION_ROWS, COLOR_STATE_TO_ANIMATION } from './spriteStates.js'
+import type { AgentAnimState, Direction } from './spriteStates.js'
+import { sessionToCharacter } from './characterMapping.js'
 import { AgentHoverCard } from './AgentHoverCard.js'
 
 interface AgentSpriteProps {
@@ -15,6 +16,7 @@ interface AgentSpriteProps {
   onClick: () => void
   elapsedMs: number
   lastToolUsed?: string
+  direction?: Direction
 }
 
 export function AgentSprite({
@@ -25,10 +27,33 @@ export function AgentSprite({
   onClick,
   elapsedMs,
   lastToolUsed,
+  direction = 'south',
 }: AgentSpriteProps) {
   const { attributes, listeners, setNodeRef, transform } = useDraggable({
     id: session.sessionId,
   })
+
+  const characterType = sessionToCharacter(session.sessionId)
+  const [frameIndex, setFrameIndex] = useState(0)
+  const [frameCounts, setFrameCounts] = useState<Record<string, number>>({})
+
+  useEffect(() => {
+    fetch(`/sprites/${characterType}-manifest.json`)
+      .then(r => r.json())
+      .then(m => setFrameCounts(m.states))
+      .catch(() => {})
+  }, [characterType])
+
+  const animState = COLOR_STATE_TO_ANIMATION[agentState]
+  const frameCount = frameCounts[animState] ?? 1
+
+  useEffect(() => {
+    if (frameCount <= 1) return
+    const id = setInterval(() => setFrameIndex(f => (f + 1) % frameCount), 150)
+    return () => clearInterval(id)
+  }, [frameCount])
+
+  const spriteRow = STATE_ROW_OFFSET[animState] + DIRECTION_ROWS[direction]
 
   // Get the basename of workspacePath (last non-empty segment)
   const basename =
@@ -62,10 +87,13 @@ export function AgentSprite({
           <div
             className={`agent-sprite ${STATE_CSS_CLASSES[agentState]}`}
             style={{
-              backgroundImage: "url('/sprites/agent-sheet.png')",
+              backgroundImage: `url('/sprites/${characterType}-sheet.png')`,
+              backgroundPositionY: `${spriteRow * -64}px`,
+              backgroundPositionX: `${frameIndex * -64}px`,
+              backgroundRepeat: 'no-repeat',
               imageRendering: 'pixelated',
-              width: 32,
-              height: 32,
+              width: 64,
+              height: 64,
             }}
           />
           <span>{basename}</span>

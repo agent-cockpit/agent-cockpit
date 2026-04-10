@@ -1,5 +1,12 @@
 import { describe, it, expect } from 'vitest'
-import { deriveAgentState, STATE_CSS_CLASSES, AgentAnimState } from '../components/office/spriteStates.js'
+import {
+  deriveAgentState,
+  STATE_CSS_CLASSES,
+  DIRECTION_ROWS,
+  STATE_ROW_OFFSET,
+  COLOR_STATE_TO_ANIMATION,
+  AgentAnimState,
+} from '../components/office/spriteStates.js'
 import type { SessionRecord } from '../store/index.js'
 import type { NormalizedEvent } from '@cockpit/shared'
 
@@ -94,6 +101,36 @@ describe('deriveAgentState', () => {
     const event = { type: 'provider_parse_error', sessionId: 'sess-1', timestamp: '...' } as unknown as NormalizedEvent
     expect(deriveAgentState(activeSession, event)).toBe('failed')
   })
+})
+
+describe('DIRECTION_ROWS', () => {
+  it('maps south to 0', () => expect(DIRECTION_ROWS['south']).toBe(0))
+  it('maps north to 1', () => expect(DIRECTION_ROWS['north']).toBe(1))
+  it('maps east to 2', () => expect(DIRECTION_ROWS['east']).toBe(2))
+  it('maps west to 3', () => expect(DIRECTION_ROWS['west']).toBe(3))
+  it('maps south-east to 4', () => expect(DIRECTION_ROWS['south-east']).toBe(4))
+  it('maps south-west to 5', () => expect(DIRECTION_ROWS['south-west']).toBe(5))
+  it('maps north-east to 6', () => expect(DIRECTION_ROWS['north-east']).toBe(6))
+  it('maps north-west to 7', () => expect(DIRECTION_ROWS['north-west']).toBe(7))
+  it('has exactly 8 entries', () => expect(Object.keys(DIRECTION_ROWS).length).toBe(8))
+})
+
+describe('STATE_ROW_OFFSET', () => {
+  it('maps idle to 0', () => expect(STATE_ROW_OFFSET['idle']).toBe(0))
+  it('maps blocked to 8', () => expect(STATE_ROW_OFFSET['blocked']).toBe(8))
+  it('maps completed to 16', () => expect(STATE_ROW_OFFSET['completed']).toBe(16))
+  it('maps failed to 24', () => expect(STATE_ROW_OFFSET['failed']).toBe(24))
+})
+
+describe('COLOR_STATE_TO_ANIMATION', () => {
+  it('maps planning to idle', () => expect(COLOR_STATE_TO_ANIMATION['planning']).toBe('idle'))
+  it('maps coding to idle', () => expect(COLOR_STATE_TO_ANIMATION['coding']).toBe('idle'))
+  it('maps reading to idle', () => expect(COLOR_STATE_TO_ANIMATION['reading']).toBe('idle'))
+  it('maps testing to idle', () => expect(COLOR_STATE_TO_ANIMATION['testing']).toBe('idle'))
+  it('maps waiting to idle', () => expect(COLOR_STATE_TO_ANIMATION['waiting']).toBe('idle'))
+  it('maps blocked to blocked', () => expect(COLOR_STATE_TO_ANIMATION['blocked']).toBe('blocked'))
+  it('maps completed to completed', () => expect(COLOR_STATE_TO_ANIMATION['completed']).toBe('completed'))
+  it('maps failed to failed', () => expect(COLOR_STATE_TO_ANIMATION['failed']).toBe('failed'))
 })
 
 describe('STATE_CSS_CLASSES', () => {

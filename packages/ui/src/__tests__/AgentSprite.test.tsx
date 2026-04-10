@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { render, screen, fireEvent } from '@testing-library/react'
 import React from 'react'
 import { AgentSprite } from '../components/office/AgentSprite.js'
@@ -30,8 +30,15 @@ vi.mock('../components/office/AgentHoverCard.js', () => ({
   },
 }))
 
+// Mock fetch for manifest JSON
+const mockFetch = vi.fn().mockResolvedValue({
+  json: () => Promise.resolve({ states: { idle: 4, blocked: 8, completed: 9, failed: 7 }, frameSize: 64, directions: 8 }),
+})
+vi.stubGlobal('fetch', mockFetch)
+
+// sessionId ending in '0000' → parseInt('0000',16)=0 → 0%10=0 → 'astronaut'
 const mockSession: SessionRecord = {
-  sessionId: 'sess-abc',
+  sessionId: 'sess-0000',
   provider: 'claude',
   workspacePath: '/home/user/my-repo',
   startedAt: '2024-01-01T00:00:00Z',
@@ -52,12 +59,19 @@ const defaultProps = {
 describe('AgentSprite', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    mockFetch.mockResolvedValue({
+      json: () => Promise.resolve({ states: { idle: 4, blocked: 8, completed: 9, failed: 7 }, frameSize: 64, directions: 8 }),
+    })
     Object.keys(mockHoverCardProps).forEach(k => delete (mockHoverCardProps as Record<string, unknown>)[k])
+  })
+
+  afterEach(() => {
+    vi.clearAllTimers()
   })
 
   it('renders div with correct data-testid', () => {
     render(<AgentSprite {...defaultProps} />)
-    expect(screen.getByTestId('agent-sprite-sess-abc')).toBeDefined()
+    expect(screen.getByTestId('agent-sprite-sess-0000')).toBeDefined()
   })
 
   it('sprite inner div has className containing STATE_CSS_CLASSES[agentState]', () => {
@@ -74,7 +88,7 @@ describe('AgentSprite', () => {
 
   it('renders with absolute positioning at the given x,y', () => {
     render(<AgentSprite {...defaultProps} position={{ x: 150, y: 250 }} />)
-    const el = screen.getByTestId('agent-sprite-sess-abc')
+    const el = screen.getByTestId('agent-sprite-sess-0000')
     expect(el.style.position).toBe('absolute')
     expect(el.style.left).toBe('150px')
     expect(el.style.top).toBe('250px')
@@ -83,7 +97,7 @@ describe('AgentSprite', () => {
   it('calls onClick when the root element is clicked', () => {
     const onClick = vi.fn()
     render(<AgentSprite {...defaultProps} onClick={onClick} />)
-    fireEvent.click(screen.getByTestId('agent-sprite-sess-abc'))
+    fireEvent.click(screen.getByTestId('agent-sprite-sess-0000'))
     expect(onClick).toHaveBeenCalledTimes(1)
   })
 
@@ -92,12 +106,12 @@ describe('AgentSprite', () => {
     // Since Radix HoverCard doesn't expose its open state in DOM, we verify our prop
     // logic: the component should not throw and renders correctly with isDragging=true
     const { container } = render(<AgentSprite {...defaultProps} isDragging={true} />)
-    expect(container.querySelector('[data-testid="agent-sprite-sess-abc"]')).not.toBeNull()
+    expect(container.querySelector('[data-testid="agent-sprite-sess-0000"]')).not.toBeNull()
   })
 
   it('when isDragging=false, component renders normally', () => {
     render(<AgentSprite {...defaultProps} isDragging={false} />)
-    expect(screen.getByTestId('agent-sprite-sess-abc')).toBeDefined()
+    expect(screen.getByTestId('agent-sprite-sess-0000')).toBeDefined()
   })
 
   it('shows workspace basename as label text', () => {
@@ -111,7 +125,7 @@ describe('AgentSprite', () => {
     render(<AgentSprite {...defaultProps} session={session} />)
     // basename of '/home/user/project/' — split('/') gives [..., 'project', '']
     // should display the last non-empty segment
-    const el = screen.getByTestId('agent-sprite-sess-abc')
+    const el = screen.getByTestId('agent-sprite-sess-0000')
     expect(el).toBeDefined()
   })
 
@@ -128,5 +142,51 @@ describe('AgentSprite', () => {
   it('forwards lastToolUsed as undefined to AgentHoverCard when not provided', () => {
     render(<AgentSprite {...defaultProps} elapsedMs={0} />)
     expect(mockHoverCardProps.lastToolUsed).toBeUndefined()
+  })
+
+  it('renders sprite div at 64×64', () => {
+    const { container } = render(<AgentSprite {...defaultProps} />)
+    const spriteDiv = container.querySelector('.agent-sprite') as HTMLElement
+    expect(spriteDiv).not.toBeNull()
+    expect(spriteDiv.style.width).toBe('64px')
+    expect(spriteDiv.style.height).toBe('64px')
+  })
+
+  it('uses character-specific sheet URL derived from sessionId', () => {
+    // sess-0000 → 'astronaut'
+    const { container } = render(<AgentSprite {...defaultProps} />)
+    const spriteDiv = container.querySelector('.agent-sprite') as HTMLElement
+    expect(spriteDiv.style.backgroundImage).toContain('astronaut-sheet.png')
+  })
+
+  it('has imageRendering pixelated', () => {
+    const { container } = render(<AgentSprite {...defaultProps} />)
+    const spriteDiv = container.querySelector('.agent-sprite') as HTMLElement
+    expect(spriteDiv.style.imageRendering).toBe('pixelated')
+  })
+
+  it('backgroundPositionY is 0px for planning state south (row 0)', () => {
+    const { container } = render(<AgentSprite {...defaultProps} agentState="planning" direction="south" />)
+    const spriteDiv = container.querySelector('.agent-sprite') as HTMLElement
+    expect(spriteDiv.style.backgroundPositionY).toBe('0px')
+  })
+
+  it('backgroundPositionY is -512px for blocked state south (row 8 × 64)', () => {
+    const { container } = render(<AgentSprite {...defaultProps} agentState="blocked" direction="south" />)
+    const spriteDiv = container.querySelector('.agent-sprite') as HTMLElement
+    expect(spriteDiv.style.backgroundPositionY).toBe('-512px')
+  })
+
+  it('backgroundPositionY is -1024px for completed state south (row 16 × 64)', () => {
+    const { container } = render(<AgentSprite {...defaultProps} agentState="completed" direction="south" />)
+    const spriteDiv = container.querySelector('.agent-sprite') as HTMLElement
+    expect(spriteDiv.style.backgroundPositionY).toBe('-1024px')
+  })
+
+  it('defaults direction to south when not provided', () => {
+    const { container } = render(<AgentSprite {...defaultProps} agentState="planning" />)
+    const spriteDiv = container.querySelector('.agent-sprite') as HTMLElement
+    // planning → idle → row offset 0, south → row 0, so posY = 0px
+    expect(spriteDiv.style.backgroundPositionY).toBe('0px')
   })
 })

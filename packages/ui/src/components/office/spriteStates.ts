@@ -1,6 +1,36 @@
 import type { NormalizedEvent } from '@cockpit/shared'
 import type { SessionRecord } from '../../store/index.js'
 
+export type Direction =
+  | 'south'
+  | 'north'
+  | 'east'
+  | 'west'
+  | 'south-east'
+  | 'south-west'
+  | 'north-east'
+  | 'north-west'
+
+export type AnimationState = 'idle' | 'blocked' | 'completed' | 'failed'
+
+export const DIRECTION_ROWS: Record<Direction, number> = {
+  south: 0,
+  north: 1,
+  east: 2,
+  west: 3,
+  'south-east': 4,
+  'south-west': 5,
+  'north-east': 6,
+  'north-west': 7,
+}
+
+export const STATE_ROW_OFFSET: Record<AnimationState, number> = {
+  idle: 0,
+  blocked: 8,
+  completed: 16,
+  failed: 24,
+}
+
 export type AgentAnimState =
   | 'planning'
   | 'coding'
@@ -10,6 +40,17 @@ export type AgentAnimState =
   | 'blocked'
   | 'completed'
   | 'failed'
+
+export const COLOR_STATE_TO_ANIMATION: Record<AgentAnimState, AnimationState> = {
+  planning: 'idle',
+  coding: 'idle',
+  reading: 'idle',
+  testing: 'idle',
+  waiting: 'idle',
+  blocked: 'blocked',
+  completed: 'completed',
+  failed: 'failed',
+}
 
 export const STATE_CSS_CLASSES: Record<AgentAnimState, string> = {
   planning: 'sprite-planning',
