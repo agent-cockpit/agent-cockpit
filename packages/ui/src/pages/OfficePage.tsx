@@ -1,5 +1,4 @@
 import { useState } from 'react'
-import { useNavigate } from 'react-router'
 import { DndContext, PointerSensor, useSensor, useSensors } from '@dnd-kit/core'
 import type { DragEndEvent, DragStartEvent } from '@dnd-kit/core'
 import { useStore } from '../store/index.js'
@@ -7,6 +6,7 @@ import { useActiveSessions } from '../store/selectors.js'
 import { useLocalStorage } from '../hooks/useLocalStorage.js'
 import { deriveAgentState } from '../components/office/spriteStates.js'
 import { AgentSprite } from '../components/office/AgentSprite.js'
+import { InstancePopupHub } from '../components/office/InstancePopupHub.js'
 
 const CELL = 96
 const COLS = 5
@@ -19,7 +19,7 @@ export function OfficePage() {
     {},
   )
   const [activeDragId, setActiveDragId] = useState<string | null>(null)
-  const navigate = useNavigate()
+  const [popupOpen, setPopupOpen] = useState(false)
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
   )
@@ -47,7 +47,8 @@ export function OfficePage() {
 
   function handleSpriteClick(sessionId: string) {
     useStore.getState().selectSession(sessionId)
-    navigate('/session/' + sessionId + '/approvals')
+    useStore.getState().setHistoryMode?.(false)
+    setPopupOpen(true)
   }
 
   return (
@@ -82,6 +83,7 @@ export function OfficePage() {
           )
         })}
       </div>
+      <InstancePopupHub open={popupOpen} onClose={() => setPopupOpen(false)} />
     </DndContext>
   )
 }

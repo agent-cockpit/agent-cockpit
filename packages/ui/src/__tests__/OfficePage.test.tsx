@@ -4,21 +4,27 @@ import React from 'react'
 
 // Mock react-router
 const mockNavigate = vi.fn()
+const mockParams = {}
 vi.mock('react-router', () => ({
   useNavigate: () => mockNavigate,
+  useParams: () => mockParams,
 }))
 
 // Hoisted mocks so vi.mock factory can reference them
-const { mockUseStore, mockSelectSession } = vi.hoisted(() => {
+const { mockUseStore, mockSelectSession, mockSetHistoryMode } = vi.hoisted(() => {
   const mockSelectSession = vi.fn()
+  const mockSetHistoryMode = vi.fn()
   const mockUseStore = Object.assign(
     vi.fn((selector: (s: unknown) => unknown) => selector({
       sessions: {},
       events: {},
+      selectedSessionId: null,
+      pendingApprovalsBySession: {},
+      wsStatus: 'connected',
     })),
-    { getState: vi.fn(() => ({ selectSession: mockSelectSession })) },
+    { getState: vi.fn(() => ({ selectSession: mockSelectSession, setHistoryMode: mockSetHistoryMode })) },
   )
-  return { mockUseStore, mockSelectSession }
+  return { mockUseStore, mockSelectSession, mockSetHistoryMode }
 })
 
 vi.mock('../store/index.js', () => ({
@@ -96,6 +102,7 @@ beforeEach(() => {
   mockStoredPositions = {}
   mockNavigate.mockReset()
   mockSelectSession.mockReset()
+  mockSetHistoryMode.mockReset()
   mockSetPositions.mockReset()
   Object.keys(capturedSpriteProps).forEach(k => delete capturedSpriteProps[k])
 
@@ -107,6 +114,9 @@ beforeEach(() => {
         'sess-2': SESSION_2,
       },
       events: {},
+      selectedSessionId: null,
+      pendingApprovalsBySession: {},
+      wsStatus: 'connected',
     }
     return selector(state)
   })
@@ -132,6 +142,9 @@ describe('OfficePage', () => {
           'sess-ended': SESSION_ENDED,
         },
         events: {},
+        selectedSessionId: null,
+        pendingApprovalsBySession: {},
+        wsStatus: 'connected',
       }
       return selector(state)
     })
@@ -160,16 +173,18 @@ describe('OfficePage', () => {
     expect(screen.getByTestId('sprite-sess-1')).toBeDefined()
   })
 
-  it('clicking AgentSprite calls useNavigate with /session/{sessionId}/approvals', () => {
+  it('clicking AgentSprite calls selectSession and does NOT call navigate', () => {
     render(<OfficePage />)
     fireEvent.click(screen.getByTestId('sprite-sess-1'))
-    expect(mockNavigate).toHaveBeenCalledWith('/session/sess-1/approvals')
+    expect(mockSelectSession).toHaveBeenCalledWith('sess-1')
+    expect(mockNavigate).not.toHaveBeenCalled()
   })
 
-  it('clicking AgentSprite for sess-2 navigates to /session/sess-2/approvals', () => {
+  it('clicking AgentSprite for sess-2 calls selectSession and does NOT call navigate', () => {
     render(<OfficePage />)
     fireEvent.click(screen.getByTestId('sprite-sess-2'))
-    expect(mockNavigate).toHaveBeenCalledWith('/session/sess-2/approvals')
+    expect(mockSelectSession).toHaveBeenCalledWith('sess-2')
+    expect(mockNavigate).not.toHaveBeenCalled()
   })
 
   it('passes elapsedMs computed from session.startedAt to AgentSprite', () => {
@@ -177,7 +192,7 @@ describe('OfficePage', () => {
     const startedAt = new Date(now - 60_000).toISOString()
     const SESSION_TIMED = makeSession({ sessionId: 'sess-timed', startedAt })
     mockUseStore.mockImplementation((selector: (s: unknown) => unknown) => {
-      const state = { sessions: { 'sess-timed': SESSION_TIMED }, events: {} }
+      const state = { sessions: { 'sess-timed': SESSION_TIMED }, events: {}, selectedSessionId: null, pendingApprovalsBySession: {}, wsStatus: 'connected' }
       return selector(state)
     })
     render(<OfficePage />)
@@ -193,6 +208,9 @@ describe('OfficePage', () => {
       const state = {
         sessions: { 'sess-1': SESSION_1 },
         events: { 'sess-1': [toolCallEvent] },
+        selectedSessionId: null,
+        pendingApprovalsBySession: {},
+        wsStatus: 'connected',
       }
       return selector(state)
     })
@@ -202,7 +220,7 @@ describe('OfficePage', () => {
 
   it('passes lastToolUsed=undefined when no events for session', () => {
     mockUseStore.mockImplementation((selector: (s: unknown) => unknown) => {
-      const state = { sessions: { 'sess-1': SESSION_1 }, events: {} }
+      const state = { sessions: { 'sess-1': SESSION_1 }, events: {}, selectedSessionId: null, pendingApprovalsBySession: {}, wsStatus: 'connected' }
       return selector(state)
     })
     render(<OfficePage />)
@@ -215,6 +233,9 @@ describe('OfficePage', () => {
       const state = {
         sessions: { 'sess-1': SESSION_1 },
         events: { 'sess-1': [nonToolEvent] },
+        selectedSessionId: null,
+        pendingApprovalsBySession: {},
+        wsStatus: 'connected',
       }
       return selector(state)
     })

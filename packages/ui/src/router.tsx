@@ -11,19 +11,6 @@ export const router = createBrowserRouter([
     children: [
       {
         index: true,
-        Component: () => (
-          <div className="flex items-center justify-center h-full p-8">
-            <span className="text-sm text-muted-foreground">Select a session to get started.</span>
-          </div>
-        ),
-      },
-      {
-        path: 'history',
-        lazy: () =>
-          import('./pages/HistoryPage.js').then((m) => ({ Component: m.HistoryPage })),
-      },
-      {
-        path: 'office',
         lazy: () =>
           import('./pages/OfficePage.js').then((m) => ({ Component: m.OfficePage })),
       },
