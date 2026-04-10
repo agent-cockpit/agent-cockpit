@@ -4,7 +4,7 @@ milestone: v1.0
 milestone_name: milestone
 status: executing
 stopped_at: Completed 14-05-PLAN.md — User character on map, sidebar camera focus, verification
-last_updated: "2026-04-10T16:49:20.636Z"
+last_updated: "2026-04-10T16:57:15.739Z"
 last_activity: 2026-04-10 — InstancePopupHub and MapSidebar built, all components use store-selected sessionId
 progress:
   total_phases: 6
