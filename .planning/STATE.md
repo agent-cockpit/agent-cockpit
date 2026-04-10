@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-status: in_progress
-stopped_at: Completed 14-02-PLAN.md — session ID fallback refactor
-last_updated: "2026-04-10T16:07:53.000Z"
-last_activity: "2026-04-10 — Phase 14: Session ID fallback refactor complete, panels ready for popup hub"
+status: executing
+stopped_at: Completed 14-03-PLAN.md — InstancePopupHub and MapSidebar built
+last_updated: "2026-04-10T16:22:10.756Z"
+last_activity: 2026-04-10 — InstancePopupHub and MapSidebar built, all components use store-selected sessionId
 progress:
-  total_phases: 14
-  completed_phases: 1
-  total_plans: 70
-  completed_plans: 56
-  percent: 80
+  total_phases: 6
+  completed_phases: 2
+  total_plans: 19
+  completed_plans: 16
+  percent: 81
 ---
 
 # Project State
@@ -26,11 +26,11 @@ See: .planning/PROJECT.md (updated 2026-04-04)
 ## Current Position
 
 Phase: 14 of 14 in progress (Office Map View — Full Navigation Paradigm Shift)
-Plan: 14-02 complete, 14-03 next
-Status: Phase 14 in progress — popup hub implementation ready to begin
-Last activity: 2026-04-10 — Session ID fallback refactor complete, all 4 panels support popup hub context
+Plan: 14-03 complete, 14-04 next
+Status: Phase 14 in progress — components ready for router integration
+Last activity: 2026-04-10 — InstancePopupHub and MapSidebar built, all components use store-selected sessionId
 
-Progress: [████████░░] 80%
+Progress: [█████████░] 81%
 
 ## Performance Metrics
 
@@ -86,6 +86,7 @@ Progress: [████████░░] 80%
 | Phase 10.2-pixel-art-preproduction P03 | 3 | 4 tasks | 1 files |
 | Phase 14 P01 | 177 | 2 tasks | 4 files |
 | Phase 14 P02 | 4min | 2 tasks | 4 files |
+| Phase 14 P03 | 9min | 3 tasks | 5 files |
 
 ## Accumulated Context
 
@@ -198,6 +199,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-10T16:07:53.000Z
-Stopped at: Completed 14-02-PLAN.md — session ID fallback refactor
+Last session: 2026-04-10T16:22:10.752Z
+Stopped at: Completed 14-03-PLAN.md — InstancePopupHub and MapSidebar built
 Resume file: None
