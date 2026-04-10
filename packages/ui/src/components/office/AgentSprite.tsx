@@ -1,107 +1,49 @@
-import React, { useState, useEffect } from 'react'
-import { useDraggable } from '@dnd-kit/core'
-import { CSS } from '@dnd-kit/utilities'
-import * as HoverCard from '@radix-ui/react-hover-card'
-import type { SessionRecord } from '../../store/index.js'
-import { STATE_CSS_CLASSES, STATE_ROW_OFFSET, DIRECTION_ROWS, COLOR_STATE_TO_ANIMATION } from './spriteStates.js'
-import type { AgentAnimState, Direction } from './spriteStates.js'
-import { sessionToCharacter } from './characterMapping.js'
-import { AgentHoverCard } from './AgentHoverCard.js'
+// DnD removed in Phase 15-03. AgentSprite is now a pure canvas draw utility.
+// The React component is gone. Positions are owned by gameState.npcs. Zone assignment in Phase 17.
 
-interface AgentSpriteProps {
+import type { NormalizedEvent } from '@cockpit/shared'
+import type { SessionRecord } from '../../store/index.js'
+import {
+  STATE_ROW_OFFSET,
+  DIRECTION_ROWS,
+  COLOR_STATE_TO_ANIMATION,
+  deriveAgentState,
+} from './spriteStates.js'
+import type { Direction } from './spriteStates.js'
+import { sessionToCharacter } from './characterMapping.js'
+
+export interface DrawAgentSpriteOptions {
+  ctx: CanvasRenderingContext2D
   session: SessionRecord
-  agentState: AgentAnimState
+  lastEvent: NormalizedEvent | undefined
   position: { x: number; y: number }
-  isDragging: boolean
-  onClick: () => void
-  elapsedMs: number
-  lastToolUsed?: string
   direction?: Direction
+  imageCache: Map<string, HTMLImageElement>
 }
 
-export function AgentSprite({
+export function drawAgentSprite({
+  ctx,
   session,
-  agentState,
+  lastEvent,
   position,
-  isDragging,
-  onClick,
-  elapsedMs,
-  lastToolUsed,
   direction = 'south',
-}: AgentSpriteProps) {
-  const { attributes, listeners, setNodeRef, transform } = useDraggable({
-    id: session.sessionId,
-  })
-
+  imageCache,
+}: DrawAgentSpriteOptions): void {
   const characterType = sessionToCharacter(session.sessionId)
-  const [frameIndex, setFrameIndex] = useState(0)
-  const [frameCounts, setFrameCounts] = useState<Record<string, number>>({})
-
-  useEffect(() => {
-    fetch(`/sprites/${characterType}-manifest.json`)
-      .then(r => r.json())
-      .then(m => setFrameCounts(m.states))
-      .catch(() => {})
-  }, [characterType])
-
+  const agentState = deriveAgentState(session, lastEvent)
   const animState = COLOR_STATE_TO_ANIMATION[agentState]
-  const frameCount = frameCounts[animState] ?? 1
+  const row = DIRECTION_ROWS[direction] + STATE_ROW_OFFSET[animState]
+  const col = 0  // static blit: frame 0 only (no animation stepping in Phase 15)
+  const src = `/sprites/${characterType}-sheet.png`
 
-  useEffect(() => {
-    if (frameCount <= 1) return
-    const id = setInterval(() => setFrameIndex(f => (f + 1) % frameCount), 150)
-    return () => clearInterval(id)
-  }, [frameCount])
+  let img = imageCache.get(src)
+  if (!img) {
+    img = new Image()
+    img.src = src
+    img.onload = () => {}  // img will be cached; next frame will draw it
+    imageCache.set(src, img)
+  }
+  if (!img.complete) return  // skip frame if not loaded yet
 
-  const spriteRow = STATE_ROW_OFFSET[animState] + DIRECTION_ROWS[direction]
-
-  // Get the basename of workspacePath (last non-empty segment)
-  const basename =
-    session.workspacePath
-      .split('/')
-      .filter(Boolean)
-      .pop() ?? session.sessionId
-
-  return (
-    <HoverCard.Root
-      openDelay={300}
-      closeDelay={100}
-      open={isDragging ? false : undefined}
-    >
-      <HoverCard.Trigger asChild>
-        <div
-          ref={setNodeRef}
-          data-testid={`agent-sprite-${session.sessionId}`}
-          style={{
-            position: 'absolute',
-            left: position.x,
-            top: position.y,
-            transform: CSS.Transform.toString(transform) ?? undefined,
-            cursor: transform ? 'grabbing' : 'pointer',
-            touchAction: 'none',
-          }}
-          onClick={onClick}
-          {...listeners}
-          {...attributes}
-        >
-          <div
-            className={`agent-sprite ${STATE_CSS_CLASSES[agentState]}`}
-            style={{
-              backgroundImage: `url('/sprites/${characterType}-sheet.png')`,
-              backgroundPositionY: `${spriteRow * -64}px`,
-              backgroundPositionX: `${frameIndex * -64}px`,
-              backgroundRepeat: 'no-repeat',
-              imageRendering: 'pixelated',
-              width: 64,
-              height: 64,
-            }}
-          />
-          <span>{basename}</span>
-        </div>
-      </HoverCard.Trigger>
-      <HoverCard.Content side="top" sideOffset={8}>
-        <AgentHoverCard session={session} elapsedMs={elapsedMs} lastToolUsed={lastToolUsed} />
-      </HoverCard.Content>
-    </HoverCard.Root>
-  )
+  ctx.drawImage(img, col * 64, row * 64, 64, 64, position.x, position.y, 64, 64)
 }
