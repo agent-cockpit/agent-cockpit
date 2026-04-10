@@ -98,7 +98,9 @@ function ApprovalCard({ approval, disabled, onDecision }: ApprovalCardProps) {
 // ─── ApprovalInbox ────────────────────────────────────────────────────────────
 
 export function ApprovalInbox() {
-  const { sessionId } = useParams<{ sessionId: string }>()
+  const { sessionId: paramSessionId } = useParams<{ sessionId: string }>()
+  const storeSessionId = useStore((s) => s.selectedSessionId)
+  const sessionId = paramSessionId ?? storeSessionId ?? ''
   const approvals = useStore(
     (s) => s.pendingApprovalsBySession[sessionId ?? ''] ?? EMPTY_APPROVALS,
   )
