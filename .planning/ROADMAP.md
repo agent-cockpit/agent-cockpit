@@ -80,3 +80,17 @@ Plans:
 - [ ] 13-02-PLAN.md — AgentSprite.tsx multi-character support + sessionId→character mapping
 - [ ] 13-03-PLAN.md — CSS state system (glow colors + unique animation rows) + Office background tiles
 - [ ] 13-04-PLAN.md — Tier 2/3 assets: icons, risk badges, loading animation
+
+### Phase 14: Office Map View — Full Navigation Paradigm Shift
+
+**Goal:** Transform the entire Agent Cockpit navigation model. Office map IS the app — default landing view. Agent characters on map. Clicking agent character opens popup hub with all session detail tabs. Sidebar minimal (name+status only). History becomes global popup. No approvals regressions.
+**Requirements**: routing-default, panel-sessionid-fallback, popup-hub, sidebar-minimal, sidebar-focus, history-popup, nav-simplified, user-character, approvals-regression
+**Depends on:** Phase 13
+**Plans:** 5 plans
+
+Plans:
+- [ ] 14-01-PLAN.md — Install @radix-ui/react-dialog + @radix-ui/react-tabs, create Wave 0 test stubs
+- [ ] 14-02-PLAN.md — Panel useParams → Zustand selectedSessionId fallback (ApprovalInbox, Timeline, Diff, Memory)
+- [ ] 14-03-PLAN.md — Build InstancePopupHub (Radix Dialog + Tabs) and MapSidebar (slim active session list)
+- [ ] 14-04-PLAN.md — Router switch (OfficePage as index), sprite-click → popup, OpsLayout nav simplification, HistoryPopup
+- [ ] 14-05-PLAN.md — User character on map, sidebar camera focus wiring, human-verify checkpoint
