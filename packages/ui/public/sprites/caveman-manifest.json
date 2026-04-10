@@ -1,0 +1,10 @@
+{
+  "states": {
+    "idle": 4,
+    "blocked": 8,
+    "completed": 9,
+    "failed": 7
+  },
+  "frameSize": 64,
+  "directions": 8
+}

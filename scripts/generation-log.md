@@ -88,3 +88,87 @@
 - `falling_backward-64a40733` → failed (7 frames × 8 dirs)
 
 **Sprite sheet:** `packages/ui/public/sprites/monkey-sheet.png` — 576×2048px
+
+---
+
+## Caveman
+
+| Character | character_id | Base status | Idle frames | Blocked frames | Completed frames | Failed frames | Sheet status |
+|-----------|-------------|-------------|-------------|----------------|-----------------|---------------|--------------|
+| caveman | 43f05887-afb1-474d-855b-754cad27025e | done | 4 per dir | 8 per dir | 9 per dir | 7 per dir | done |
+
+**Animation IDs in ZIP:**
+- `animating-4c1a1e2d` → idle (4 frames × 8 dirs)
+- `animating-28b1b3f8` → blocked (8 frames × 8 dirs)
+- `animating-cdba88b5` → completed (9 frames × 8 dirs)
+- `falling_backward-eccf4796` → failed (7 frames × 8 dirs)
+
+**Note:** Original description ("caveman wearing a space helmet over fur loincloth, club in hand") failed content filter repeatedly. Successful description: "prehistoric human in fur outfit with space helmet, holding a club, pixel art, chibi style"
+
+**Sprite sheet:** `packages/ui/public/sprites/caveman-sheet.png` — 576×2048px
+
+---
+
+## Ghost
+
+| Character | character_id | Base status | Idle frames | Blocked frames | Completed frames | Failed frames | Sheet status |
+|-----------|-------------|-------------|-------------|----------------|-----------------|---------------|--------------|
+| ghost | b568e405-2a98-40ac-885c-93097d2e7ef6 | done | 4 per dir | 8 per dir | 9 per dir | 7 per dir | done |
+
+**Animation IDs in ZIP:**
+- `animating-37b6a687` → idle (4 frames × 8 dirs)
+- `animating-a32b02cc` → blocked (8 frames × 8 dirs)
+- `animating-821313ab` → completed (9 frames × 8 dirs)
+- `falling_backward-eb3bd210` → failed (7 frames × 8 dirs)
+
+**Sprite sheet:** `packages/ui/public/sprites/ghost-sheet.png` — 576×2048px
+
+---
+
+## Ninja
+
+| Character | character_id | Base status | Idle frames | Blocked frames | Completed frames | Failed frames | Sheet status |
+|-----------|-------------|-------------|-------------|----------------|-----------------|---------------|--------------|
+| ninja | 620dc52a-61be-4e5d-8dab-8bc36ddc1008 | done | 4 per dir | 8 per dir | 9 per dir | 7 per dir | done |
+
+**Animation IDs in ZIP:**
+- `animating-598ca548` → idle (4 frames × 8 dirs)
+- `animating-de917bac` → blocked (8 frames × 8 dirs)
+- `animating-9dd129ae` → completed (9 frames × 8 dirs)
+- `falling_backward-1e4281d0` → failed (7 frames × 8 dirs)
+
+**Sprite sheet:** `packages/ui/public/sprites/ninja-sheet.png` — 576×2048px
+
+---
+
+## Pirate
+
+| Character | character_id | Base status | Idle frames | Blocked frames | Completed frames | Failed frames | Sheet status |
+|-----------|-------------|-------------|-------------|----------------|-----------------|---------------|--------------|
+| pirate | 33c84935-d665-4a8a-83c2-0d2e86f533cb | done | 4 per dir | 8 per dir | 9 per dir | 7 per dir | done |
+
+**Animation IDs in ZIP:**
+- `animating-85d4d918` → idle (4 frames × 8 dirs)
+- `animating-d25136b6` → blocked (8 frames × 8 dirs)
+- `animating-4b884fb7` → completed (9 frames × 8 dirs)
+- `falling_backward-2ecc716e` → failed (7 frames × 8 dirs)
+
+**Sprite sheet:** `packages/ui/public/sprites/pirate-sheet.png` — 576×2048px
+
+---
+
+## Medicine Woman
+
+| Character | character_id | Base status | Idle frames | Blocked frames | Completed frames | Failed frames | Sheet status |
+|-----------|-------------|-------------|-------------|----------------|-----------------|---------------|--------------|
+| medicine-woman | 8f097b90-a825-48ea-8d4e-b863ee2159ed | done | 4 per dir | 8 per dir | 9 per dir | 7 per dir | done |
+
+**Animation IDs in ZIP:**
+- `animating-161fef7f` → idle (4 frames × 8 dirs)
+- `animating-d359e6e2` → blocked (8 frames × 8 dirs)
+- `animating-6cbf5a68` → completed (9 frames × 8 dirs)
+- `falling_backward-72d2a9ea` → failed (7 frames × 8 dirs)
+
+**Note:** Original description ("medicine woman in traditional headdress combined with space suit elements") failed content filter repeatedly. Successful description: "indigenous healer in traditional headdress and space suit, carrying medicine bag, wise expression, pixel art, chibi style"
+
+**Sprite sheet:** `packages/ui/public/sprites/medicine-woman-sheet.png` — 576×2048px
