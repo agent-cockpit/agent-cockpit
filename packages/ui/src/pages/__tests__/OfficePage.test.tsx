@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { render, screen, act } from '@testing-library/react'
+import { render, screen, act, fireEvent } from '@testing-library/react'
 
 // Track start/stop calls
 const startMock = vi.fn()
@@ -18,27 +18,28 @@ vi.mock('../../game/GameEngine.js', () => {
   }
 })
 
-// Mock useStore and useActiveSessions to return minimal data
-vi.mock('../../store/index.js', () => ({
-  useStore: vi.fn((selector: (s: object) => unknown) => {
-    const state = {
-      events: {},
-      sessions: {},
-      selectedSessionId: null,
-      selectSession: vi.fn(),
-      setHistoryMode: vi.fn(),
-    }
-    return selector(state)
-  }),
+// Hoist selectSession/setHistoryMode mocks so they're available inside vi.mock factories
+const { selectSessionMock, setHistoryModeMock } = vi.hoisted(() => ({
+  selectSessionMock: vi.fn(),
+  setHistoryModeMock: vi.fn(),
 }))
+
+vi.mock('../../store/index.js', () => {
+  const storeState = {
+    events: {},
+    sessions: {},
+    selectedSessionId: null,
+    selectSession: selectSessionMock,
+    setHistoryMode: setHistoryModeMock,
+  }
+  const useStore = vi.fn((selector: (s: typeof storeState) => unknown) => selector(storeState))
+  // Attach getState for canvas click handler usage
+  ;(useStore as unknown as { getState: () => typeof storeState }).getState = () => storeState
+  return { useStore }
+})
 
 vi.mock('../../store/selectors.js', () => ({
   useActiveSessions: vi.fn(() => []),
-}))
-
-// Mock useLocalStorage
-vi.mock('../../hooks/useLocalStorage.js', () => ({
-  useLocalStorage: vi.fn(() => [{}, vi.fn()]),
 }))
 
 // Mock ResizeObserver in jsdom
@@ -51,6 +52,7 @@ class MockResizeObserver {
 // Mock canvas 2d context — jsdom doesn't implement it
 const mockCtx = {
   clearRect: vi.fn(),
+  drawImage: vi.fn(),
 }
 HTMLCanvasElement.prototype.getContext = vi.fn(() => mockCtx) as unknown as typeof HTMLCanvasElement.prototype.getContext
 
@@ -59,13 +61,23 @@ vi.mock('../../components/office/InstancePopupHub.js', () => ({
   InstancePopupHub: () => null,
 }))
 
+// Mock drawAgentSprite (canvas draw — no-op in tests)
+vi.mock('../../components/office/AgentSprite.js', () => ({
+  drawAgentSprite: vi.fn(),
+}))
+
 import { OfficePage } from '../OfficePage.js'
+import { gameState } from '../../game/GameState.js'
 
 describe('OfficePage canvas mount', () => {
   beforeEach(() => {
     startMock.mockClear()
     stopMock.mockClear()
+    selectSessionMock.mockClear()
+    setHistoryModeMock.mockClear()
     vi.stubGlobal('ResizeObserver', MockResizeObserver)
+    // Reset npcs between tests
+    Object.keys(gameState.npcs).forEach(k => delete gameState.npcs[k])
   })
 
   afterEach(() => {
@@ -94,5 +106,72 @@ describe('OfficePage canvas mount', () => {
     expect(stopMock).not.toHaveBeenCalled()
     act(() => { unmount() })
     expect(stopMock).toHaveBeenCalledTimes(1)
+  })
+
+  it('no DnD wrapper is rendered — no @dnd-kit aria attributes', () => {
+    const { container } = render(<OfficePage />)
+    // DndContext renders a div with data-dnd-context-id — confirm absence
+    const dndElements = container.querySelectorAll('[data-dnd-context-id]')
+    expect(dndElements.length).toBe(0)
+  })
+
+  it('no agent sprite divs are rendered via React (queryAllByTestId returns [])', () => {
+    const { queryAllByTestId } = render(<OfficePage />)
+    // Old pattern was agent-sprite-{id}, canvas approach renders nothing to DOM
+    const sprites = queryAllByTestId(/^agent-sprite-/)
+    expect(sprites).toHaveLength(0)
+  })
+
+  it('canvas click at NPC position calls selectSession with correct id', async () => {
+    // Make useActiveSessions return a session so the seeding effect keeps it alive
+    const { useActiveSessions } = await import('../../store/selectors.js')
+    ;(useActiveSessions as ReturnType<typeof vi.fn>).mockReturnValue([
+      {
+        sessionId: 'test-session-1',
+        provider: 'claude',
+        workspacePath: '/test',
+        startedAt: '2024-01-01T00:00:00Z',
+        status: 'active',
+        lastEventAt: '2024-01-01T00:01:00Z',
+        pendingApprovals: 0,
+      },
+    ])
+
+    act(() => { render(<OfficePage />) })
+
+    const canvas = screen.getByTestId('game-canvas')
+
+    // Mock getBoundingClientRect so click coordinates map correctly
+    vi.spyOn(canvas, 'getBoundingClientRect').mockReturnValue({
+      left: 0, top: 0, right: 800, bottom: 600,
+      width: 800, height: 600,
+      x: 0, y: 0,
+      toJSON: () => ({}),
+    })
+
+    // gameState.npcs['test-session-1'] is seeded by the component effect at index 0
+    // → x: 0, y: 0 (COLS=5, CELL=96 but session is at i=0)
+    // Sprite at (0,0), click at (30, 30) — within 64px sprite
+    const clickEvent = new MouseEvent('click', { bubbles: true, cancelable: true, clientX: 30, clientY: 30 })
+    canvas.dispatchEvent(clickEvent)
+
+    expect(selectSessionMock).toHaveBeenCalledWith('test-session-1')
+  })
+
+  it('canvas click outside any NPC does not call selectSession', () => {
+    gameState.npcs['test-session-2'] = { x: 10, y: 10 }
+
+    render(<OfficePage />)
+    const canvas = screen.getByTestId('game-canvas')
+    canvas.getBoundingClientRect = () => ({
+      left: 0, top: 0, right: 800, bottom: 600,
+      width: 800, height: 600,
+      x: 0, y: 0,
+      toJSON: () => ({}),
+    })
+
+    // Click at (200, 200) — well outside the 64px sprite at (10, 10)
+    fireEvent.click(canvas, { clientX: 200, clientY: 200 })
+    expect(selectSessionMock).not.toHaveBeenCalled()
   })
 })

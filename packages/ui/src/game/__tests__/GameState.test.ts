@@ -3,8 +3,8 @@ import { gameState, WORLD_W, WORLD_H } from '../GameState.js'
 import * as store from '../../store/index.js'
 
 describe('GameState', () => {
-  it('gameState.camera initial value is { x: 0, y: 0, targetX: 0, targetY: 0 }', () => {
-    expect(gameState.camera).toEqual({ x: 0, y: 0, targetX: 0, targetY: 0 })
+  it('gameState.camera initial value is { x: 0, y: 0, targetX: 0, targetY: 0, viewportW: 0, viewportH: 0 }', () => {
+    expect(gameState.camera).toEqual({ x: 0, y: 0, targetX: 0, targetY: 0, viewportW: 0, viewportH: 0 })
   })
 
   it("gameState.player initial value has x: 192 (2*96), y: 480 (5*96), direction: 'south'", () => {

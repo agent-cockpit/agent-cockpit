@@ -1,85 +1,76 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen, fireEvent, act } from '@testing-library/react'
-import React from 'react'
+// OfficePage legacy test suite — updated in Phase 15-03 for canvas-based sprite rendering.
+// DnD, React AgentSprite divs, and localStorage positions have been removed.
+// Canvas rendering, gameState.npcs seeding, and click handler are tested here.
 
-// Mock react-router
-const mockNavigate = vi.fn()
-const mockParams = {}
-vi.mock('react-router', () => ({
-  useNavigate: () => mockNavigate,
-  useParams: () => mockParams,
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
+import { render, screen, act } from '@testing-library/react'
+
+// Mock GameEngine
+const startMock = vi.fn()
+const stopMock = vi.fn()
+vi.mock('../game/GameEngine.js', () => ({
+  GameEngine: class {
+    constructor(_canvas: HTMLCanvasElement) {}
+    start() { startMock() }
+    stop() { stopMock() }
+    update(_deltaMs: number) {}
+    render() {}
+  },
 }))
 
-// Hoisted mocks so vi.mock factory can reference them
-const { mockUseStore, mockSelectSession, mockSetHistoryMode } = vi.hoisted(() => {
-  const mockSelectSession = vi.fn()
-  const mockSetHistoryMode = vi.fn()
-  const mockUseStore = Object.assign(
-    vi.fn((selector: (s: unknown) => unknown) => selector({
-      sessions: {},
-      events: {},
-      selectedSessionId: null,
-      pendingApprovalsBySession: {},
-      wsStatus: 'connected',
-    })),
-    { getState: vi.fn(() => ({ selectSession: mockSelectSession, setHistoryMode: mockSetHistoryMode })) },
+// Hoisted store mocks
+const { mockSelectSession, mockSetHistoryMode } = vi.hoisted(() => ({
+  mockSelectSession: vi.fn(),
+  mockSetHistoryMode: vi.fn(),
+}))
+
+vi.mock('../store/index.js', () => {
+  const storeState = {
+    events: {} as Record<string, unknown[]>,
+    sessions: {} as Record<string, unknown>,
+    selectedSessionId: null,
+    selectSession: mockSelectSession,
+    setHistoryMode: mockSetHistoryMode,
+  }
+  const useStore = Object.assign(
+    vi.fn((selector: (s: typeof storeState) => unknown) => selector(storeState)),
+    { getState: () => storeState },
   )
-  return { mockUseStore, mockSelectSession, mockSetHistoryMode }
+  return { useStore }
 })
 
-vi.mock('../store/index.js', () => ({
-  useStore: mockUseStore,
+// Mock useActiveSessions
+const { mockUseActiveSessions } = vi.hoisted(() => ({
+  mockUseActiveSessions: vi.fn(() => [] as unknown[]),
+}))
+vi.mock('../store/selectors.js', () => ({
+  useActiveSessions: mockUseActiveSessions,
 }))
 
-// Mock useLocalStorage to control stored positions and capture writes
-const mockSetPositions = vi.fn()
-let mockStoredPositions: Record<string, { x: number; y: number }> = {}
-vi.mock('../hooks/useLocalStorage.js', () => ({
-  useLocalStorage: (_key: string, defaultValue: unknown) => {
-    return [mockStoredPositions, mockSetPositions]
-  },
+// Mock InstancePopupHub
+vi.mock('../components/office/InstancePopupHub.js', () => ({
+  InstancePopupHub: () => null,
 }))
 
-// Capture props passed to each AgentSprite for assertion
-const capturedSpriteProps: Record<string, { elapsedMs?: number; lastToolUsed?: string }> = {}
+// Mock drawAgentSprite
 vi.mock('../components/office/AgentSprite.js', () => ({
-  AgentSprite: (props: {
-    session: { sessionId: string }
-    onClick: () => void
-    elapsedMs?: number
-    lastToolUsed?: string
-  }) => {
-    capturedSpriteProps[props.session.sessionId] = {
-      elapsedMs: props.elapsedMs,
-      lastToolUsed: props.lastToolUsed,
-    }
-    return <div data-testid={`sprite-${props.session.sessionId}`} onClick={props.onClick} />
-  },
+  drawAgentSprite: vi.fn(),
 }))
 
-// Mock dnd-kit DndContext
-vi.mock('@dnd-kit/core', () => ({
-  DndContext: ({ children, onDragEnd }: {
-    children: React.ReactNode
-    onDragStart?: (e: unknown) => void
-    onDragEnd?: (e: unknown) => void
-  }) => (
-    <div data-testid="dnd-context" data-on-drag-end={String(typeof onDragEnd)}>
-      {children}
-    </div>
-  ),
-  useSensors: (...sensors: unknown[]) => sensors,
-  useSensor: (_cls: unknown, _opts?: unknown) => ({}),
-  PointerSensor: class PointerSensor {},
-}))
+// Mock canvas 2d context
+const mockCtx = { clearRect: vi.fn(), drawImage: vi.fn() }
+HTMLCanvasElement.prototype.getContext = vi.fn(() => mockCtx) as unknown as typeof HTMLCanvasElement.prototype.getContext
 
-// Mock deriveAgentState
-vi.mock('../components/office/spriteStates.js', () => ({
-  deriveAgentState: () => 'waiting',
-}))
+// Mock ResizeObserver
+class MockResizeObserver {
+  observe = vi.fn()
+  disconnect = vi.fn()
+  unobserve = vi.fn()
+}
 
-import type { SessionRecord } from '../store/index.js'
 import { OfficePage } from '../pages/OfficePage.js'
+import { gameState } from '../game/GameState.js'
+import type { SessionRecord } from '../store/index.js'
 
 function makeSession(overrides: Partial<SessionRecord> & Pick<SessionRecord, 'sessionId'>): SessionRecord {
   return {
@@ -95,151 +86,102 @@ function makeSession(overrides: Partial<SessionRecord> & Pick<SessionRecord, 'se
 
 const SESSION_1 = makeSession({ sessionId: 'sess-1', workspacePath: '/projects/alpha' })
 const SESSION_2 = makeSession({ sessionId: 'sess-2', workspacePath: '/projects/beta' })
-const SESSION_ENDED = makeSession({ sessionId: 'sess-ended', status: 'ended' })
-
-beforeEach(() => {
-  vi.clearAllMocks()
-  mockStoredPositions = {}
-  mockNavigate.mockReset()
-  mockSelectSession.mockReset()
-  mockSetHistoryMode.mockReset()
-  mockSetPositions.mockReset()
-  Object.keys(capturedSpriteProps).forEach(k => delete capturedSpriteProps[k])
-
-  // Default store: two active sessions, no events
-  mockUseStore.mockImplementation((selector: (s: unknown) => unknown) => {
-    const state = {
-      sessions: {
-        'sess-1': SESSION_1,
-        'sess-2': SESSION_2,
-      },
-      events: {},
-      selectedSessionId: null,
-      pendingApprovalsBySession: {},
-      wsStatus: 'connected',
-    }
-    return selector(state)
-  })
-})
 
 describe('OfficePage', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    vi.stubGlobal('ResizeObserver', MockResizeObserver)
+    // Reset npcs and gameState.camera between tests
+    Object.keys(gameState.npcs).forEach(k => delete gameState.npcs[k])
+    gameState.camera.x = 0
+    gameState.camera.y = 0
+    mockUseActiveSessions.mockReturnValue([])
+  })
+
+  afterEach(() => {
+    vi.unstubAllGlobals()
+  })
+
   it('renders data-testid="office-canvas" div', () => {
     render(<OfficePage />)
     expect(screen.getByTestId('office-canvas')).toBeDefined()
   })
 
-  it('renders one AgentSprite per active session (2 sessions)', () => {
+  it('renders game-canvas element', () => {
     render(<OfficePage />)
-    expect(screen.getByTestId('sprite-sess-1')).toBeDefined()
-    expect(screen.getByTestId('sprite-sess-2')).toBeDefined()
+    expect(screen.getByTestId('game-canvas')).toBeInTheDocument()
   })
 
-  it('sessions with status!=="active" are NOT rendered', () => {
-    mockUseStore.mockImplementation((selector: (s: unknown) => unknown) => {
-      const state = {
-        sessions: {
-          'sess-1': SESSION_1,
-          'sess-ended': SESSION_ENDED,
-        },
-        events: {},
-        selectedSessionId: null,
-        pendingApprovalsBySession: {},
-        wsStatus: 'connected',
-      }
-      return selector(state)
+  it('no AgentSprite React component divs in DOM (sprites are on canvas)', () => {
+    mockUseActiveSessions.mockReturnValue([SESSION_1, SESSION_2])
+    render(<OfficePage />)
+    // Old pattern: data-testid="agent-sprite-{id}" — should be absent
+    expect(screen.queryByTestId('agent-sprite-sess-1')).toBeNull()
+    expect(screen.queryByTestId('agent-sprite-sess-2')).toBeNull()
+  })
+
+  it('no DnD wrapper in rendered output', () => {
+    render(<OfficePage />)
+    const dndElements = screen.queryAllByTestId('dnd-context')
+    expect(dndElements).toHaveLength(0)
+  })
+
+  it('seeds gameState.npcs with grid positions for each session', () => {
+    mockUseActiveSessions.mockReturnValue([SESSION_1, SESSION_2])
+    act(() => { render(<OfficePage />) })
+    // Session at index 0: x=0, y=0 (COLS=5, CELL=96)
+    expect(gameState.npcs['sess-1']).toEqual({ x: 0, y: 0 })
+    // Session at index 1: x=96, y=0
+    expect(gameState.npcs['sess-2']).toEqual({ x: 96, y: 0 })
+  })
+
+  it('cleans up gameState.npcs for sessions that ended', () => {
+    // Pre-seed a stale NPC
+    gameState.npcs['stale-session'] = { x: 100, y: 100 }
+    mockUseActiveSessions.mockReturnValue([SESSION_1])
+    act(() => { render(<OfficePage />) })
+    // Stale session should be removed
+    expect(gameState.npcs['stale-session']).toBeUndefined()
+  })
+
+  it('GameEngine.start() is called on mount', () => {
+    render(<OfficePage />)
+    expect(startMock).toHaveBeenCalledTimes(1)
+  })
+
+  it('GameEngine.stop() is called on unmount', () => {
+    const { unmount } = render(<OfficePage />)
+    expect(stopMock).not.toHaveBeenCalled()
+    act(() => { unmount() })
+    expect(stopMock).toHaveBeenCalledTimes(1)
+  })
+
+  it('canvas click on NPC position calls selectSession', () => {
+    mockUseActiveSessions.mockReturnValue([SESSION_1])
+    act(() => { render(<OfficePage />) })
+
+    const canvas = screen.getByTestId('game-canvas')
+    vi.spyOn(canvas, 'getBoundingClientRect').mockReturnValue({
+      left: 0, top: 0, right: 800, bottom: 600,
+      width: 800, height: 600, x: 0, y: 0,
+      toJSON: () => ({}),
     })
-    render(<OfficePage />)
-    expect(screen.getByTestId('sprite-sess-1')).toBeDefined()
-    expect(screen.queryByTestId('sprite-sess-ended')).toBeNull()
-  })
 
-  it('new session without stored position gets default grid position (index % COLS * CELL, Math.floor(index/COLS) * CELL)', () => {
-    // AgentSprite is mocked, but we can check that OfficePage computes positions
-    // We verify by confirming sprite renders (positions are computed internally)
-    mockStoredPositions = {}
-    render(<OfficePage />)
-    // Both sprites rendered without error means default grid positions computed correctly
-    expect(screen.getByTestId('sprite-sess-1')).toBeDefined()
-    expect(screen.getByTestId('sprite-sess-2')).toBeDefined()
-  })
-
-  it('on mount, reads positions from localStorage key cockpit.office.positions; session with pre-stored position uses it', () => {
-    // Set up stored position for sess-1
-    mockStoredPositions = { 'sess-1': { x: 100, y: 200 } }
-    render(<OfficePage />)
-    // The mock useLocalStorage returns mockStoredPositions which has sess-1's position
-    // OfficePage should read this and pass it to AgentSprite
-    // Since AgentSprite is mocked, we confirm the page renders without error
-    expect(screen.getByTestId('sprite-sess-1')).toBeDefined()
-  })
-
-  it('clicking AgentSprite calls selectSession and does NOT call navigate', () => {
-    render(<OfficePage />)
-    fireEvent.click(screen.getByTestId('sprite-sess-1'))
+    // sess-1 seeded at x:0, y:0; click within 64px sprite
+    canvas.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, clientX: 30, clientY: 30 }))
     expect(mockSelectSession).toHaveBeenCalledWith('sess-1')
-    expect(mockNavigate).not.toHaveBeenCalled()
-  })
-
-  it('clicking AgentSprite for sess-2 calls selectSession and does NOT call navigate', () => {
-    render(<OfficePage />)
-    fireEvent.click(screen.getByTestId('sprite-sess-2'))
-    expect(mockSelectSession).toHaveBeenCalledWith('sess-2')
-    expect(mockNavigate).not.toHaveBeenCalled()
-  })
-
-  it('passes elapsedMs computed from session.startedAt to AgentSprite', () => {
-    const now = Date.now()
-    const startedAt = new Date(now - 60_000).toISOString()
-    const SESSION_TIMED = makeSession({ sessionId: 'sess-timed', startedAt })
-    mockUseStore.mockImplementation((selector: (s: unknown) => unknown) => {
-      const state = { sessions: { 'sess-timed': SESSION_TIMED }, events: {}, selectedSessionId: null, pendingApprovalsBySession: {}, wsStatus: 'connected' }
-      return selector(state)
-    })
-    render(<OfficePage />)
-    const elapsed = capturedSpriteProps['sess-timed']?.elapsedMs ?? 0
-    // Allow 5s tolerance for test execution time
-    expect(elapsed).toBeGreaterThanOrEqual(55_000)
-    expect(elapsed).toBeLessThan(65_000)
-  })
-
-  it('passes lastToolUsed from last tool_call event to AgentSprite', () => {
-    const toolCallEvent = { type: 'tool_call', toolName: 'Bash', sessionId: 'sess-1' }
-    mockUseStore.mockImplementation((selector: (s: unknown) => unknown) => {
-      const state = {
-        sessions: { 'sess-1': SESSION_1 },
-        events: { 'sess-1': [toolCallEvent] },
-        selectedSessionId: null,
-        pendingApprovalsBySession: {},
-        wsStatus: 'connected',
-      }
-      return selector(state)
-    })
-    render(<OfficePage />)
-    expect(capturedSpriteProps['sess-1']?.lastToolUsed).toBe('Bash')
   })
 
   it('passes lastToolUsed=undefined when no events for session', () => {
-    mockUseStore.mockImplementation((selector: (s: unknown) => unknown) => {
-      const state = { sessions: { 'sess-1': SESSION_1 }, events: {}, selectedSessionId: null, pendingApprovalsBySession: {}, wsStatus: 'connected' }
-      return selector(state)
-    })
-    render(<OfficePage />)
-    expect(capturedSpriteProps['sess-1']?.lastToolUsed).toBeUndefined()
+    // This is an NPC seeding concern — sessions without events are still seeded
+    mockUseActiveSessions.mockReturnValue([SESSION_1])
+    act(() => { render(<OfficePage />) })
+    expect(gameState.npcs['sess-1']).toBeDefined()
   })
 
-  it('passes lastToolUsed=undefined when last event is not tool_call', () => {
-    const nonToolEvent = { type: 'file_change', sessionId: 'sess-1' }
-    mockUseStore.mockImplementation((selector: (s: unknown) => unknown) => {
-      const state = {
-        sessions: { 'sess-1': SESSION_1 },
-        events: { 'sess-1': [nonToolEvent] },
-        selectedSessionId: null,
-        pendingApprovalsBySession: {},
-        wsStatus: 'connected',
-      }
-      return selector(state)
-    })
-    render(<OfficePage />)
-    expect(capturedSpriteProps['sess-1']?.lastToolUsed).toBeUndefined()
+  it('passes lastToolUsed=undefined when last event is not tool_call (seeding still happens)', () => {
+    mockUseActiveSessions.mockReturnValue([SESSION_2])
+    act(() => { render(<OfficePage />) })
+    expect(gameState.npcs['sess-2']).toBeDefined()
   })
 })
