@@ -53,8 +53,13 @@ export function OfficePage() {
   return (
     <DndContext sensors={sensors} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
       <div
-        className="relative w-full h-full overflow-hidden bg-background"
+        className="relative w-full h-full overflow-hidden"
         data-testid="office-canvas"
+        style={{
+          backgroundImage: "url('/sprites/floor-tileset.png')",
+          backgroundRepeat: 'repeat',
+          backgroundSize: '64px 64px',
+        }}
       >
         {sessions.map((session, i) => {
           const sessionEvents = events[session.sessionId] ?? []

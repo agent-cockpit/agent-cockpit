@@ -1,1 +1,17 @@
 @import "tailwindcss";
+
+
+/* Agent sprite glow states */
+.sprite-planning  { --glow-color: #A371F7; }
+.sprite-coding    { --glow-color: #58A6FF; }
+.sprite-reading   { --glow-color: #39D353; }
+.sprite-testing   { --glow-color: #E3B341; }
+.sprite-waiting   { --glow-color: #6E7681; }
+.sprite-blocked   { --glow-color: #FF4444; }
+.sprite-completed { --glow-color: #2EA043; }
+.sprite-failed    { --glow-color: #8B1E1E; }
+
+.agent-sprite {
+  filter: drop-shadow(0 0 4px var(--glow-color, transparent));
+  image-rendering: pixelated;
+}

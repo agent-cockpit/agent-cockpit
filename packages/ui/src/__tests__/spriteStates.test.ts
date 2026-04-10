@@ -147,3 +147,22 @@ describe('STATE_CSS_CLASSES', () => {
     }
   })
 })
+
+describe('STATE_CSS_CLASSES naming contract', () => {
+  it('uses sprite- prefix for all states', () => {
+    Object.values(STATE_CSS_CLASSES).forEach(cls => {
+      expect(cls).toMatch(/^sprite-/)
+    })
+  })
+  it('blocked maps to sprite-blocked', () => expect(STATE_CSS_CLASSES['blocked']).toBe('sprite-blocked'))
+  it('completed maps to sprite-completed', () => expect(STATE_CSS_CLASSES['completed']).toBe('sprite-completed'))
+  it('failed maps to sprite-failed', () => expect(STATE_CSS_CLASSES['failed']).toBe('sprite-failed'))
+  it('planning maps to sprite-planning', () => expect(STATE_CSS_CLASSES['planning']).toBe('sprite-planning'))
+  it('all 8 AgentAnimStates have a CSS class entry', () => {
+    const states = ['planning', 'coding', 'reading', 'testing', 'waiting', 'blocked', 'completed', 'failed']
+    states.forEach(s => {
+      expect(STATE_CSS_CLASSES).toHaveProperty(s)
+      expect(STATE_CSS_CLASSES[s as keyof typeof STATE_CSS_CLASSES]).toBe(`sprite-${s}`)
+    })
+  })
+})
