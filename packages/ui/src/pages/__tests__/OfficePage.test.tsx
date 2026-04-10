@@ -48,6 +48,12 @@ class MockResizeObserver {
   unobserve = vi.fn()
 }
 
+// Mock canvas 2d context — jsdom doesn't implement it
+const mockCtx = {
+  clearRect: vi.fn(),
+}
+HTMLCanvasElement.prototype.getContext = vi.fn(() => mockCtx) as unknown as typeof HTMLCanvasElement.prototype.getContext
+
 // Mock InstancePopupHub
 vi.mock('../../components/office/InstancePopupHub.js', () => ({
   InstancePopupHub: () => null,

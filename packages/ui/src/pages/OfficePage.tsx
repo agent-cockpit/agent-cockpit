@@ -7,6 +7,9 @@ import { useLocalStorage } from '../hooks/useLocalStorage.js'
 import { deriveAgentState } from '../components/office/spriteStates.js'
 import { AgentSprite } from '../components/office/AgentSprite.js'
 import { InstancePopupHub } from '../components/office/InstancePopupHub.js'
+import { GameEngine } from '../game/GameEngine.js'
+import { gameState, WORLD_W, WORLD_H } from '../game/GameState.js'
+import { updateCamera } from '../game/Camera.js'
 
 const CELL = 96
 const COLS = 5
@@ -25,6 +28,8 @@ export function OfficePage() {
   const [activeDragId, setActiveDragId] = useState<string | null>(null)
   const [popupOpen, setPopupOpen] = useState(false)
   const spriteRefs = useRef<Record<string, HTMLDivElement | null>>({})
+  const canvasRef = useRef<HTMLCanvasElement>(null)
+  const containerRef = useRef<HTMLDivElement>(null)
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
   )
@@ -39,6 +44,41 @@ export function OfficePage() {
       })
     }
     return () => { _scrollToSession = null }
+  }, [])
+
+  // Game engine lifecycle: start on mount, stop on cleanup
+  useEffect(() => {
+    const canvas = canvasRef.current
+    if (!canvas) return
+    const ctx = canvas.getContext('2d')
+    if (!ctx) { console.error('[GameEngine] canvas 2d context unavailable'); return }
+
+    const engine = new class extends GameEngine {
+      update(deltaMs: number) {
+        gameState.tick += 1
+        updateCamera(gameState.camera, { minX: 0, minY: 0, maxX: WORLD_W, maxY: WORLD_H }, deltaMs)
+      }
+      render() {
+        ctx.clearRect(0, 0, canvas.width, canvas.height)
+      }
+    }(canvas)
+
+    engine.start()
+    return () => engine.stop()
+  }, [])
+
+  // ResizeObserver: keep canvas dimensions matching container
+  useEffect(() => {
+    const container = containerRef.current
+    const canvas = canvasRef.current
+    if (!container || !canvas) return
+    const observer = new ResizeObserver(([entry]) => {
+      if (!entry) return
+      canvas.width = Math.round(entry.contentRect.width)
+      canvas.height = Math.round(entry.contentRect.height)
+    })
+    observer.observe(container)
+    return () => observer.disconnect()
   }, [])
 
   function getPosition(sessionId: string, index: number) {
@@ -71,6 +111,7 @@ export function OfficePage() {
   return (
     <DndContext sensors={sensors} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
       <div
+        ref={containerRef}
         className="relative w-full h-full overflow-hidden"
         data-testid="office-canvas"
         style={{
@@ -79,6 +120,12 @@ export function OfficePage() {
           backgroundSize: '64px 64px',
         }}
       >
+        <canvas
+          ref={canvasRef}
+          style={{ position: 'absolute', inset: 0, zIndex: 0 }}
+          data-testid="game-canvas"
+        />
+        <div style={{ position: 'relative', zIndex: 1, width: '100%', height: '100%' }}>
         {sessions.map((session, i) => {
           const sessionEvents = events[session.sessionId] ?? []
           const lastEvent = sessionEvents.at(-1)
@@ -137,6 +184,7 @@ export function OfficePage() {
           </div>
           <span style={{ fontSize: 10, color: '#a5b4fc', fontWeight: 600 }}>YOU</span>
         </div>
+        </div>{/* end zIndex:1 overlay */}
       </div>
       <InstancePopupHub open={popupOpen} onClose={() => setPopupOpen(false)} />
     </DndContext>
