@@ -1,50 +1,49 @@
+// DnD removed in Phase 15-03. Positions are owned by gameState.npcs. Zone assignment in Phase 17.
+
 import { useState, useRef, useEffect } from 'react'
-import { DndContext, PointerSensor, useSensor, useSensors } from '@dnd-kit/core'
-import type { DragEndEvent, DragStartEvent } from '@dnd-kit/core'
 import { useStore } from '../store/index.js'
 import { useActiveSessions } from '../store/selectors.js'
-import { useLocalStorage } from '../hooks/useLocalStorage.js'
-import { deriveAgentState } from '../components/office/spriteStates.js'
-import { AgentSprite } from '../components/office/AgentSprite.js'
 import { InstancePopupHub } from '../components/office/InstancePopupHub.js'
+import { drawAgentSprite } from '../components/office/AgentSprite.js'
 import { GameEngine } from '../game/GameEngine.js'
 import { gameState, WORLD_W, WORLD_H } from '../game/GameState.js'
 import { updateCamera } from '../game/Camera.js'
 
-const CELL = 96
-const COLS = 5
-
-// Module-level scroll singleton for MapSidebar to call
+// Module-level scroll singleton — kept as no-op for MapSidebar compatibility
 let _scrollToSession: ((id: string) => void) | null = null
 export function scrollToSession(id: string) { _scrollToSession?.(id) }
 
 export function OfficePage() {
   const sessions = useActiveSessions()
-  const events = useStore((s) => s.events)
-  const [positions, setPositions] = useLocalStorage<Record<string, { x: number; y: number }>>(
-    'cockpit.office.positions',
-    {},
-  )
-  const [activeDragId, setActiveDragId] = useState<string | null>(null)
   const [popupOpen, setPopupOpen] = useState(false)
-  const spriteRefs = useRef<Record<string, HTMLDivElement | null>>({})
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const containerRef = useRef<HTMLDivElement>(null)
-  const sensors = useSensors(
-    useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
-  )
+  const imageCacheRef = useRef<Map<string, HTMLImageElement>>(new Map())
 
-  // Register scroll callback for MapSidebar
+  // Register scroll callback (no-op — DnD scroll removed, kept for MapSidebar compatibility)
   useEffect(() => {
-    _scrollToSession = (id: string) => {
-      spriteRefs.current[id]?.scrollIntoView({
-        behavior: 'smooth',
-        block: 'center',
-        inline: 'center',
-      })
-    }
+    _scrollToSession = (_id: string) => {}
     return () => { _scrollToSession = null }
   }, [])
+
+  // Seed gameState.npcs from sessions
+  useEffect(() => {
+    const CELL = 96
+    const COLS = 5
+    sessions.forEach((session, i) => {
+      if (!gameState.npcs[session.sessionId]) {
+        gameState.npcs[session.sessionId] = {
+          x: (i % COLS) * CELL,
+          y: Math.floor(i / COLS) * CELL,
+        }
+      }
+    })
+    // Clean up sessions that ended
+    const activeIds = new Set(sessions.map(s => s.sessionId))
+    Object.keys(gameState.npcs).forEach(id => {
+      if (!activeIds.has(id)) delete gameState.npcs[id]
+    })
+  }, [sessions])
 
   // Game engine lifecycle: start on mount, stop on cleanup
   useEffect(() => {
@@ -60,6 +59,21 @@ export function OfficePage() {
       }
       render() {
         ctx.clearRect(0, 0, canvas.width, canvas.height)
+        // Read sessions and events from the store snapshot (not hook — called in rAF)
+        const { sessions: liveSessions, events: liveEvents } = useStore.getState()
+        Object.values(liveSessions ?? {}).forEach((session) => {
+          const pos = gameState.npcs[session.sessionId]
+          if (!pos) return
+          const sessionEvents = liveEvents[session.sessionId] ?? []
+          const lastEvent = sessionEvents.at(-1)
+          drawAgentSprite({
+            ctx,
+            session,
+            lastEvent,
+            position: { x: pos.x - gameState.camera.x, y: pos.y - gameState.camera.y },
+            imageCache: imageCacheRef.current,
+          })
+        })
       }
     }(canvas)
 
@@ -76,40 +90,40 @@ export function OfficePage() {
       if (!entry) return
       canvas.width = Math.round(entry.contentRect.width)
       canvas.height = Math.round(entry.contentRect.height)
+      gameState.camera.viewportW = canvas.width
+      gameState.camera.viewportH = canvas.height
     })
     observer.observe(container)
     return () => observer.disconnect()
   }, [])
 
-  function getPosition(sessionId: string, index: number) {
-    return (
-      positions[sessionId] ?? {
-        x: (index % COLS) * CELL,
-        y: Math.floor(index / COLS) * CELL,
+  // Canvas click handler — hit-test sprite positions and open popup
+  useEffect(() => {
+    const canvas = canvasRef.current
+    if (!canvas) return
+    function handleClick(e: MouseEvent) {
+      const rect = canvas!.getBoundingClientRect()
+      const clickX = e.clientX - rect.left + gameState.camera.x
+      const clickY = e.clientY - rect.top + gameState.camera.y
+      const SPRITE_SIZE = 64
+      for (const [sessionId, pos] of Object.entries(gameState.npcs)) {
+        if (
+          clickX >= pos.x && clickX <= pos.x + SPRITE_SIZE &&
+          clickY >= pos.y && clickY <= pos.y + SPRITE_SIZE
+        ) {
+          useStore.getState().selectSession(sessionId)
+          useStore.getState().setHistoryMode?.(false)
+          setPopupOpen(true)
+          break
+        }
       }
-    )
-  }
-
-  function handleDragEnd(event: DragEndEvent) {
-    const { active, delta } = event
-    const id = active.id as string
-    const base = positions[id] ?? { x: 0, y: 0 }
-    setPositions((prev) => ({ ...prev, [id]: { x: base.x + delta.x, y: base.y + delta.y } }))
-    setActiveDragId(null)
-  }
-
-  function handleDragStart(event: DragStartEvent) {
-    setActiveDragId(event.active.id as string)
-  }
-
-  function handleSpriteClick(sessionId: string) {
-    useStore.getState().selectSession(sessionId)
-    useStore.getState().setHistoryMode?.(false)
-    setPopupOpen(true)
-  }
+    }
+    canvas.addEventListener('click', handleClick)
+    return () => canvas.removeEventListener('click', handleClick)
+  }, [])
 
   return (
-    <DndContext sensors={sensors} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
+    <>
       <div
         ref={containerRef}
         className="relative w-full h-full overflow-hidden"
@@ -126,67 +140,10 @@ export function OfficePage() {
           data-testid="game-canvas"
         />
         <div style={{ position: 'relative', zIndex: 1, width: '100%', height: '100%' }}>
-        {sessions.map((session, i) => {
-          const sessionEvents = events[session.sessionId] ?? []
-          const lastEvent = sessionEvents.at(-1)
-          const agentState = deriveAgentState(session, lastEvent)
-          const elapsedMs = Date.now() - Date.parse(session.startedAt)
-          const lastToolUsed =
-            lastEvent?.type === 'tool_call' ? (lastEvent.toolName as string | undefined) : undefined
-          return (
-            <div
-              key={session.sessionId}
-              ref={(el) => { spriteRefs.current[session.sessionId] = el }}
-              style={{ position: 'absolute', left: 0, top: 0 }}
-            >
-              <AgentSprite
-                session={session}
-                agentState={agentState}
-                position={getPosition(session.sessionId, i)}
-                isDragging={activeDragId === session.sessionId}
-                onClick={() => handleSpriteClick(session.sessionId)}
-                elapsedMs={elapsedMs}
-                lastToolUsed={lastToolUsed}
-              />
-            </div>
-          )
-        })}
-
-        {/* User character — static, not draggable */}
-        <div
-          style={{
-            position: 'absolute',
-            left: 2 * 96,  // col 2 of row 5 (below typical agent rows)
-            top: 5 * 96,
-            width: 64,
-            height: 64,
-            display: 'flex',
-            flexDirection: 'column',
-            alignItems: 'center',
-            justifyContent: 'center',
-            gap: 2,
-          }}
-        >
-          <div
-            style={{
-              width: 40,
-              height: 40,
-              borderRadius: '50%',
-              background: 'linear-gradient(135deg, #6366f1, #8b5cf6)',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              fontSize: 16,
-              border: '2px solid rgba(255,255,255,0.3)',
-            }}
-          >
-            👤
-          </div>
-          <span style={{ fontSize: 10, color: '#a5b4fc', fontWeight: 600 }}>YOU</span>
+          {/* React UI overlays rendered here in future phases */}
         </div>
-        </div>{/* end zIndex:1 overlay */}
       </div>
       <InstancePopupHub open={popupOpen} onClose={() => setPopupOpen(false)} />
-    </DndContext>
+    </>
   )
 }
