@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-status: completed
-stopped_at: Completed 14-01-PLAN.md — Radix dependencies and Wave 0 test stubs
-last_updated: "2026-04-10T16:07:06.305Z"
-last_activity: "2026-04-05 — Phase 3 complete: Ops layout shell, session list, detail panel, 5-tab nav, LaunchSessionModal wired"
+status: in_progress
+stopped_at: Completed 14-02-PLAN.md — session ID fallback refactor
+last_updated: "2026-04-10T16:07:53.000Z"
+last_activity: "2026-04-10 — Phase 14: Session ID fallback refactor complete, panels ready for popup hub"
 progress:
-  total_phases: 6
-  completed_phases: 2
-  total_plans: 19
-  completed_plans: 14
-  percent: 33
+  total_phases: 14
+  completed_phases: 1
+  total_plans: 70
+  completed_plans: 56
+  percent: 80
 ---
 
 # Project State
@@ -25,12 +25,12 @@ See: .planning/PROJECT.md (updated 2026-04-04)
 
 ## Current Position
 
-Phase: 3 of 9 complete (Browser UI Shell + Session Management)
-Plan: All 3 plans of Phase 3 complete
-Status: Phase 3 complete — ready for Phase 4
-Last activity: 2026-04-05 — Phase 3 complete: Ops layout shell, session list, detail panel, 5-tab nav, LaunchSessionModal wired
+Phase: 14 of 14 in progress (Office Map View — Full Navigation Paradigm Shift)
+Plan: 14-02 complete, 14-03 next
+Status: Phase 14 in progress — popup hub implementation ready to begin
+Last activity: 2026-04-10 — Session ID fallback refactor complete, all 4 panels support popup hub context
 
-Progress: [███░░░░░░░] 33%
+Progress: [████████░░] 80%
 
 ## Performance Metrics
 
@@ -85,6 +85,7 @@ Progress: [███░░░░░░░] 33%
 | Phase 10.2-pixel-art-preproduction P01 | 8min | 4 tasks | 1 files |
 | Phase 10.2-pixel-art-preproduction P03 | 3 | 4 tasks | 1 files |
 | Phase 14 P01 | 177 | 2 tasks | 4 files |
+| Phase 14 P02 | 4min | 2 tasks | 4 files |
 
 ## Accumulated Context
 
@@ -197,6 +198,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-10T16:07:06.301Z
-Stopped at: Completed 14-01-PLAN.md — Radix dependencies and Wave 0 test stubs
+Last session: 2026-04-10T16:07:53.000Z
+Stopped at: Completed 14-02-PLAN.md — session ID fallback refactor
 Resume file: None
