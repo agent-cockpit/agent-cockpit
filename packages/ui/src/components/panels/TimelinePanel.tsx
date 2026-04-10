@@ -69,7 +69,9 @@ function InlineDetail({ event }: { event: NormalizedEvent }) {
 }
 
 export function TimelinePanel() {
-  const { sessionId } = useParams<{ sessionId: string }>()
+  const { sessionId: paramSessionId } = useParams<{ sessionId: string }>()
+  const storeSessionId = useStore((s) => s.selectedSessionId)
+  const sessionId = paramSessionId ?? storeSessionId ?? ''
   const events = useStore((s) => s.events[sessionId!] ?? EMPTY_EVENTS)
   const bulkApplyEvents = useStore((s) => s.bulkApplyEvents)
 

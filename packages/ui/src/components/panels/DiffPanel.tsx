@@ -78,7 +78,9 @@ function DiffView({ diff }: { diff: string }) {
 // ─── Component ────────────────────────────────────────────────────────────────
 
 export function DiffPanel() {
-  const { sessionId } = useParams<{ sessionId: string }>()
+  const { sessionId: paramSessionId } = useParams<{ sessionId: string }>()
+  const storeSessionId = useStore((s) => s.selectedSessionId)
+  const sessionId = paramSessionId ?? storeSessionId ?? ''
   const events = useStore((s) => s.events[sessionId!] ?? EMPTY_EVENTS)
   const session = useStore((s) => (sessionId ? s.sessions[sessionId] : undefined))
   const [selectedFilePath, setSelectedFilePath] = useState<string | null>(null)

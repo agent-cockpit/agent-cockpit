@@ -15,7 +15,9 @@ interface MemoryNote {
 }
 
 export function MemoryPanel() {
-  const { sessionId } = useParams<{ sessionId: string }>()
+  const { sessionId: paramSessionId } = useParams<{ sessionId: string }>()
+  const storeSessionId = useStore((s) => s.selectedSessionId)
+  const sessionId = paramSessionId ?? storeSessionId ?? ''
   const session = useStore((s) => s.sessions[sessionId ?? ''])
   const events = useStore((s) => getSessionEvents(s, sessionId ?? ''))
   const historyMode = useStore((s) => s.historyMode)
