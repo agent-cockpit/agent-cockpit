@@ -3,11 +3,11 @@ gsd_state_version: 1.0
 milestone: v1.1
 milestone_name: — 2D Pixel Art Game Experience
 status: planning
-stopped_at: Completed 16-02-PLAN.md
-last_updated: "2026-04-11T14:44:24.613Z"
+stopped_at: Phase 16.1 context gathered
+last_updated: "2026-04-11T23:20:53.732Z"
 last_activity: 2026-04-10 — v1.1 roadmap written (7 phases, 16 plans)
 progress:
-  total_phases: 13
+  total_phases: 14
   completed_phases: 5
   total_plans: 24
   completed_plans: 23
@@ -102,6 +102,7 @@ All v1.0 decisions remain active and respected.
 
 - v1.0 completed: Office map as default view, popup-based navigation
 - v1.1 planned: Game engine foundation → player controls → NPC behavior → audio system → save/load → UI overlays
+- Phase 16.1 inserted after Phase 16: Map Rendering & Camera Zoom — replace hardcoded world with Cockpit Map-export tilemap (Wang tilesets, 3232×3232px), camera zoom, map overlay + placed objects (INSERTED, prerequisite for Phase 17 NPC zone placement)
 
 ### Pending Todos
 
@@ -116,8 +117,8 @@ None yet — requirements phase will surface tasks.
 
 ## Session Continuity
 
-Last session: 2026-04-11T13:55:22.596Z
-Stopped at: Completed 16-02-PLAN.md
-Resume file: None
+Last session: 2026-04-11T23:20:53.721Z
+Stopped at: Phase 16.1 context gathered
+Resume file: .planning/phases/16.1-map-rendering-camera-zoom/16.1-CONTEXT.md
 
 *Updated after each plan completion*
