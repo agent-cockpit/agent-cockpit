@@ -120,6 +120,12 @@ export function OfficePage() {
           clickX >= pos.x && clickX <= pos.x + SPRITE_SIZE &&
           clickY >= pos.y && clickY <= pos.y + SPRITE_SIZE
         ) {
+          // Teleport camera to centre on clicked NPC (instant — no lerp)
+          const cam = gameState.camera
+          cam.targetX = Math.max(0, Math.min(pos.x - cam.viewportW / 2, WORLD_W - cam.viewportW))
+          cam.targetY = Math.max(0, Math.min(pos.y - cam.viewportH / 2, WORLD_H - cam.viewportH))
+          cam.x = cam.targetX
+          cam.y = cam.targetY
           useStore.getState().selectSession(sessionId)
           useStore.getState().setHistoryMode?.(false)
           setPopupOpen(true)

@@ -158,6 +158,33 @@ describe('OfficePage canvas mount', () => {
     expect(selectSessionMock).toHaveBeenCalledWith('test-session-1')
   })
 
+  it('canvas click on NPC teleports camera to centre on that NPC (cam.x === cam.targetX)', () => {
+    // Place NPC at a known position away from world origin
+    gameState.npcs['teleport-session'] = { x: 400, y: 300 }
+    // Reset camera
+    gameState.camera = { x: 0, y: 0, targetX: 0, targetY: 0, viewportW: 800, viewportH: 600 }
+
+    render(<OfficePage />)
+    const canvas = screen.getByTestId('game-canvas')
+    vi.spyOn(canvas, 'getBoundingClientRect').mockReturnValue({
+      left: 0, top: 0, right: 800, bottom: 600,
+      width: 800, height: 600, x: 0, y: 0,
+      toJSON: () => ({}),
+    })
+
+    // Click at screen position (420, 320) — with camera at (0,0), world coords = (420, 320)
+    // NPC is at (400, 300), size 64px, so (420, 320) is inside the sprite
+    const clickEvent = new MouseEvent('click', { bubbles: true, cancelable: true, clientX: 420, clientY: 320 })
+    canvas.dispatchEvent(clickEvent)
+
+    // Camera must have snapped: cam.x === cam.targetX (instant, no lerp)
+    expect(gameState.camera.x).toBe(gameState.camera.targetX)
+    expect(gameState.camera.y).toBe(gameState.camera.targetY)
+    // targetX should be clamped and centred on NPC x=400
+    // targetX = clamp(400 - 800/2, 0, WORLD_W - 800) = clamp(0, 0, 1120) = 0
+    expect(gameState.camera.targetX).toBe(0)
+  })
+
   it('canvas click outside any NPC does not call selectSession', () => {
     gameState.npcs['test-session-2'] = { x: 10, y: 10 }
 
