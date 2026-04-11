@@ -135,7 +135,11 @@ export function OfficePage() {
           clickX >= pos.x && clickX <= pos.x + SPRITE_SIZE &&
           clickY >= pos.y && clickY <= pos.y + SPRITE_SIZE
         ) {
-          // Teleport camera to centre on clicked NPC (instant — no lerp)
+          // Teleport player AND camera to centre on clicked NPC (instant — no lerp)
+          // Player position must also move so update()'s cam.targetX = player.x - vw/2 keeps
+          // the camera centred here on the next tick (otherwise update() overwrites targetX).
+          gameState.player.x = pos.x
+          gameState.player.y = pos.y
           const cam = gameState.camera
           cam.targetX = Math.max(0, Math.min(pos.x - cam.viewportW / 2, WORLD_W - cam.viewportW))
           cam.targetY = Math.max(0, Math.min(pos.y - cam.viewportH / 2, WORLD_H - cam.viewportH))

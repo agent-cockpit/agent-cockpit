@@ -76,8 +76,10 @@ describe('OfficePage canvas mount', () => {
     selectSessionMock.mockClear()
     setHistoryModeMock.mockClear()
     vi.stubGlobal('ResizeObserver', MockResizeObserver)
-    // Reset npcs between tests
+    // Reset npcs and player between tests
     Object.keys(gameState.npcs).forEach(k => delete gameState.npcs[k])
+    gameState.player.x = 2 * 96
+    gameState.player.y = 5 * 96
   })
 
   afterEach(() => {
@@ -159,12 +161,13 @@ describe('OfficePage canvas mount', () => {
   })
 
   it('canvas click on NPC teleports camera to centre on that NPC (cam.x === cam.targetX)', () => {
-    // Place NPC at a known position away from world origin
-    gameState.npcs['teleport-session'] = { x: 400, y: 300 }
     // Reset camera
     gameState.camera = { x: 0, y: 0, targetX: 0, targetY: 0, viewportW: 800, viewportH: 600 }
 
     render(<OfficePage />)
+    // Set NPC AFTER render so the seeding cleanup effect (which deletes NPCs not in activeSessions)
+    // does not remove it. useActiveSessions returns [] in this test.
+    gameState.npcs['teleport-session'] = { x: 400, y: 300 }
     const canvas = screen.getByTestId('game-canvas')
     vi.spyOn(canvas, 'getBoundingClientRect').mockReturnValue({
       left: 0, top: 0, right: 800, bottom: 600,
@@ -183,6 +186,9 @@ describe('OfficePage canvas mount', () => {
     // targetX should be clamped and centred on NPC x=400
     // targetX = clamp(400 - 800/2, 0, WORLD_W - 800) = clamp(0, 0, 1120) = 0
     expect(gameState.camera.targetX).toBe(0)
+    // Player must teleport to NPC position so update() preserves camera target on next tick
+    expect(gameState.player.x).toBe(400)
+    expect(gameState.player.y).toBe(300)
   })
 
   it('canvas click outside any NPC does not call selectSession', () => {
