@@ -132,6 +132,18 @@ Plans:
 - [ ] 16-01-PLAN.md — Input system (keyboard state tracking, WASD movement, bounds clamping)
 - [ ] 16-02-PLAN.md — Click-to-teleport camera focus + direction-aware sprite selection on move
 
+### Phase 16.1: Map Rendering & Camera Zoom (INSERTED)
+
+**Goal:** Replace the hardcoded CSS tiled floor and 1920x1440 world bounds with the real Cockpit Map-export tilemap (101x101 tiles at 32px = 3232x3232px world). Render terrain via Wang tilesets, composite the overlay PNG, place 30 objects from manifest.json, and apply fixed 2x camera zoom with player-centered following and map-bounds clamping.
+**Requirements**: MAP-RENDER
+**Depends on:** Phase 16
+**Plans:** 3 plans
+
+Plans:
+- [ ] 16.1-01-PLAN.md — Copy map assets to public, update world bounds/player start, add zoom to CameraState, create Wave 0 test stubs
+- [ ] 16.1-02-PLAN.md — Implement TilemapRenderer.ts (OffscreenCanvas pre-render, Wang tiles, overlay, objects)
+- [ ] 16.1-03-PLAN.md — Wire TilemapRenderer into OfficePage: zoom transform, camera fix, click hit-test fix, human verify
+
 ### Phase 17: NPC Agent Behavior
 **Goal:** Agent NPCs on the map walk smoothly to zone positions based on their session state — coding agents move to the workstation zone, agents waiting for approval move to the meeting room zone — using linear interpolation (no pathfinding).
 **Depends on:** Phase 16
