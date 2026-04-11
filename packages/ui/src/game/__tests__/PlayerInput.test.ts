@@ -12,85 +12,89 @@ function keys(...codes: string[]): ReadonlySet<string> {
   return new Set(codes)
 }
 
+// Use a safe starting position far from all world bounds
+const SAFE_X = 500
+const SAFE_Y = 500
+
 describe('movePlayer — basic movement', () => {
   it('W held: x unchanged, y decreases by PLAYER_SPEED * dt', () => {
-    const player = makePlayer(100, 100)
+    const player = makePlayer(SAFE_X, SAFE_Y)
     movePlayer(player, keys('KeyW'), 1000)
-    expect(player.x).toBe(100)
-    expect(player.y).toBeCloseTo(100 - PLAYER_SPEED)
+    expect(player.x).toBe(SAFE_X)
+    expect(player.y).toBeCloseTo(SAFE_Y - PLAYER_SPEED)
   })
 
   it('S held: x unchanged, y increases by PLAYER_SPEED * dt', () => {
-    const player = makePlayer(100, 100)
+    const player = makePlayer(SAFE_X, SAFE_Y)
     movePlayer(player, keys('KeyS'), 1000)
-    expect(player.x).toBe(100)
-    expect(player.y).toBeCloseTo(100 + PLAYER_SPEED)
+    expect(player.x).toBe(SAFE_X)
+    expect(player.y).toBeCloseTo(SAFE_Y + PLAYER_SPEED)
   })
 
   it('D held: x increases by PLAYER_SPEED * dt, y unchanged', () => {
-    const player = makePlayer(100, 100)
+    const player = makePlayer(SAFE_X, SAFE_Y)
     movePlayer(player, keys('KeyD'), 1000)
-    expect(player.x).toBeCloseTo(100 + PLAYER_SPEED)
-    expect(player.y).toBe(100)
+    expect(player.x).toBeCloseTo(SAFE_X + PLAYER_SPEED)
+    expect(player.y).toBe(SAFE_Y)
   })
 
   it('A held: x decreases by PLAYER_SPEED * dt, y unchanged', () => {
-    const player = makePlayer(100, 100)
+    const player = makePlayer(SAFE_X, SAFE_Y)
     movePlayer(player, keys('KeyA'), 1000)
-    expect(player.x).toBeCloseTo(100 - PLAYER_SPEED)
-    expect(player.y).toBe(100)
+    expect(player.x).toBeCloseTo(SAFE_X - PLAYER_SPEED)
+    expect(player.y).toBe(SAFE_Y)
   })
 
   it('ArrowUp held: same as W', () => {
-    const player = makePlayer(100, 100)
+    const player = makePlayer(SAFE_X, SAFE_Y)
     movePlayer(player, keys('ArrowUp'), 1000)
-    expect(player.y).toBeCloseTo(100 - PLAYER_SPEED)
+    expect(player.y).toBeCloseTo(SAFE_Y - PLAYER_SPEED)
   })
 
   it('ArrowDown held: same as S', () => {
-    const player = makePlayer(100, 100)
+    const player = makePlayer(SAFE_X, SAFE_Y)
     movePlayer(player, keys('ArrowDown'), 1000)
-    expect(player.y).toBeCloseTo(100 + PLAYER_SPEED)
+    expect(player.y).toBeCloseTo(SAFE_Y + PLAYER_SPEED)
   })
 
   it('ArrowLeft held: same as A', () => {
-    const player = makePlayer(100, 100)
+    const player = makePlayer(SAFE_X, SAFE_Y)
     movePlayer(player, keys('ArrowLeft'), 1000)
-    expect(player.x).toBeCloseTo(100 - PLAYER_SPEED)
+    expect(player.x).toBeCloseTo(SAFE_X - PLAYER_SPEED)
   })
 
   it('ArrowRight held: same as D', () => {
-    const player = makePlayer(100, 100)
+    const player = makePlayer(SAFE_X, SAFE_Y)
     movePlayer(player, keys('ArrowRight'), 1000)
-    expect(player.x).toBeCloseTo(100 + PLAYER_SPEED)
+    expect(player.x).toBeCloseTo(SAFE_X + PLAYER_SPEED)
   })
 })
 
 describe('movePlayer — diagonal normalisation', () => {
   it('W+D held: total displacement equals PLAYER_SPEED * dt (not * sqrt(2))', () => {
-    const player = makePlayer(100, 100)
+    const player = makePlayer(SAFE_X, SAFE_Y)
     const dt = 1 // 1000ms -> 1 second
     movePlayer(player, keys('KeyW', 'KeyD'), 1000)
-    const dx = player.x - 100
-    const dy = player.y - 100
+    const dx = player.x - SAFE_X
+    const dy = player.y - SAFE_Y
     const displacement = Math.sqrt(dx * dx + dy * dy)
     expect(displacement).toBeCloseTo(PLAYER_SPEED * dt, 1)
   })
 
   it('W+A held: total displacement equals PLAYER_SPEED * dt', () => {
-    const player = makePlayer(100, 100)
+    const player = makePlayer(SAFE_X, SAFE_Y)
     movePlayer(player, keys('KeyW', 'KeyA'), 1000)
-    const dx = player.x - 100
-    const dy = player.y - 100
+    const dx = player.x - SAFE_X
+    const dy = player.y - SAFE_Y
     const displacement = Math.sqrt(dx * dx + dy * dy)
     expect(displacement).toBeCloseTo(PLAYER_SPEED, 1)
   })
 
   it('S+D held: total displacement equals PLAYER_SPEED * dt', () => {
-    const player = makePlayer(100, 100)
+    const player = makePlayer(SAFE_X, SAFE_Y)
     movePlayer(player, keys('KeyS', 'KeyD'), 1000)
-    const dx = player.x - 100
-    const dy = player.y - 100
+    const dx = player.x - SAFE_X
+    const dy = player.y - SAFE_Y
     const displacement = Math.sqrt(dx * dx + dy * dy)
     expect(displacement).toBeCloseTo(PLAYER_SPEED, 1)
   })
