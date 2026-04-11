@@ -23,3 +23,24 @@ if (typeof ResizeObserver === 'undefined') {
     disconnect() {}
   }
 }
+
+// jsdom does not implement OffscreenCanvas.
+// Stub it globally so TilemapRenderer tests don't crash.
+if (typeof OffscreenCanvas === 'undefined') {
+  global.OffscreenCanvas = class MockOffscreenCanvas {
+    width: number
+    height: number
+    constructor(w: number, h: number) { this.width = w; this.height = h }
+    getContext(_type: string) {
+      return {
+        clearRect: () => {},
+        fillRect: () => {},
+        fillStyle: '',
+        drawImage: () => {},
+        save: () => {},
+        restore: () => {},
+        scale: () => {},
+      }
+    }
+  } as unknown as typeof OffscreenCanvas
+}
