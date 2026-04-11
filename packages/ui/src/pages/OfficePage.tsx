@@ -8,6 +8,7 @@ import { drawAgentSprite } from '../components/office/AgentSprite.js'
 import { GameEngine } from '../game/GameEngine.js'
 import { gameState, WORLD_W, WORLD_H } from '../game/GameState.js'
 import { updateCamera } from '../game/Camera.js'
+import { attachInput, detachInput, getKeysDown, movePlayer } from '../game/PlayerInput.js'
 
 // Module-level scroll singleton — kept as no-op for MapSidebar compatibility
 let _scrollToSession: ((id: string) => void) | null = null
@@ -55,7 +56,11 @@ export function OfficePage() {
     const engine = new class extends GameEngine {
       update(deltaMs: number) {
         gameState.tick += 1
-        updateCamera(gameState.camera, { minX: 0, minY: 0, maxX: WORLD_W, maxY: WORLD_H }, deltaMs)
+        movePlayer(gameState.player, getKeysDown(), deltaMs)
+        const cam = gameState.camera
+        cam.targetX = gameState.player.x - cam.viewportW / 2
+        cam.targetY = gameState.player.y - cam.viewportH / 2
+        updateCamera(cam, { minX: 0, minY: 0, maxX: WORLD_W, maxY: WORLD_H }, deltaMs)
       }
       render() {
         ctx.clearRect(0, 0, canvas.width, canvas.height)
@@ -78,7 +83,11 @@ export function OfficePage() {
     }(canvas)
 
     engine.start()
-    return () => engine.stop()
+    attachInput()
+    return () => {
+      engine.stop()
+      detachInput()
+    }
   }, [])
 
   // ResizeObserver: keep canvas dimensions matching container
