@@ -12,6 +12,7 @@ function makeCam(overrides: Partial<CameraState> = {}): CameraState {
     targetY: 0,
     viewportW: 800,
     viewportH: 600,
+    zoom: 1,
     ...overrides,
   }
 }

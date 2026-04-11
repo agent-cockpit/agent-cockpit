@@ -5,6 +5,7 @@ export interface CameraState {
   targetY: number
   viewportW: number
   viewportH: number
+  zoom: number          // fixed at 2 for Phase 16.1; applied in render, not camera math
 }
 
 export interface WorldBounds {

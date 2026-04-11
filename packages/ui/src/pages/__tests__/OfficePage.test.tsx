@@ -162,7 +162,7 @@ describe('OfficePage canvas mount', () => {
 
   it('canvas click on NPC teleports camera to centre on that NPC (cam.x === cam.targetX)', () => {
     // Reset camera
-    gameState.camera = { x: 0, y: 0, targetX: 0, targetY: 0, viewportW: 800, viewportH: 600 }
+    gameState.camera = { x: 0, y: 0, targetX: 0, targetY: 0, viewportW: 800, viewportH: 600, zoom: 2 }
 
     render(<OfficePage />)
     // Set NPC AFTER render so the seeding cleanup effect (which deletes NPCs not in activeSessions)
