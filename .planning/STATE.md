@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.1
 milestone_name: — 2D Pixel Art Game Experience
 status: planning
-stopped_at: Completed 16-01-PLAN.md
-last_updated: "2026-04-11T05:55:57.981Z"
+stopped_at: Completed 16-02-PLAN.md
+last_updated: "2026-04-11T13:55:22.599Z"
 last_activity: 2026-04-10 — v1.1 roadmap written (7 phases, 16 plans)
 progress:
   total_phases: 13
-  completed_phases: 4
+  completed_phases: 5
   total_plans: 24
-  completed_plans: 22
+  completed_plans: 23
   percent: 0
 ---
 
@@ -96,6 +96,7 @@ All v1.0 decisions remain active and respected.
 - [Phase 15-game-engine-foundation]: AgentSprite.tsx no longer exports React component — only drawAgentSprite() canvas function; imageCache as useRef Map
 - [Phase 16-player-controls]: PlayerInput uses pure function movePlayer() with explicit player/keys/deltaMs params for full testability without mocking module state
 - [Phase 16-player-controls]: attachInput/detachInput co-located with engine.start()/stop() in single useEffect to guarantee teardown
+- [Phase 16-player-controls]: Teleport moves gameState.player.x/y to NPC position so update() camera-follow stays consistent — moving only camera is reverted on next tick
 
 ### Roadmap Evolution
 
@@ -115,8 +116,8 @@ None yet — requirements phase will surface tasks.
 
 ## Session Continuity
 
-Last session: 2026-04-11T05:55:57.977Z
-Stopped at: Completed 16-01-PLAN.md
+Last session: 2026-04-11T13:55:22.596Z
+Stopped at: Completed 16-02-PLAN.md
 Resume file: None
 
 *Updated after each plan completion*
