@@ -137,7 +137,7 @@ Plans:
 **Goal:** Replace the hardcoded CSS tiled floor and 1920x1440 world bounds with the real Cockpit Map-export tilemap (101x101 tiles at 32px = 3232x3232px world). Render terrain via Wang tilesets, composite the overlay PNG, place 30 objects from manifest.json, and apply fixed 2x camera zoom with player-centered following and map-bounds clamping.
 **Requirements**: MAP-RENDER
 **Depends on:** Phase 16
-**Plans:** 1/3 plans executed
+**Plans:** 2/3 plans executed
 
 Plans:
 - [ ] 16.1-01-PLAN.md — Copy map assets to public, update world bounds/player start, add zoom to CameraState, create Wave 0 test stubs

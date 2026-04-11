@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.1
 milestone_name: — 2D Pixel Art Game Experience
 status: planning
-stopped_at: Completed 16.1-01-PLAN.md
-last_updated: "2026-04-11T23:50:31.622Z"
+stopped_at: Completed 16.1-02-PLAN.md
+last_updated: "2026-04-11T23:53:40.265Z"
 last_activity: 2026-04-10 — v1.1 roadmap written (7 phases, 16 plans)
 progress:
   total_phases: 14
   completed_phases: 5
   total_plans: 27
-  completed_plans: 24
+  completed_plans: 25
   percent: 0
 ---
 
@@ -99,6 +99,7 @@ All v1.0 decisions remain active and respected.
 - [Phase 16-player-controls]: Teleport moves gameState.player.x/y to NPC position so update() camera-follow stays consistent — moving only camera is reverted on next tick
 - [Phase 16.1-01]: zoom field on CameraState applied in render (canvas.scale), not in updateCamera — keeps camera math zoom-agnostic
 - [Phase 16.1-01]: Wave 0 TDD: TilemapRenderer test stubs in RED state intentionally — module created in Plan 02
+- [Phase 16.1-map-rendering-camera-zoom]: Objects/overlays use pixel world-space coords directly from JSON (no tile offset); tilesetId from first present edge in transition cells
 
 ### Roadmap Evolution
 
@@ -119,8 +120,8 @@ None yet — requirements phase will surface tasks.
 
 ## Session Continuity
 
-Last session: 2026-04-11T23:50:31.618Z
-Stopped at: Completed 16.1-01-PLAN.md
+Last session: 2026-04-11T23:53:40.261Z
+Stopped at: Completed 16.1-02-PLAN.md
 Resume file: None
 
 *Updated after each plan completion*
