@@ -126,7 +126,7 @@ Plans:
   3. Player cannot walk outside world bounds
   4. Clicking an agent on the map instantly moves the camera to center on that agent
   5. Keyboard input does not conflict with text inputs or popup interactions
-**Plans:** 2 plans
+**Plans:** 1/2 plans executed
 
 Plans:
 - [ ] 16-01-PLAN.md — Input system (keyboard state tracking, WASD movement, bounds clamping)
