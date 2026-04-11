@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.1
 milestone_name: — 2D Pixel Art Game Experience
 status: planning
-stopped_at: Phase 16.1 context gathered
-last_updated: "2026-04-11T23:20:53.732Z"
+stopped_at: Completed 16.1-01-PLAN.md
+last_updated: "2026-04-11T23:50:31.622Z"
 last_activity: 2026-04-10 — v1.1 roadmap written (7 phases, 16 plans)
 progress:
   total_phases: 14
   completed_phases: 5
-  total_plans: 24
-  completed_plans: 23
+  total_plans: 27
+  completed_plans: 24
   percent: 0
 ---
 
@@ -97,6 +97,8 @@ All v1.0 decisions remain active and respected.
 - [Phase 16-player-controls]: PlayerInput uses pure function movePlayer() with explicit player/keys/deltaMs params for full testability without mocking module state
 - [Phase 16-player-controls]: attachInput/detachInput co-located with engine.start()/stop() in single useEffect to guarantee teardown
 - [Phase 16-player-controls]: Teleport moves gameState.player.x/y to NPC position so update() camera-follow stays consistent — moving only camera is reverted on next tick
+- [Phase 16.1-01]: zoom field on CameraState applied in render (canvas.scale), not in updateCamera — keeps camera math zoom-agnostic
+- [Phase 16.1-01]: Wave 0 TDD: TilemapRenderer test stubs in RED state intentionally — module created in Plan 02
 
 ### Roadmap Evolution
 
@@ -117,8 +119,8 @@ None yet — requirements phase will surface tasks.
 
 ## Session Continuity
 
-Last session: 2026-04-11T23:20:53.721Z
-Stopped at: Phase 16.1 context gathered
-Resume file: .planning/phases/16.1-map-rendering-camera-zoom/16.1-CONTEXT.md
+Last session: 2026-04-11T23:50:31.618Z
+Stopped at: Completed 16.1-01-PLAN.md
+Resume file: None
 
 *Updated after each plan completion*
