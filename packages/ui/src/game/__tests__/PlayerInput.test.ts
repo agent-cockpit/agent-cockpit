@@ -1,0 +1,285 @@
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
+import { PLAYER_SPEED, attachInput, detachInput, getKeysDown, movePlayer } from '../PlayerInput.js'
+import { WORLD_W, WORLD_H } from '../GameState.js'
+
+// Helper to make a player object
+function makePlayer(x = 0, y = 0, direction = 'south') {
+  return { x, y, direction }
+}
+
+// Helper to make a keys Set
+function keys(...codes: string[]): ReadonlySet<string> {
+  return new Set(codes)
+}
+
+describe('movePlayer — basic movement', () => {
+  it('W held: x unchanged, y decreases by PLAYER_SPEED * dt', () => {
+    const player = makePlayer(100, 100)
+    movePlayer(player, keys('KeyW'), 1000)
+    expect(player.x).toBe(100)
+    expect(player.y).toBeCloseTo(100 - PLAYER_SPEED)
+  })
+
+  it('S held: x unchanged, y increases by PLAYER_SPEED * dt', () => {
+    const player = makePlayer(100, 100)
+    movePlayer(player, keys('KeyS'), 1000)
+    expect(player.x).toBe(100)
+    expect(player.y).toBeCloseTo(100 + PLAYER_SPEED)
+  })
+
+  it('D held: x increases by PLAYER_SPEED * dt, y unchanged', () => {
+    const player = makePlayer(100, 100)
+    movePlayer(player, keys('KeyD'), 1000)
+    expect(player.x).toBeCloseTo(100 + PLAYER_SPEED)
+    expect(player.y).toBe(100)
+  })
+
+  it('A held: x decreases by PLAYER_SPEED * dt, y unchanged', () => {
+    const player = makePlayer(100, 100)
+    movePlayer(player, keys('KeyA'), 1000)
+    expect(player.x).toBeCloseTo(100 - PLAYER_SPEED)
+    expect(player.y).toBe(100)
+  })
+
+  it('ArrowUp held: same as W', () => {
+    const player = makePlayer(100, 100)
+    movePlayer(player, keys('ArrowUp'), 1000)
+    expect(player.y).toBeCloseTo(100 - PLAYER_SPEED)
+  })
+
+  it('ArrowDown held: same as S', () => {
+    const player = makePlayer(100, 100)
+    movePlayer(player, keys('ArrowDown'), 1000)
+    expect(player.y).toBeCloseTo(100 + PLAYER_SPEED)
+  })
+
+  it('ArrowLeft held: same as A', () => {
+    const player = makePlayer(100, 100)
+    movePlayer(player, keys('ArrowLeft'), 1000)
+    expect(player.x).toBeCloseTo(100 - PLAYER_SPEED)
+  })
+
+  it('ArrowRight held: same as D', () => {
+    const player = makePlayer(100, 100)
+    movePlayer(player, keys('ArrowRight'), 1000)
+    expect(player.x).toBeCloseTo(100 + PLAYER_SPEED)
+  })
+})
+
+describe('movePlayer — diagonal normalisation', () => {
+  it('W+D held: total displacement equals PLAYER_SPEED * dt (not * sqrt(2))', () => {
+    const player = makePlayer(100, 100)
+    const dt = 1 // 1000ms -> 1 second
+    movePlayer(player, keys('KeyW', 'KeyD'), 1000)
+    const dx = player.x - 100
+    const dy = player.y - 100
+    const displacement = Math.sqrt(dx * dx + dy * dy)
+    expect(displacement).toBeCloseTo(PLAYER_SPEED * dt, 1)
+  })
+
+  it('W+A held: total displacement equals PLAYER_SPEED * dt', () => {
+    const player = makePlayer(100, 100)
+    movePlayer(player, keys('KeyW', 'KeyA'), 1000)
+    const dx = player.x - 100
+    const dy = player.y - 100
+    const displacement = Math.sqrt(dx * dx + dy * dy)
+    expect(displacement).toBeCloseTo(PLAYER_SPEED, 1)
+  })
+
+  it('S+D held: total displacement equals PLAYER_SPEED * dt', () => {
+    const player = makePlayer(100, 100)
+    movePlayer(player, keys('KeyS', 'KeyD'), 1000)
+    const dx = player.x - 100
+    const dy = player.y - 100
+    const displacement = Math.sqrt(dx * dx + dy * dy)
+    expect(displacement).toBeCloseTo(PLAYER_SPEED, 1)
+  })
+})
+
+describe('movePlayer — world bounds clamping', () => {
+  it('does not move player below x=0 (left bound)', () => {
+    const player = makePlayer(0, 100)
+    movePlayer(player, keys('KeyA'), 1000)
+    expect(player.x).toBe(0)
+  })
+
+  it('does not move player beyond WORLD_W - 64 (right bound)', () => {
+    const player = makePlayer(WORLD_W - 64, 100)
+    movePlayer(player, keys('KeyD'), 1000)
+    expect(player.x).toBe(WORLD_W - 64)
+  })
+
+  it('does not move player below y=0 (top bound)', () => {
+    const player = makePlayer(100, 0)
+    movePlayer(player, keys('KeyW'), 1000)
+    expect(player.y).toBe(0)
+  })
+
+  it('does not move player beyond WORLD_H - 64 (bottom bound)', () => {
+    const player = makePlayer(100, WORLD_H - 64)
+    movePlayer(player, keys('KeyS'), 1000)
+    expect(player.y).toBe(WORLD_H - 64)
+  })
+})
+
+describe('movePlayer — direction tracking', () => {
+  it('D held sets direction to "east"', () => {
+    const player = makePlayer(100, 100, 'south')
+    movePlayer(player, keys('KeyD'), 100)
+    expect(player.direction).toBe('east')
+  })
+
+  it('A held sets direction to "west"', () => {
+    const player = makePlayer(100, 100, 'south')
+    movePlayer(player, keys('KeyA'), 100)
+    expect(player.direction).toBe('west')
+  })
+
+  it('W held sets direction to "north"', () => {
+    const player = makePlayer(100, 100, 'south')
+    movePlayer(player, keys('KeyW'), 100)
+    expect(player.direction).toBe('north')
+  })
+
+  it('S held sets direction to "south"', () => {
+    const player = makePlayer(100, 100, 'north')
+    movePlayer(player, keys('KeyS'), 100)
+    expect(player.direction).toBe('south')
+  })
+
+  it('W+D held sets direction to "north-east"', () => {
+    const player = makePlayer(100, 100, 'south')
+    movePlayer(player, keys('KeyW', 'KeyD'), 100)
+    expect(player.direction).toBe('north-east')
+  })
+
+  it('W+A held sets direction to "north-west"', () => {
+    const player = makePlayer(100, 100, 'south')
+    movePlayer(player, keys('KeyW', 'KeyA'), 100)
+    expect(player.direction).toBe('north-west')
+  })
+
+  it('S+D held sets direction to "south-east"', () => {
+    const player = makePlayer(100, 100, 'north')
+    movePlayer(player, keys('KeyS', 'KeyD'), 100)
+    expect(player.direction).toBe('south-east')
+  })
+
+  it('S+A held sets direction to "south-west"', () => {
+    const player = makePlayer(100, 100, 'north')
+    movePlayer(player, keys('KeyS', 'KeyA'), 100)
+    expect(player.direction).toBe('south-west')
+  })
+
+  it('no keys held does NOT change player.direction', () => {
+    const player = makePlayer(100, 100, 'north-east')
+    movePlayer(player, keys(), 100)
+    expect(player.direction).toBe('north-east')
+  })
+})
+
+describe('input guards — focused element', () => {
+  let addEventListenerSpy: ReturnType<typeof vi.spyOn>
+  let removeEventListenerSpy: ReturnType<typeof vi.spyOn>
+
+  beforeEach(() => {
+    addEventListenerSpy = vi.spyOn(window, 'addEventListener')
+    removeEventListenerSpy = vi.spyOn(window, 'removeEventListener')
+  })
+
+  afterEach(() => {
+    detachInput()
+    vi.restoreAllMocks()
+  })
+
+  it('onKeyDown is a no-op when activeElement is HTMLInputElement', () => {
+    // Mock document.activeElement to return an input
+    const inputEl = document.createElement('input')
+    vi.spyOn(document, 'activeElement', 'get').mockReturnValue(inputEl)
+
+    attachInput()
+    const keysDown = getKeysDown()
+
+    // Fire a keydown event for 'KeyW'
+    window.dispatchEvent(new KeyboardEvent('keydown', { code: 'KeyW', bubbles: true }))
+
+    expect(keysDown.has('KeyW')).toBe(false)
+  })
+
+  it('onKeyDown is a no-op when activeElement is HTMLTextAreaElement', () => {
+    const textareaEl = document.createElement('textarea')
+    vi.spyOn(document, 'activeElement', 'get').mockReturnValue(textareaEl)
+
+    attachInput()
+    const keysDown = getKeysDown()
+
+    window.dispatchEvent(new KeyboardEvent('keydown', { code: 'KeyA', bubbles: true }))
+
+    expect(keysDown.has('KeyA')).toBe(false)
+  })
+
+  it('onKeyDown is a no-op when activeElement is HTMLSelectElement', () => {
+    const selectEl = document.createElement('select')
+    vi.spyOn(document, 'activeElement', 'get').mockReturnValue(selectEl)
+
+    attachInput()
+    const keysDown = getKeysDown()
+
+    window.dispatchEvent(new KeyboardEvent('keydown', { code: 'KeyS', bubbles: true }))
+
+    expect(keysDown.has('KeyS')).toBe(false)
+  })
+
+  it('onKeyDown adds to keysDown when activeElement is the body', () => {
+    vi.spyOn(document, 'activeElement', 'get').mockReturnValue(document.body)
+
+    attachInput()
+    const keysDown = getKeysDown()
+
+    window.dispatchEvent(new KeyboardEvent('keydown', { code: 'KeyD', bubbles: true }))
+
+    expect(keysDown.has('KeyD')).toBe(true)
+  })
+})
+
+describe('attachInput / detachInput lifecycle', () => {
+  afterEach(() => {
+    detachInput()
+    vi.restoreAllMocks()
+  })
+
+  it('attachInput adds keydown and keyup listeners to window', () => {
+    const addSpy = vi.spyOn(window, 'addEventListener')
+    attachInput()
+    const codes = addSpy.mock.calls.map(([event]) => event)
+    expect(codes).toContain('keydown')
+    expect(codes).toContain('keyup')
+  })
+
+  it('detachInput removes keydown and keyup listeners from window', () => {
+    const removeSpy = vi.spyOn(window, 'removeEventListener')
+    attachInput()
+    detachInput()
+    const codes = removeSpy.mock.calls.map(([event]) => event)
+    expect(codes).toContain('keydown')
+    expect(codes).toContain('keyup')
+  })
+
+  it('detachInput clears the keysDown Set', () => {
+    vi.spyOn(document, 'activeElement', 'get').mockReturnValue(document.body)
+    attachInput()
+    window.dispatchEvent(new KeyboardEvent('keydown', { code: 'KeyW', bubbles: true }))
+    expect(getKeysDown().has('KeyW')).toBe(true)
+    detachInput()
+    expect(getKeysDown().size).toBe(0)
+  })
+
+  it('attachInput is idempotent — double-attach does not double-register listeners', () => {
+    const addSpy = vi.spyOn(window, 'addEventListener')
+    attachInput()
+    const countAfterFirst = addSpy.mock.calls.length
+    attachInput()
+    const countAfterSecond = addSpy.mock.calls.length
+    expect(countAfterSecond).toBe(countAfterFirst)
+  })
+})
