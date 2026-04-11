@@ -5,6 +5,8 @@ import { useStore } from '../store/index.js'
 import { useActiveSessions } from '../store/selectors.js'
 import { InstancePopupHub } from '../components/office/InstancePopupHub.js'
 import { drawAgentSprite } from '../components/office/AgentSprite.js'
+import { DIRECTION_ROWS } from '../components/office/spriteStates.js'
+import type { Direction } from '../components/office/spriteStates.js'
 import { GameEngine } from '../game/GameEngine.js'
 import { gameState, WORLD_W, WORLD_H } from '../game/GameState.js'
 import { updateCamera } from '../game/Camera.js'
@@ -20,6 +22,7 @@ export function OfficePage() {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const containerRef = useRef<HTMLDivElement>(null)
   const imageCacheRef = useRef<Map<string, HTMLImageElement>>(new Map())
+  const playerImgRef = useRef<HTMLImageElement | null>(null)
 
   // Register scroll callback (no-op — DnD scroll removed, kept for MapSidebar compatibility)
   useEffect(() => {
@@ -53,6 +56,10 @@ export function OfficePage() {
     const ctx = canvas.getContext('2d')
     if (!ctx) { console.error('[GameEngine] canvas 2d context unavailable'); return }
 
+    const playerImg = new Image()
+    playerImg.src = '/sprites/astronaut-sheet.png'
+    playerImgRef.current = playerImg
+
     const engine = new class extends GameEngine {
       update(deltaMs: number) {
         gameState.tick += 1
@@ -79,6 +86,14 @@ export function OfficePage() {
             imageCache: imageCacheRef.current,
           })
         })
+        // Draw player on top of NPC sprites (z-order = draw order)
+        const pImg = playerImgRef.current
+        if (pImg?.complete && pImg.naturalWidth > 0) {
+          const px = gameState.player.x - gameState.camera.x
+          const py = gameState.player.y - gameState.camera.y
+          const row = DIRECTION_ROWS[gameState.player.direction as Direction] ?? 0
+          ctx.drawImage(pImg, 0, row * 64, 64, 64, px, py, 64, 64)
+        }
       }
     }(canvas)
 
