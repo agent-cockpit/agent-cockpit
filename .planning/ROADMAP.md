@@ -155,6 +155,34 @@ Plans:
 - [ ] 16.2-02-PLAN.md — Wire player render col from animTime in OfficePage.tsx + human verify
 - [ ] 16.2-03-PLAN.md — Add tick to DrawAgentSpriteOptions, NPC tick-based col, update call site + AgentSprite.test.ts
 
+### Phase 16.3: Collision System (INSERTED)
+
+**Goal:** The player cannot walk through walls, furniture, or map boundaries. Solid tiles (walls, desks, pillars) block movement; only open-floor tiles allow passage. Collision is resolved before the position is committed to GameState.
+**Depends on:** Phase 16.2
+**Plans:** 1 plan
+
+Plans:
+- [ ] 16.3-PLAN.md — Define solid-tile mask, per-tile walkability lookup, pre-commit collision resolution in movePlayer()
+
+### Phase 16.4: Astronaut Walking Sprite Generation (INSERTED)
+
+**Goal:** Generate a high-quality astronaut character sprite sheet with a proper 8-direction walk cycle using the PixelLab API. The resulting sprite sheet replaces the current placeholder/bad animation frames, providing smooth, pixel-art walking animation for all 4 cardinal directions (or 8 if feasible).
+**Depends on:** Phase 16.3
+**Plans:** 2 plans
+
+Plans:
+- [ ] 16.4-01-PLAN.md — Research PixelLab API animate endpoint, define astronaut style prompt and animation params, generate walk cycle frames
+- [ ] 16.4-02-PLAN.md — Download, validate, and integrate generated sprite sheet into assets/sprites/
+
+### Phase 16.5: Walking Animation Rework (INSERTED)
+
+**Goal:** Replace the current broken walking animation with a properly implemented sprite-based system. Based on research into game animation techniques (frame timing, direction-aware row selection, interpolation), deliver a smooth, responsive walk cycle that feels correct to the player.
+**Depends on:** Phase 16.4
+**Plans:** 2 plans
+
+Plans:
+- [ ] 16.5-01-PLAN.md — Research sprite animation patterns in 2D games (frame rate, direction rows, state machine) — produce RESEARCH.md
+- [ ] 16.5-02-PLAN.md — Rework player animation system: direction-aware row selection, correct frame timing, smooth start/stop
 
 ### Phase 17: NPC Agent Behavior
 **Goal:** Agent NPCs on the map walk smoothly to zone positions based on their session state — coding agents move to the workstation zone, agents waiting for approval move to the meeting room zone — using linear interpolation (no pathfinding).
