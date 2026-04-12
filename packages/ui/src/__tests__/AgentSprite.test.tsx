@@ -37,7 +37,7 @@ describe('drawAgentSprite', () => {
     const position = { x: 10, y: 20 }
 
     // First call — image created and cached but not complete → no drawImage call
-    drawAgentSprite({ ctx, session: mockSession, lastEvent: undefined, position, imageCache })
+    drawAgentSprite({ ctx, session: mockSession, lastEvent: undefined, position, imageCache, tick: 0 })
     expect(imageCache.size).toBe(1)
 
     // Simulate image loaded
@@ -45,7 +45,7 @@ describe('drawAgentSprite', () => {
     Object.defineProperty(img, 'complete', { value: true, configurable: true })
 
     // Second call — same imageCache, image complete now
-    drawAgentSprite({ ctx, session: mockSession, lastEvent: undefined, position, imageCache })
+    drawAgentSprite({ ctx, session: mockSession, lastEvent: undefined, position, imageCache, tick: 0 })
     expect((ctx.drawImage as ReturnType<typeof vi.fn>).mock.calls.length).toBe(1)
   })
 
@@ -53,7 +53,7 @@ describe('drawAgentSprite', () => {
     const ctx = makeMockCtx()
     const position = { x: 0, y: 0 }
 
-    drawAgentSprite({ ctx, session: mockSession, lastEvent: undefined, position, imageCache })
+    drawAgentSprite({ ctx, session: mockSession, lastEvent: undefined, position, imageCache, tick: 0 })
     const key = [...imageCache.keys()][0]
     expect(key).toContain('astronaut-sheet.png')
   })
@@ -62,11 +62,11 @@ describe('drawAgentSprite', () => {
     const ctx = makeMockCtx()
     const position = { x: 50, y: 100 }
 
-    drawAgentSprite({ ctx, session: mockSession, lastEvent: undefined, position, imageCache })
+    drawAgentSprite({ ctx, session: mockSession, lastEvent: undefined, position, imageCache, tick: 0 })
     const img = imageCache.get([...imageCache.keys()][0])!
     Object.defineProperty(img, 'complete', { value: true, configurable: true })
 
-    drawAgentSprite({ ctx, session: mockSession, lastEvent: undefined, position, imageCache })
+    drawAgentSprite({ ctx, session: mockSession, lastEvent: undefined, position, imageCache, tick: 0 })
     const drawImageCalls = (ctx.drawImage as ReturnType<typeof vi.fn>).mock.calls
     expect(drawImageCalls.length).toBe(1)
     // Args: img, sx, sy, sw, sh, dx, dy, dw, dh
@@ -76,17 +76,17 @@ describe('drawAgentSprite', () => {
     expect(drawImageCalls[0][8]).toBe(64)  // dh
   })
 
-  it('draws at column 0 (static blit, frame 0 only)', () => {
+  it('draws at column 0 when tick=0 (first animation frame)', () => {
     const ctx = makeMockCtx()
     const position = { x: 0, y: 0 }
 
-    drawAgentSprite({ ctx, session: mockSession, lastEvent: undefined, position, imageCache })
+    drawAgentSprite({ ctx, session: mockSession, lastEvent: undefined, position, imageCache, tick: 0 })
     const img = imageCache.get([...imageCache.keys()][0])!
     Object.defineProperty(img, 'complete', { value: true, configurable: true })
 
-    drawAgentSprite({ ctx, session: mockSession, lastEvent: undefined, position, imageCache })
+    drawAgentSprite({ ctx, session: mockSession, lastEvent: undefined, position, imageCache, tick: 0 })
     const drawImageCalls = (ctx.drawImage as ReturnType<typeof vi.fn>).mock.calls
-    expect(drawImageCalls[0][1]).toBe(0)  // sx = col * 64 = 0
+    expect(drawImageCalls[0][1]).toBe(0)  // sx = col * 64 = 0 at tick=0
   })
 
   it('defaults direction to south (row 0 for idle state)', () => {
@@ -95,11 +95,11 @@ describe('drawAgentSprite', () => {
 
     // active session with no events → 'waiting' agentState → 'idle' animState → row offset 0
     // direction 'south' → DIRECTION_ROWS.south = 0 → total row = 0
-    drawAgentSprite({ ctx, session: mockSession, lastEvent: undefined, position, imageCache })
+    drawAgentSprite({ ctx, session: mockSession, lastEvent: undefined, position, imageCache, tick: 0 })
     const img = imageCache.get([...imageCache.keys()][0])!
     Object.defineProperty(img, 'complete', { value: true, configurable: true })
 
-    drawAgentSprite({ ctx, session: mockSession, lastEvent: undefined, position, imageCache })
+    drawAgentSprite({ ctx, session: mockSession, lastEvent: undefined, position, imageCache, tick: 0 })
     const drawImageCalls = (ctx.drawImage as ReturnType<typeof vi.fn>).mock.calls
     expect(drawImageCalls[0][2]).toBe(0)  // sy = row * 64 = 0
   })
@@ -108,7 +108,7 @@ describe('drawAgentSprite', () => {
     const ctx = makeMockCtx()
     const position = { x: 0, y: 0 }
 
-    drawAgentSprite({ ctx, session: mockSession, lastEvent: undefined, position, imageCache })
+    drawAgentSprite({ ctx, session: mockSession, lastEvent: undefined, position, imageCache, tick: 0 })
     // Image not complete (default)
     expect((ctx.drawImage as ReturnType<typeof vi.fn>).mock.calls.length).toBe(0)
   })

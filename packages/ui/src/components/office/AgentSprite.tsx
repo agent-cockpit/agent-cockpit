@@ -19,6 +19,7 @@ export interface DrawAgentSpriteOptions {
   position: { x: number; y: number }
   direction?: Direction
   imageCache: Map<string, HTMLImageElement>
+  tick: number  // game tick counter from gameState.tick — used for NPC frame stepping
 }
 
 export function drawAgentSprite({
@@ -28,12 +29,20 @@ export function drawAgentSprite({
   position,
   direction = 'south',
   imageCache,
+  tick,
 }: DrawAgentSpriteOptions): void {
   const characterType = sessionToCharacter(session.sessionId)
   const agentState = deriveAgentState(session, lastEvent)
   const animState = COLOR_STATE_TO_ANIMATION[agentState]
   const row = DIRECTION_ROWS[direction] + STATE_ROW_OFFSET[animState]
-  const col = 0  // static blit: frame 0 only (no animation stepping in Phase 15)
+  const NPC_TICKS_PER_FRAME = 8
+  const NPC_FRAME_COUNTS: Record<typeof animState, number> = {
+    idle: 4,
+    blocked: 8,
+    completed: 9,
+    failed: 7,
+  }
+  const col = Math.floor(tick / NPC_TICKS_PER_FRAME) % NPC_FRAME_COUNTS[animState]
   const src = `/sprites/${characterType}-sheet.png`
 
   let img = imageCache.get(src)

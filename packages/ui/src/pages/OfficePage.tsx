@@ -102,6 +102,7 @@ export function OfficePage() {
             lastEvent,
             position: { x: pos.x - gameState.camera.x, y: pos.y - gameState.camera.y },
             imageCache: imageCacheRef.current,
+            tick: gameState.tick,
           })
         })
 
