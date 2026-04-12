@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.1
 milestone_name: — 2D Pixel Art Game Experience
 status: planning
-stopped_at: "Completed 16.2-02-PLAN.md (awaiting checkpoint:human-verify)"
-last_updated: "2026-04-12T15:20:53.580Z"
+stopped_at: "Completed 16.2-03-PLAN.md (awaiting checkpoint:human-verify - NPC animation visual QA)"
+last_updated: "2026-04-12T15:24:46.174Z"
 last_activity: 2026-04-10 — v1.1 roadmap written (7 phases, 16 plans)
 progress:
   total_phases: 15
-  completed_phases: 6
+  completed_phases: 7
   total_plans: 30
-  completed_plans: 28
+  completed_plans: 29
   percent: 0
 ---
 
@@ -104,6 +104,8 @@ All v1.0 decisions remain active and respected.
 - [Phase 16.1-map-rendering-camera-zoom]: Zoom applied via ctx.scale in render(), not in camera math — keeps Camera.ts zoom-agnostic
 - [Phase 16.2-walking-animation]: animTime stored as raw ms total; frame col derived at render site via Math.floor(animTime/150)%4
 - [Phase 16.2-walking-animation]: isMoving uses key booleans directly (up||down||left||right) before INV_SQRT2 normalization
+- [Phase 16.2-walking-animation]: tick: number required (not optional) in DrawAgentSpriteOptions — prevents silent NaN frames at all call sites
+- [Phase 16.2-walking-animation]: NPC_FRAME_COUNTS inlined in drawAgentSprite() body — co-located with usage, avoids unnecessary export surface
 
 ### Roadmap Evolution
 
@@ -124,8 +126,8 @@ None yet — requirements phase will surface tasks.
 
 ## Session Continuity
 
-Last session: 2026-04-12T15:20:53.578Z
-Stopped at: Completed 16.2-02-PLAN.md (awaiting checkpoint:human-verify)
+Last session: 2026-04-12T15:24:41.544Z
+Stopped at: Completed 16.2-03-PLAN.md (awaiting checkpoint:human-verify - NPC animation visual QA)
 Resume file: None
 
 *Updated after each plan completion*
