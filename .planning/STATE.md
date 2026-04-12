@@ -4,7 +4,7 @@ milestone: v1.1
 milestone_name: — 2D Pixel Art Game Experience
 status: planning
 stopped_at: Completed 16.2-02-PLAN.md — player walk animation visual fix applied and verified
-last_updated: "2026-04-12T15:41:01.307Z"
+last_updated: "2026-04-12T15:44:20.823Z"
 last_activity: 2026-04-10 — v1.1 roadmap written (7 phases, 16 plans)
 progress:
   total_phases: 15
