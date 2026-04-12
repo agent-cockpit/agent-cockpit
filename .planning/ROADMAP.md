@@ -168,7 +168,7 @@ Plans:
 
 **Goal:** Generate a high-quality astronaut character sprite sheet with a proper 8-direction walk cycle using the PixelLab API. The resulting sprite sheet replaces the current placeholder/bad animation frames, providing smooth, pixel-art walking animation for all 4 cardinal directions (or 8 if feasible).
 **Depends on:** Phase 16.3
-**Plans:** 1/2 plans executed
+**Plans:** 2/2 plans complete
 
 Plans:
 - [ ] 16.4-01-PLAN.md — Generate astronaut walk cycle frames via PixelLab animate_character + visual QA checkpoint
