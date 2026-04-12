@@ -3,8 +3,8 @@ gsd_state_version: 1.0
 milestone: v1.1
 milestone_name: — 2D Pixel Art Game Experience
 status: planning
-stopped_at: Completed 16.4-01-PLAN.md Task 1 — awaiting human checkpoint (visual walk frame review)
-last_updated: "2026-04-12T19:31:21.551Z"
+stopped_at: Completed 16.4-01-PLAN.md — walk frames generated and human-verified
+last_updated: "2026-04-12T19:40:49.845Z"
 last_activity: 2026-04-10 — v1.1 roadmap written (7 phases, 16 plans)
 progress:
   total_phases: 18
@@ -112,6 +112,8 @@ All v1.0 decisions remain active and respected.
 - [Phase 16.2-walking-animation]: WALK_FRAME_COUNT raised 4->8 to match actual walking animation frames in the sprite sheet
 - [Phase 16.4]: walking-8-frames template worked on first attempt — 8 frames per direction, matches WALK_FRAME_COUNT
 - [Phase 16.4]: PixelLab v2 REST API called directly (MCP not available in subagent) — RGBA bytes decoded via sharp.raw() to PNG
+- [Phase 16.4]: walking-8-frames template worked on first attempt — 8 frames per direction, matches WALK_FRAME_COUNT
+- [Phase 16.4]: PixelLab v2 REST API called directly (MCP not available in subagent) — RGBA bytes decoded via sharp.raw() to PNG
 
 ### Roadmap Evolution
 
@@ -132,8 +134,8 @@ None yet — requirements phase will surface tasks.
 
 ## Session Continuity
 
-Last session: 2026-04-12T19:31:21.549Z
-Stopped at: Completed 16.4-01-PLAN.md Task 1 — awaiting human checkpoint (visual walk frame review)
+Last session: 2026-04-12T19:40:49.843Z
+Stopped at: Completed 16.4-01-PLAN.md — walk frames generated and human-verified
 Resume file: None
 
 *Updated after each plan completion*
