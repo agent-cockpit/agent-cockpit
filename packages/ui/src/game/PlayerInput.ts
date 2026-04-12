@@ -2,7 +2,7 @@ import { WORLD_W, WORLD_H } from './GameState.js'
 import type { Direction } from '../components/office/spriteStates.js'
 
 export const PLAYER_SPEED = 120 // pixels per second
-export const WALK_FRAME_DURATION_MS = 150
+export const WALK_FRAME_DURATION_MS = 100  // 10fps walk cycle — natural humanoid gait (was 150)
 export const WALK_FRAME_COUNT = 8
 
 const INV_SQRT2 = 0.7071
@@ -95,7 +95,7 @@ export function movePlayer(
     player.direction = direction
   }
 
-  const isMoving = up || down || left || right
+  const isMoving = dx !== 0 || dy !== 0  // use actual displacement, not key booleans — fixes opposing-key moonwalk
   if (isMoving) {
     player.animTime += deltaMs
   } else {
