@@ -10,7 +10,7 @@ import type { Direction } from '../components/office/spriteStates.js'
 import { GameEngine } from '../game/GameEngine.js'
 import { gameState, WORLD_W, WORLD_H } from '../game/GameState.js'
 import { updateCamera } from '../game/Camera.js'
-import { attachInput, detachInput, getKeysDown, movePlayer } from '../game/PlayerInput.js'
+import { attachInput, detachInput, getKeysDown, movePlayer, WALK_FRAME_DURATION_MS, WALK_FRAME_COUNT } from '../game/PlayerInput.js'
 import { TilemapRenderer } from '../game/TilemapRenderer.js'
 
 // Module-level scroll singleton — kept as no-op for MapSidebar compatibility
@@ -111,7 +111,8 @@ export function OfficePage() {
           const px = gameState.player.x - gameState.camera.x
           const py = gameState.player.y - gameState.camera.y
           const row = DIRECTION_ROWS[gameState.player.direction as Direction] ?? 0
-          ctx.drawImage(pImg, 0, row * 64, 64, 64, px, py, 64, 64)
+          const col = Math.floor(gameState.player.animTime / WALK_FRAME_DURATION_MS) % WALK_FRAME_COUNT
+          ctx.drawImage(pImg, col * 64, row * 64, 64, 64, px, py, 64, 64)
         }
 
         ctx.restore()
