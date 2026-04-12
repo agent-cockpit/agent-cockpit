@@ -178,11 +178,12 @@ Plans:
 
 **Goal:** Replace the current broken walking animation with a properly implemented sprite-based system. Based on research into game animation techniques (frame timing, direction-aware row selection, interpolation), deliver a smooth, responsive walk cycle that feels correct to the player.
 **Depends on:** Phase 16.4
+**Requirements:** animation-timing, animation-direction
 **Plans:** 2 plans
 
 Plans:
-- [ ] 16.5-01-PLAN.md — Research sprite animation patterns in 2D games (frame rate, direction rows, state machine) — produce RESEARCH.md
-- [ ] 16.5-02-PLAN.md — Rework player animation system: direction-aware row selection, correct frame timing, smooth start/stop
+- [ ] 16.5-01-PLAN.md — Fix frame timing (100ms) + moonwalk guard (isMoving=dx/dy) with TDD (animation-timing)
+- [ ] 16.5-02-PLAN.md — Fix walk row selection (STATE_ROW_OFFSET.walk) + visual QA checkpoint (animation-direction)
 
 ### Phase 17: NPC Agent Behavior
 **Goal:** Agent NPCs on the map walk smoothly to zone positions based on their session state — coding agents move to the workstation zone, agents waiting for approval move to the meeting room zone — using linear interpolation (no pathfinding).
