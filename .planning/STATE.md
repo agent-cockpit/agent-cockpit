@@ -3,8 +3,8 @@ gsd_state_version: 1.0
 milestone: v1.1
 milestone_name: — 2D Pixel Art Game Experience
 status: planning
-stopped_at: "Checkpoint reached: 16.5-02 Task 2 — awaiting human visual QA (walk all 4 directions)"
-last_updated: "2026-04-12T20:07:03.733Z"
+stopped_at: Completed 16.5-02-PLAN.md
+last_updated: "2026-04-12T20:13:15.554Z"
 last_activity: 2026-04-10 — v1.1 roadmap written (7 phases, 16 plans)
 progress:
   total_phases: 18
@@ -119,6 +119,7 @@ All v1.0 decisions remain active and respected.
 - [Phase 16.5-walking-animation-rework]: WALK_FRAME_DURATION_MS=100: 10fps walk cycle matches natural humanoid gait; 150ms was visually too slow
 - [Phase 16.5-walking-animation-rework]: isMoving = dx !== 0 || dy !== 0: displacement-based guard prevents moonwalk when opposing keys cancel
 - [Phase 16.5-walking-animation-rework]: STATE_ROW_OFFSET.walk=32 was already added in Phase 16.4-02 (commit b24fe6b) — no duplication needed for 16.5-02
+- [Phase 16.5-walking-animation-rework]: STATE_ROW_OFFSET.walk=32 was already added in Phase 16.4-02 (commit b24fe6b) — no duplication needed; plan verified it exists and wired OfficePage to it
 
 ### Roadmap Evolution
 
@@ -139,8 +140,8 @@ None yet — requirements phase will surface tasks.
 
 ## Session Continuity
 
-Last session: 2026-04-12T20:07:00.293Z
-Stopped at: Checkpoint reached: 16.5-02 Task 2 — awaiting human visual QA (walk all 4 directions)
+Last session: 2026-04-12T20:13:15.552Z
+Stopped at: Completed 16.5-02-PLAN.md
 Resume file: None
 
 *Updated after each plan completion*

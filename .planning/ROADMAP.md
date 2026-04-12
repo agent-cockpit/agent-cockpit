@@ -179,7 +179,7 @@ Plans:
 **Goal:** Replace the current broken walking animation with a properly implemented sprite-based system. Based on research into game animation techniques (frame timing, direction-aware row selection, interpolation), deliver a smooth, responsive walk cycle that feels correct to the player.
 **Depends on:** Phase 16.4
 **Requirements:** animation-timing, animation-direction
-**Plans:** 1/2 plans executed
+**Plans:** 2/2 plans complete
 
 Plans:
 - [ ] 16.5-01-PLAN.md — Fix frame timing (100ms) + moonwalk guard (isMoving=dx/dy) with TDD (animation-timing)
