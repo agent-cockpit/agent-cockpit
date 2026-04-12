@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.1
 milestone_name: — 2D Pixel Art Game Experience
 status: planning
-stopped_at: Completed 16.1-03-PLAN.md
-last_updated: "2026-04-12T13:46:33.080Z"
+stopped_at: Completed 16.2-01-PLAN.md
+last_updated: "2026-04-12T15:19:01.312Z"
 last_activity: 2026-04-10 — v1.1 roadmap written (7 phases, 16 plans)
 progress:
-  total_phases: 14
+  total_phases: 15
   completed_phases: 6
-  total_plans: 27
-  completed_plans: 26
+  total_plans: 30
+  completed_plans: 27
   percent: 0
 ---
 
@@ -102,6 +102,8 @@ All v1.0 decisions remain active and respected.
 - [Phase 16.1-map-rendering-camera-zoom]: Objects/overlays use pixel world-space coords directly from JSON (no tile offset); tilesetId from first present edge in transition cells
 - [Phase 16.1-map-rendering-camera-zoom]: map-composite.png fallback: used pre-rendered composite export instead of reconstructing from Wang tileset PNGs (only 2 of 7 present)
 - [Phase 16.1-map-rendering-camera-zoom]: Zoom applied via ctx.scale in render(), not in camera math — keeps Camera.ts zoom-agnostic
+- [Phase 16.2-walking-animation]: animTime stored as raw ms total; frame col derived at render site via Math.floor(animTime/150)%4
+- [Phase 16.2-walking-animation]: isMoving uses key booleans directly (up||down||left||right) before INV_SQRT2 normalization
 
 ### Roadmap Evolution
 
@@ -122,8 +124,8 @@ None yet — requirements phase will surface tasks.
 
 ## Session Continuity
 
-Last session: 2026-04-12T13:32:54.921Z
-Stopped at: Completed 16.1-03-PLAN.md
+Last session: 2026-04-12T15:19:01.310Z
+Stopped at: Completed 16.2-01-PLAN.md
 Resume file: None
 
 *Updated after each plan completion*

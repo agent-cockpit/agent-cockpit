@@ -148,7 +148,7 @@ Plans:
 
 **Goal:** Animate the player character and NPC agents on the map. When the player holds WASD, the sprite plays its walk cycle; when released, it snaps to the rest frame. NPC agents cycle through their state animations (idle, blocked, completed, failed) continuously.
 **Depends on:** Phase 16.1
-**Plans:** 3 plans
+**Plans:** 1/3 plans executed
 
 Plans:
 - [ ] 16.2-01-PLAN.md — Add animTime to GameState.player + advance/reset in movePlayer() + new tests
