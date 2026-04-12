@@ -11,6 +11,7 @@ import { GameEngine } from '../game/GameEngine.js'
 import { gameState, WORLD_W, WORLD_H } from '../game/GameState.js'
 import { updateCamera } from '../game/Camera.js'
 import { attachInput, detachInput, getKeysDown, movePlayer } from '../game/PlayerInput.js'
+import { TilemapRenderer } from '../game/TilemapRenderer.js'
 
 // Module-level scroll singleton — kept as no-op for MapSidebar compatibility
 let _scrollToSession: ((id: string) => void) | null = null
@@ -60,11 +61,19 @@ export function OfficePage() {
     playerImg.src = '/sprites/astronaut-sheet.png'
     playerImgRef.current = playerImg
 
+    const tilemapRenderer = new TilemapRenderer()
+    // Load map assets before starting engine (non-blocking: engine starts after assets ready)
+    tilemapRenderer.load().catch(err => console.error('[TilemapRenderer] load failed:', err))
+
     const engine = new class extends GameEngine {
       update(deltaMs: number) {
         gameState.tick += 1
         movePlayer(gameState.player, getKeysDown(), deltaMs)
         const cam = gameState.camera
+        const zoom = cam.zoom  // = 2
+        // Set viewportW each frame in case zoom changes (future-proof)
+        cam.viewportW = canvas.width / zoom
+        cam.viewportH = canvas.height / zoom
         cam.targetX = gameState.player.x - cam.viewportW / 2
         cam.targetY = gameState.player.y - cam.viewportH / 2
         updateCamera(cam, { minX: 0, minY: 0, maxX: WORLD_W, maxY: WORLD_H }, deltaMs)
@@ -73,6 +82,15 @@ export function OfficePage() {
         ctx.clearRect(0, 0, canvas.width, canvas.height)
         // Read sessions and events from the store snapshot (not hook — called in rAF)
         const { sessions: liveSessions, events: liveEvents } = useStore.getState()
+        const zoom = gameState.camera.zoom  // = 2
+
+        ctx.save()
+        ctx.scale(zoom, zoom)
+
+        // Layer 0: Tilemap (terrain + overlay + objects) — pre-rendered OffscreenCanvas
+        tilemapRenderer.blit(ctx, gameState.camera.x, gameState.camera.y)
+
+        // Layer 1: NPC sprites (existing code, coordinates unchanged)
         Object.values(liveSessions ?? {}).forEach((session) => {
           const pos = gameState.npcs[session.sessionId]
           if (!pos) return
@@ -86,7 +104,8 @@ export function OfficePage() {
             imageCache: imageCacheRef.current,
           })
         })
-        // Draw player on top of NPC sprites (z-order = draw order)
+
+        // Layer 2: Player sprite (existing code, coordinates unchanged)
         const pImg = playerImgRef.current
         if (pImg?.complete && pImg.naturalWidth > 0) {
           const px = gameState.player.x - gameState.camera.x
@@ -94,6 +113,8 @@ export function OfficePage() {
           const row = DIRECTION_ROWS[gameState.player.direction as Direction] ?? 0
           ctx.drawImage(pImg, 0, row * 64, 64, 64, px, py, 64, 64)
         }
+
+        ctx.restore()
       }
     }(canvas)
 
@@ -114,8 +135,9 @@ export function OfficePage() {
       if (!entry) return
       canvas.width = Math.round(entry.contentRect.width)
       canvas.height = Math.round(entry.contentRect.height)
-      gameState.camera.viewportW = canvas.width
-      gameState.camera.viewportH = canvas.height
+      const zoom = gameState.camera.zoom  // = 2
+      gameState.camera.viewportW = canvas.width / zoom
+      gameState.camera.viewportH = canvas.height / zoom
     })
     observer.observe(container)
     return () => observer.disconnect()
@@ -127,8 +149,9 @@ export function OfficePage() {
     if (!canvas) return
     function handleClick(e: MouseEvent) {
       const rect = canvas!.getBoundingClientRect()
-      const clickX = e.clientX - rect.left + gameState.camera.x
-      const clickY = e.clientY - rect.top + gameState.camera.y
+      const zoom = gameState.camera.zoom  // = 2
+      const clickX = (e.clientX - rect.left) / zoom + gameState.camera.x
+      const clickY = (e.clientY - rect.top) / zoom + gameState.camera.y
       const SPRITE_SIZE = 64
       for (const [sessionId, pos] of Object.entries(gameState.npcs)) {
         if (
@@ -162,11 +185,7 @@ export function OfficePage() {
         ref={containerRef}
         className="relative w-full h-full overflow-hidden"
         data-testid="office-canvas"
-        style={{
-          backgroundImage: "url('/sprites/floor-tileset.png')",
-          backgroundRepeat: 'repeat',
-          backgroundSize: '64px 64px',
-        }}
+        style={{}}
       >
         <canvas
           ref={canvasRef}
