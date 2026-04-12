@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.1
 milestone_name: — 2D Pixel Art Game Experience
 status: planning
-stopped_at: Completed 16.1-02-PLAN.md
-last_updated: "2026-04-11T23:53:40.265Z"
+stopped_at: Completed 16.1-03-PLAN.md
+last_updated: "2026-04-12T13:32:54.925Z"
 last_activity: 2026-04-10 — v1.1 roadmap written (7 phases, 16 plans)
 progress:
   total_phases: 14
-  completed_phases: 5
+  completed_phases: 6
   total_plans: 27
-  completed_plans: 25
+  completed_plans: 26
   percent: 0
 ---
 
@@ -100,6 +100,8 @@ All v1.0 decisions remain active and respected.
 - [Phase 16.1-01]: zoom field on CameraState applied in render (canvas.scale), not in updateCamera — keeps camera math zoom-agnostic
 - [Phase 16.1-01]: Wave 0 TDD: TilemapRenderer test stubs in RED state intentionally — module created in Plan 02
 - [Phase 16.1-map-rendering-camera-zoom]: Objects/overlays use pixel world-space coords directly from JSON (no tile offset); tilesetId from first present edge in transition cells
+- [Phase 16.1-map-rendering-camera-zoom]: map-composite.png fallback: used pre-rendered composite export instead of reconstructing from Wang tileset PNGs (only 2 of 7 present)
+- [Phase 16.1-map-rendering-camera-zoom]: Zoom applied via ctx.scale in render(), not in camera math — keeps Camera.ts zoom-agnostic
 
 ### Roadmap Evolution
 
@@ -120,8 +122,8 @@ None yet — requirements phase will surface tasks.
 
 ## Session Continuity
 
-Last session: 2026-04-11T23:53:40.261Z
-Stopped at: Completed 16.1-02-PLAN.md
+Last session: 2026-04-12T13:32:54.921Z
+Stopped at: Completed 16.1-03-PLAN.md
 Resume file: None
 
 *Updated after each plan completion*
