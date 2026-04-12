@@ -1,10 +1,10 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { PLAYER_SPEED, attachInput, detachInput, getKeysDown, movePlayer } from '../PlayerInput.js'
+import { PLAYER_SPEED, WALK_FRAME_DURATION_MS, WALK_FRAME_COUNT, attachInput, detachInput, getKeysDown, movePlayer } from '../PlayerInput.js'
 import { WORLD_W, WORLD_H } from '../GameState.js'
 
 // Helper to make a player object
-function makePlayer(x = 0, y = 0, direction = 'south') {
-  return { x, y, direction }
+function makePlayer(x = 0, y = 0, direction = 'south', animTime = 0) {
+  return { x, y, direction, animTime }
 }
 
 // Helper to make a keys Set
@@ -285,5 +285,36 @@ describe('attachInput / detachInput lifecycle', () => {
     attachInput()
     const countAfterSecond = addSpy.mock.calls.length
     expect(countAfterSecond).toBe(countAfterFirst)
+  })
+})
+
+describe('movePlayer — animTime', () => {
+  it('animTime advances by deltaMs when a key is held', () => {
+    const player = makePlayer(SAFE_X, SAFE_Y)
+    movePlayer(player, keys('KeyW'), 200)
+    expect(player.animTime).toBe(200)
+  })
+
+  it('animTime accumulates across multiple frames when moving', () => {
+    const player = makePlayer(SAFE_X, SAFE_Y)
+    movePlayer(player, keys('KeyW'), 150)
+    movePlayer(player, keys('KeyW'), 150)
+    expect(player.animTime).toBe(300)
+  })
+
+  it('animTime resets to 0 when no keys are held', () => {
+    const player = makePlayer(SAFE_X, SAFE_Y, 'south', 999)
+    movePlayer(player, keys(), 16)
+    expect(player.animTime).toBe(0)
+  })
+
+  it('col formula wraps from frame 3 back to frame 0', () => {
+    // At animTime = WALK_FRAME_DURATION_MS * WALK_FRAME_COUNT, col should be 0 again
+    const cycleMs = WALK_FRAME_DURATION_MS * WALK_FRAME_COUNT
+    const col = Math.floor(cycleMs / WALK_FRAME_DURATION_MS) % WALK_FRAME_COUNT
+    expect(col).toBe(0)
+    // Frame 3 is at (WALK_FRAME_COUNT - 1) * WALK_FRAME_DURATION_MS
+    const frame3 = Math.floor((WALK_FRAME_DURATION_MS * 3) / WALK_FRAME_DURATION_MS) % WALK_FRAME_COUNT
+    expect(frame3).toBe(3)
   })
 })
