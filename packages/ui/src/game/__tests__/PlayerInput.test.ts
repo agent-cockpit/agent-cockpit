@@ -317,4 +317,25 @@ describe('movePlayer — animTime', () => {
     const frame3 = Math.floor((WALK_FRAME_DURATION_MS * 3) / WALK_FRAME_DURATION_MS) % WALK_FRAME_COUNT
     expect(frame3).toBe(3)
   })
+
+  it('animTime stays 0 when opposing keys W+S cancel out (no moonwalk)', () => {
+    const player = makePlayer(SAFE_X, SAFE_Y)
+    movePlayer(player, keys('KeyW', 'KeyS'), 200)
+    expect(player.animTime).toBe(0)
+  })
+
+  it('animTime stays 0 when opposing keys A+D cancel out (no moonwalk)', () => {
+    const player = makePlayer(SAFE_X, SAFE_Y)
+    movePlayer(player, keys('KeyA', 'KeyD'), 200)
+    expect(player.animTime).toBe(0)
+  })
+
+  it('WALK_FRAME_DURATION_MS is 100ms (natural humanoid gait, 10fps walk cycle)', () => {
+    expect(WALK_FRAME_DURATION_MS).toBe(100)
+  })
+
+  it('full 8-frame walk cycle completes in 800ms', () => {
+    const cycleMs = WALK_FRAME_DURATION_MS * WALK_FRAME_COUNT
+    expect(cycleMs).toBe(800)
+  })
 })
