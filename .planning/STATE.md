@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.1
 milestone_name: — 2D Pixel Art Game Experience
 status: planning
-stopped_at: Completed 16.2-02-PLAN.md — player walk animation visual fix applied and verified
-last_updated: "2026-04-12T15:44:20.823Z"
+stopped_at: Completed 16.4-01-PLAN.md Task 1 — awaiting human checkpoint (visual walk frame review)
+last_updated: "2026-04-12T19:31:21.551Z"
 last_activity: 2026-04-10 — v1.1 roadmap written (7 phases, 16 plans)
 progress:
-  total_phases: 15
+  total_phases: 18
   completed_phases: 7
-  total_plans: 30
-  completed_plans: 29
+  total_plans: 35
+  completed_plans: 30
   percent: 0
 ---
 
@@ -110,6 +110,8 @@ All v1.0 decisions remain active and respected.
 - [Phase 16.2-walking-animation]: NPC_FRAME_COUNTS inlined in drawAgentSprite() body — co-located with usage, avoids unnecessary export surface
 - [Phase 16.2-walking-animation]: Walk rows in sprite sheet start at row +8 (STATE_ROW_OFFSET.blocked); rows 0-7 are idle/standing frames only
 - [Phase 16.2-walking-animation]: WALK_FRAME_COUNT raised 4->8 to match actual walking animation frames in the sprite sheet
+- [Phase 16.4]: walking-8-frames template worked on first attempt — 8 frames per direction, matches WALK_FRAME_COUNT
+- [Phase 16.4]: PixelLab v2 REST API called directly (MCP not available in subagent) — RGBA bytes decoded via sharp.raw() to PNG
 
 ### Roadmap Evolution
 
@@ -130,8 +132,8 @@ None yet — requirements phase will surface tasks.
 
 ## Session Continuity
 
-Last session: 2026-04-12T15:41:01.305Z
-Stopped at: Completed 16.2-02-PLAN.md — player walk animation visual fix applied and verified
+Last session: 2026-04-12T19:31:21.549Z
+Stopped at: Completed 16.4-01-PLAN.md Task 1 — awaiting human checkpoint (visual walk frame review)
 Resume file: None
 
 *Updated after each plan completion*
