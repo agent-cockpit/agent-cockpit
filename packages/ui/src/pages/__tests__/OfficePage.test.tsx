@@ -161,8 +161,8 @@ describe('OfficePage canvas mount', () => {
   })
 
   it('canvas click on NPC teleports camera to centre on that NPC (cam.x === cam.targetX)', () => {
-    // Reset camera
-    gameState.camera = { x: 0, y: 0, targetX: 0, targetY: 0, viewportW: 800, viewportH: 600, zoom: 2 }
+    // Reset camera — viewportW/H are zoom-corrected (canvas.width/zoom = 800/2 = 400)
+    gameState.camera = { x: 0, y: 0, targetX: 0, targetY: 0, viewportW: 400, viewportH: 300, zoom: 2 }
 
     render(<OfficePage />)
     // Set NPC AFTER render so the seeding cleanup effect (which deletes NPCs not in activeSessions)
@@ -175,17 +175,17 @@ describe('OfficePage canvas mount', () => {
       toJSON: () => ({}),
     })
 
-    // Click at screen position (420, 320) — with camera at (0,0), world coords = (420, 320)
-    // NPC is at (400, 300), size 64px, so (420, 320) is inside the sprite
-    const clickEvent = new MouseEvent('click', { bubbles: true, cancelable: true, clientX: 420, clientY: 320 })
+    // Click at screen position (840, 640) — zoom=2 so world coords = (840/2, 640/2) = (420, 320)
+    // NPC is at (400, 300), size 64px, so world (420, 320) is inside the sprite
+    const clickEvent = new MouseEvent('click', { bubbles: true, cancelable: true, clientX: 840, clientY: 640 })
     canvas.dispatchEvent(clickEvent)
 
     // Camera must have snapped: cam.x === cam.targetX (instant, no lerp)
     expect(gameState.camera.x).toBe(gameState.camera.targetX)
     expect(gameState.camera.y).toBe(gameState.camera.targetY)
-    // targetX should be clamped and centred on NPC x=400
-    // targetX = clamp(400 - 800/2, 0, WORLD_W - 800) = clamp(0, 0, 1120) = 0
-    expect(gameState.camera.targetX).toBe(0)
+    // targetX centred on NPC x=400: viewportW = canvas.width/zoom = 800/2 = 400
+    // targetX = clamp(400 - 200, 0, WORLD_W - 400) = 200
+    expect(gameState.camera.targetX).toBe(200)
     // Player must teleport to NPC position so update() preserves camera target on next tick
     expect(gameState.player.x).toBe(400)
     expect(gameState.player.y).toBe(300)
