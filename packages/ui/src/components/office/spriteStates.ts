@@ -11,7 +11,7 @@ export type Direction =
   | 'north-east'
   | 'north-west'
 
-export type AnimationState = 'idle' | 'blocked' | 'completed' | 'failed'
+export type AnimationState = 'idle' | 'blocked' | 'completed' | 'failed' | 'walk'
 
 export const DIRECTION_ROWS: Record<Direction, number> = {
   south: 0,
@@ -29,6 +29,7 @@ export const STATE_ROW_OFFSET: Record<AnimationState, number> = {
   blocked: 8,
   completed: 16,
   failed: 24,
+  walk: 32,
 }
 
 export type AgentAnimState =
