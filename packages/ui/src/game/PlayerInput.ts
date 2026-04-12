@@ -2,6 +2,8 @@ import { WORLD_W, WORLD_H } from './GameState.js'
 import type { Direction } from '../components/office/spriteStates.js'
 
 export const PLAYER_SPEED = 120 // pixels per second
+export const WALK_FRAME_DURATION_MS = 150
+export const WALK_FRAME_COUNT = 4
 
 const INV_SQRT2 = 0.7071
 
@@ -65,7 +67,7 @@ function deriveDirection(dx: number, dy: number): Direction | null {
 }
 
 export function movePlayer(
-  player: { x: number; y: number; direction: string },
+  player: { x: number; y: number; direction: string; animTime: number },
   keys: ReadonlySet<string>,
   deltaMs: number,
 ): void {
@@ -91,5 +93,12 @@ export function movePlayer(
   const direction = deriveDirection(dx, dy)
   if (direction !== null) {
     player.direction = direction
+  }
+
+  const isMoving = up || down || left || right
+  if (isMoving) {
+    player.animTime += deltaMs
+  } else {
+    player.animTime = 0
   }
 }
