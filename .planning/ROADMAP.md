@@ -144,6 +144,18 @@ Plans:
 - [ ] 16.1-02-PLAN.md — Implement TilemapRenderer.ts (OffscreenCanvas pre-render, Wang tiles, overlay, objects)
 - [ ] 16.1-03-PLAN.md — Wire TilemapRenderer into OfficePage: zoom transform, camera fix, click hit-test fix, human verify
 
+### Phase 16.2: Walking Animation & Sprite Quality (INSERTED)
+
+**Goal:** Animate the player character and NPC agents on the map. When the player holds WASD, the sprite plays its walk cycle; when released, it snaps to the rest frame. NPC agents cycle through their state animations (idle, blocked, completed, failed) continuously.
+**Depends on:** Phase 16.1
+**Plans:** 3 plans
+
+Plans:
+- [ ] 16.2-01-PLAN.md — Add animTime to GameState.player + advance/reset in movePlayer() + new tests
+- [ ] 16.2-02-PLAN.md — Wire player render col from animTime in OfficePage.tsx + human verify
+- [ ] 16.2-03-PLAN.md — Add tick to DrawAgentSpriteOptions, NPC tick-based col, update call site + AgentSprite.test.ts
+
+
 ### Phase 17: NPC Agent Behavior
 **Goal:** Agent NPCs on the map walk smoothly to zone positions based on their session state — coding agents move to the workstation zone, agents waiting for approval move to the meeting room zone — using linear interpolation (no pathfinding).
 **Depends on:** Phase 16
