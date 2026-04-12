@@ -171,8 +171,8 @@ Plans:
 **Plans:** 2 plans
 
 Plans:
-- [ ] 16.4-01-PLAN.md — Research PixelLab API animate endpoint, define astronaut style prompt and animation params, generate walk cycle frames
-- [ ] 16.4-02-PLAN.md — Download, validate, and integrate generated sprite sheet into assets/sprites/
+- [ ] 16.4-01-PLAN.md — Generate astronaut walk cycle frames via PixelLab animate_character + visual QA checkpoint
+- [ ] 16.4-02-PLAN.md — Extend build-spritesheet.ts + rebuild 40-row sheet, extend spriteStates.ts, fix OfficePage.tsx player walk render
 
 ### Phase 16.5: Walking Animation Rework (INSERTED)
 
