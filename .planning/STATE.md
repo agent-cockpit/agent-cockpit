@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.1
 milestone_name: — 2D Pixel Art Game Experience
 status: planning
-stopped_at: Completed 16.4-01-PLAN.md — walk frames generated and human-verified
-last_updated: "2026-04-12T19:40:49.845Z"
+stopped_at: Completed 16.4-02-PLAN.md — walk sprite integration, OfficePage.tsx fixed, human-verified
+last_updated: "2026-04-12T19:52:27.530Z"
 last_activity: 2026-04-10 — v1.1 roadmap written (7 phases, 16 plans)
 progress:
   total_phases: 18
-  completed_phases: 7
+  completed_phases: 8
   total_plans: 35
-  completed_plans: 30
+  completed_plans: 31
   percent: 0
 ---
 
@@ -114,6 +114,8 @@ All v1.0 decisions remain active and respected.
 - [Phase 16.4]: PixelLab v2 REST API called directly (MCP not available in subagent) — RGBA bytes decoded via sharp.raw() to PNG
 - [Phase 16.4]: walking-8-frames template worked on first attempt — 8 frames per direction, matches WALK_FRAME_COUNT
 - [Phase 16.4]: PixelLab v2 REST API called directly (MCP not available in subagent) — RGBA bytes decoded via sharp.raw() to PNG
+- [Phase 16.4-02]: STATE_ROW_OFFSET.walk=32 — walk rows appended after failed=24; walk is player-only state not added to NPC COLOR_STATE_TO_ANIMATION
+- [Phase 16.4-02]: Walk frame count is 8 — matches existing WALK_FRAME_COUNT constant, no PlayerInput.ts change needed
 
 ### Roadmap Evolution
 
@@ -134,8 +136,8 @@ None yet — requirements phase will surface tasks.
 
 ## Session Continuity
 
-Last session: 2026-04-12T19:40:49.843Z
-Stopped at: Completed 16.4-01-PLAN.md — walk frames generated and human-verified
+Last session: 2026-04-12T19:52:23.520Z
+Stopped at: Completed 16.4-02-PLAN.md — walk sprite integration, OfficePage.tsx fixed, human-verified
 Resume file: None
 
 *Updated after each plan completion*
