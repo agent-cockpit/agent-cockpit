@@ -1,0 +1,596 @@
+{
+  "version": "1.0.0",
+  "totalObjects": 30,
+  "objects": [
+    {
+      "id": "c613aff9-c0a3-46c1-858d-65493c11310a",
+      "name": "Astronaut",
+      "filename": "c613aff9-c0a3-46c1-858d-65493c11310a.png",
+      "boundingBox": {
+        "x": 242,
+        "y": 666,
+        "width": 92,
+        "height": 92
+      },
+      "layer": 2,
+      "visible": true,
+      "locked": false,
+      "description": "Character: Astronaut (south)",
+      "metadata": {
+        "generatedAt": "2026-04-10T18:40:08.959Z"
+      },
+      "isProgress": false
+    },
+    {
+      "id": "5455e981-18fe-48b6-9a74-c894b3ab83fd",
+      "name": "metallic android robot with LED eye panel, antenna, articulated joints, silver and blue, pixel art, sci-fi AI unit",
+      "filename": "5455e981-18fe-48b6-9a74-c894b3ab83fd.png",
+      "boundingBox": {
+        "x": 235,
+        "y": 767,
+        "width": 92,
+        "height": 92
+      },
+      "layer": 3,
+      "visible": true,
+      "locked": false,
+      "description": "Character: metallic android robot with LED eye panel, antenna, articulated joints, silver and blue, pixel art, sci-fi AI unit (north)",
+      "metadata": {
+        "generatedAt": "2026-04-10T18:40:24.372Z"
+      },
+      "isProgress": false
+    },
+    {
+      "id": "2695515a-49ab-4191-8867-13cc361ba629",
+      "name": "small green alien with large black oval eyes, 4 fingers, minimal clothing, curious expression, pixel art, xenobiologist",
+      "filename": "2695515a-49ab-4191-8867-13cc361ba629.png",
+      "boundingBox": {
+        "x": 262,
+        "y": 672,
+        "width": 92,
+        "height": 92
+      },
+      "layer": 4,
+      "visible": true,
+      "locked": false,
+      "description": "Character: small green alien with large black oval eyes, 4 fingers, minimal clothing, curious expression, pixel art, xenobiologist (south)",
+      "metadata": {
+        "generatedAt": "2026-04-10T18:40:31.158Z"
+      },
+      "isProgress": false
+    },
+    {
+      "id": "9936ba17-1379-4886-92e7-1ed420710916",
+      "name": "translucent blue holographic humanoid, scan lines visible, glowing edges, slightly transparent, pixel art, AI interface projection",
+      "filename": "9936ba17-1379-4886-92e7-1ed420710916.png",
+      "boundingBox": {
+        "x": 243,
+        "y": 736,
+        "width": 92,
+        "height": 92
+      },
+      "layer": 5,
+      "visible": true,
+      "locked": false,
+      "description": "Character: translucent blue holographic humanoid, scan lines visible, glowing edges, slightly transparent, pixel art, AI interface projection (south-east)",
+      "metadata": {
+        "generatedAt": "2026-04-10T18:40:36.674Z"
+      },
+      "isProgress": false
+    },
+    {
+      "id": "e13d0de8-a774-4742-92b9-b8fd9abedf88",
+      "name": "chimpanzee in a white space suit, helmet under arm, curious expression, pixel art, retro NASA test primate",
+      "filename": "e13d0de8-a774-4742-92b9-b8fd9abedf88.png",
+      "boundingBox": {
+        "x": 279,
+        "y": 684,
+        "width": 92,
+        "height": 92
+      },
+      "layer": 6,
+      "visible": true,
+      "locked": false,
+      "description": "Character: chimpanzee in a white space suit, helmet under arm, curious expression, pixel art, retro NASA test primate (south-west)",
+      "metadata": {
+        "generatedAt": "2026-04-10T18:40:46.006Z"
+      },
+      "isProgress": false
+    },
+    {
+      "id": "05ebd217-3aef-4eca-b266-a17949557ad1",
+      "name": "friendly ghost wearing a tiny astronaut helmet, translucent white with slight blue glow, floating, pixel art",
+      "filename": "05ebd217-3aef-4eca-b266-a17949557ad1.png",
+      "boundingBox": {
+        "x": 281,
+        "y": 703,
+        "width": 92,
+        "height": 92
+      },
+      "layer": 7,
+      "visible": true,
+      "locked": false,
+      "description": "Character: friendly ghost wearing a tiny astronaut helmet, translucent white with slight blue glow, floating, pixel art (west)",
+      "metadata": {
+        "generatedAt": "2026-04-10T18:40:57.474Z"
+      },
+      "isProgress": false
+    },
+    {
+      "id": "6e3357be-32af-43ce-8116-55904228f17a",
+      "name": "indigenous healer in traditional headdress and space suit, carrying medicine bag, wise expression, pixel art, chibi style",
+      "filename": "6e3357be-32af-43ce-8116-55904228f17a.png",
+      "boundingBox": {
+        "x": 244,
+        "y": 739,
+        "width": 92,
+        "height": 92
+      },
+      "layer": 8,
+      "visible": true,
+      "locked": false,
+      "description": "Character: indigenous healer in traditional headdress and space suit, carrying medicine bag, wise expression, pixel art, chibi style (north-east)",
+      "metadata": {
+        "generatedAt": "2026-04-10T18:41:37.789Z"
+      },
+      "isProgress": false
+    },
+    {
+      "id": "26293057-551a-4f5d-b11e-261957301609",
+      "name": "space pirate with eyepatch, captain hat, hook hand, worn jacket, pixel art, rogue contractor crew member",
+      "filename": "26293057-551a-4f5d-b11e-261957301609.png",
+      "boundingBox": {
+        "x": 277,
+        "y": 767,
+        "width": 92,
+        "height": 92
+      },
+      "layer": 9,
+      "visible": true,
+      "locked": false,
+      "description": "Character: space pirate with eyepatch, captain hat, hook hand, worn jacket, pixel art, rogue contractor crew member (south-east)",
+      "metadata": {
+        "generatedAt": "2026-04-10T18:41:47.023Z"
+      },
+      "isProgress": false
+    },
+    {
+      "id": "d6f46351-87e3-4488-b800-bf8cfc6454a7",
+      "name": "ninja in black tactical suit, face mask, shuriken on belt, crouching ready stance, pixel art, stealth operative",
+      "filename": "d6f46351-87e3-4488-b800-bf8cfc6454a7.png",
+      "boundingBox": {
+        "x": 280,
+        "y": 723,
+        "width": 92,
+        "height": 92
+      },
+      "layer": 10,
+      "visible": true,
+      "locked": false,
+      "description": "Character: ninja in black tactical suit, face mask, shuriken on belt, crouching ready stance, pixel art, stealth operative (north-west)",
+      "metadata": {
+        "generatedAt": "2026-04-10T18:42:05.988Z"
+      },
+      "isProgress": false
+    },
+    {
+      "id": "327cffbf-a508-4e89-86d4-2e0f36e70bda",
+      "name": "prehistoric human in fur outfit with space helmet, holding a club, pixel art, chibi style",
+      "filename": "327cffbf-a508-4e89-86d4-2e0f36e70bda.png",
+      "boundingBox": {
+        "x": 245,
+        "y": 766,
+        "width": 92,
+        "height": 92
+      },
+      "layer": 11,
+      "visible": true,
+      "locked": false,
+      "description": "Character: prehistoric human in fur outfit with space helmet, holding a club, pixel art, chibi style (north)",
+      "metadata": {
+        "generatedAt": "2026-04-10T18:42:19.521Z"
+      },
+      "isProgress": false
+    },
+    {
+      "id": "3caf37bd-a97e-4723-b8ee-add6beec6b4c",
+      "name": "Object 0",
+      "filename": "3caf37bd-a97e-4723-b8ee-add6beec6b4c.png",
+      "boundingBox": {
+        "x": 330,
+        "y": 57,
+        "width": 91,
+        "height": 63
+      },
+      "layer": 29,
+      "visible": true,
+      "locked": false,
+      "description": "computer desk table",
+      "metadata": {
+        "lastEdited": "2026-04-10T22:23:35.786512",
+        "generatedAt": "2026-04-10T22:01:11.164Z"
+      },
+      "isProgress": false
+    },
+    {
+      "id": "040bf22f-19db-41f3-af4c-b2a1947f82e1",
+      "name": "Object 0 (Copy)",
+      "filename": "040bf22f-19db-41f3-af4c-b2a1947f82e1.png",
+      "boundingBox": {
+        "x": 422,
+        "y": 55,
+        "width": 91,
+        "height": 63
+      },
+      "layer": 29,
+      "visible": true,
+      "locked": false,
+      "description": "computer desk table",
+      "metadata": {
+        "lastEdited": "2026-04-10T22:23:35.786512",
+        "generatedAt": "2026-04-10T22:02:31.879Z"
+      },
+      "isProgress": false
+    },
+    {
+      "id": "b40301f7-d45b-4ad5-a955-4115d8ff775e",
+      "name": "Object 0",
+      "filename": "b40301f7-d45b-4ad5-a955-4115d8ff775e.png",
+      "boundingBox": {
+        "x": 909,
+        "y": 542,
+        "width": 120,
+        "height": 82
+      },
+      "layer": 13,
+      "visible": true,
+      "locked": false,
+      "description": "3d, big pool table",
+      "metadata": {
+        "lastEdited": "2026-04-11T14:46:36.987008",
+        "generatedAt": "2026-04-11T04:44:09.489Z"
+      },
+      "isProgress": false
+    },
+    {
+      "id": "c5a3e0b7-b564-4009-9d6b-00738b8921a4",
+      "name": "Object 0",
+      "filename": "c5a3e0b7-b564-4009-9d6b-00738b8921a4.png",
+      "boundingBox": {
+        "x": 416,
+        "y": 588,
+        "width": 72,
+        "height": 85
+      },
+      "layer": 15,
+      "visible": true,
+      "locked": false,
+      "description": "Big Piano",
+      "metadata": {
+        "lastEdited": "2026-04-11T14:46:36.987008",
+        "generatedAt": "2026-04-11T04:48:55.904Z"
+      },
+      "isProgress": false
+    },
+    {
+      "id": "3a3677b5-8711-41ab-8aa4-1c1e4b12291f",
+      "name": "Object 0",
+      "filename": "3a3677b5-8711-41ab-8aa4-1c1e4b12291f.png",
+      "boundingBox": {
+        "x": 339.6009950310329,
+        "y": 209.60099503103288,
+        "width": 44,
+        "height": 54
+      },
+      "layer": 15,
+      "visible": true,
+      "locked": false,
+      "description": "Decoration plant",
+      "metadata": {
+        "lastEdited": "2026-04-11T14:46:36.987008",
+        "generatedAt": "2026-04-11T05:07:47.126Z"
+      },
+      "isProgress": false
+    },
+    {
+      "id": "f49ad1a2-249e-4d78-bfd2-4357422cbfd5",
+      "name": "Object 0",
+      "filename": "f49ad1a2-249e-4d78-bfd2-4357422cbfd5.png",
+      "boundingBox": {
+        "x": 398,
+        "y": 433,
+        "width": 46,
+        "height": 79
+      },
+      "layer": 16,
+      "visible": true,
+      "locked": false,
+      "description": "Arcade cabinet\n",
+      "metadata": {
+        "lastEdited": "2026-04-11T14:46:36.987008",
+        "generatedAt": "2026-04-11T05:21:42.003Z"
+      },
+      "isProgress": false
+    },
+    {
+      "id": "f997d2d7-b3e1-4848-9195-5c41ce0f6246",
+      "name": "Object 0 (Copy)",
+      "filename": "f997d2d7-b3e1-4848-9195-5c41ce0f6246.png",
+      "boundingBox": {
+        "x": 446,
+        "y": 435,
+        "width": 46,
+        "height": 79
+      },
+      "layer": 16,
+      "visible": true,
+      "locked": false,
+      "description": "Arcade cabinet\n",
+      "metadata": {
+        "lastEdited": "2026-04-11T14:46:36.987008",
+        "generatedAt": "2026-04-11T05:22:08.900Z"
+      },
+      "isProgress": false
+    },
+    {
+      "id": "b470662c-a8b9-4818-b408-29dbdfa49bc6",
+      "name": "Object 0 (Copy) (Copy)",
+      "filename": "b470662c-a8b9-4818-b408-29dbdfa49bc6.png",
+      "boundingBox": {
+        "x": 496,
+        "y": 431,
+        "width": 46,
+        "height": 79
+      },
+      "layer": 16,
+      "visible": true,
+      "locked": false,
+      "description": "Arcade cabinet\n",
+      "metadata": {
+        "lastEdited": "2026-04-11T14:46:36.987008",
+        "generatedAt": "2026-04-11T05:22:09.133Z"
+      },
+      "isProgress": false
+    },
+    {
+      "id": "79c8481e-a6d2-4e5b-bd85-4b863cb77229",
+      "name": "Object 0",
+      "filename": "79c8481e-a6d2-4e5b-bd85-4b863cb77229.png",
+      "boundingBox": {
+        "x": 545,
+        "y": 443,
+        "width": 98,
+        "height": 48
+      },
+      "layer": 19,
+      "visible": true,
+      "locked": false,
+      "description": "Slot Casino machines",
+      "metadata": {
+        "lastEdited": "2026-04-11T14:46:36.987008",
+        "generatedAt": "2026-04-11T05:26:38.435Z"
+      },
+      "isProgress": false
+    },
+    {
+      "id": "ee2b03d2-7e6c-49e0-93b2-0a62b041a9fb",
+      "name": "Object 0",
+      "filename": "ee2b03d2-7e6c-49e0-93b2-0a62b041a9fb.png",
+      "boundingBox": {
+        "x": 932,
+        "y": 450,
+        "width": 82,
+        "height": 46
+      },
+      "layer": 20,
+      "visible": true,
+      "locked": false,
+      "description": "big and colorful couch",
+      "metadata": {
+        "lastEdited": "2026-04-11T14:46:36.987008",
+        "generatedAt": "2026-04-11T14:43:12.898Z"
+      },
+      "isProgress": false
+    },
+    {
+      "id": "2e1781ed-883f-4393-9b1a-4ea61be3157b",
+      "name": "Object 0",
+      "filename": "2e1781ed-883f-4393-9b1a-4ea61be3157b.png",
+      "boundingBox": {
+        "x": 1020,
+        "y": 71,
+        "width": 58,
+        "height": 77
+      },
+      "layer": 21,
+      "visible": true,
+      "locked": false,
+      "description": "big couple bed",
+      "metadata": {
+        "lastEdited": "2026-04-11T14:46:36.987008",
+        "generatedAt": "2026-04-11T14:44:46.804Z"
+      },
+      "isProgress": false
+    },
+    {
+      "id": "8527ab28-1495-434a-8c12-9951cf8d6585",
+      "name": "Object 0",
+      "filename": "8527ab28-1495-434a-8c12-9951cf8d6585.png",
+      "boundingBox": {
+        "x": 939,
+        "y": 663,
+        "width": 76,
+        "height": 49
+      },
+      "layer": 22,
+      "visible": true,
+      "locked": false,
+      "description": "Modern pixel art, top-down view, round poker table, green felt surface, white printed markings, wooden rim, small chip stacks on edges, clean pixel art",
+      "metadata": {
+        "lastEdited": "2026-04-11T15:52:08.224983",
+        "generatedAt": "2026-04-11T15:38:28.901Z"
+      },
+      "isProgress": false
+    },
+    {
+      "id": "e3fe1e62-f08d-4384-9423-f209a060232e",
+      "name": "Object 0",
+      "filename": "e3fe1e62-f08d-4384-9423-f209a060232e.png",
+      "boundingBox": {
+        "x": 747,
+        "y": 702,
+        "width": 92,
+        "height": 72
+      },
+      "layer": 23,
+      "visible": true,
+      "locked": false,
+      "description": "Modern pixel art, top-down slight angle, stone ritual altar, melted candles on surface, glowing carved rune, dark stains, ominous warm candlelight glow, clean pixel art",
+      "metadata": {
+        "lastEdited": "2026-04-11T15:52:08.224983",
+        "generatedAt": "2026-04-11T15:40:19.622Z"
+      },
+      "isProgress": false
+    },
+    {
+      "id": "b7628625-fe6e-4557-9470-a436234c19f0",
+      "name": "Object 0",
+      "filename": "b7628625-fe6e-4557-9470-a436234c19f0.png",
+      "boundingBox": {
+        "x": 750,
+        "y": 429,
+        "width": 64,
+        "height": 105
+      },
+      "layer": 24,
+      "visible": true,
+      "locked": false,
+      "description": "\n\nModern pixel art, top-down slight angle, ancient stone idol statue, hollow glowing eyes, cracked pedestal base, mossy texture, eerie inner glow, clean pixel art",
+      "metadata": {
+        "lastEdited": "2026-04-11T15:52:08.224983",
+        "generatedAt": "2026-04-11T15:41:44.920Z"
+      },
+      "isProgress": false
+    },
+    {
+      "id": "2518bf6e-2b5b-41c1-b822-04df0194b935",
+      "name": "Object 0",
+      "filename": "2518bf6e-2b5b-41c1-b822-04df0194b935.png",
+      "boundingBox": {
+        "x": 833,
+        "y": 445,
+        "width": 56,
+        "height": 83
+      },
+      "layer": 25,
+      "visible": true,
+      "locked": false,
+      "description": "Modern pixel art, top-down slight angle, crystal ball on ornate metal claw stand, swirling purple inner light, floor reflection glow, clean pixel art",
+      "metadata": {
+        "lastEdited": "2026-04-11T15:52:08.224983",
+        "generatedAt": "2026-04-11T15:44:28.703Z"
+      },
+      "isProgress": false
+    },
+    {
+      "id": "d16207b0-73ec-4097-b627-74a5738ed980",
+      "name": "Object 0",
+      "filename": "d16207b0-73ec-4097-b627-74a5738ed980.png",
+      "boundingBox": {
+        "x": 721,
+        "y": 62,
+        "width": 120,
+        "height": 120
+      },
+      "layer": 26,
+      "visible": true,
+      "locked": false,
+      "description": "Modern pixel art, top-down slight angle, sci-fi capsule sleep pod, semi-open lid, soft blue interior lighting, small pillow inside, smooth white and gray shell, clean pixel art",
+      "metadata": {
+        "lastEdited": "2026-04-11T15:52:08.224983",
+        "generatedAt": "2026-04-11T15:46:17.263Z"
+      },
+      "isProgress": false
+    },
+    {
+      "id": "921d5736-b7e8-4fae-927f-a6da55e06e99",
+      "name": "Object 0",
+      "filename": "921d5736-b7e8-4fae-927f-a6da55e06e99.png",
+      "boundingBox": {
+        "x": 962,
+        "y": 61,
+        "width": 56,
+        "height": 75
+      },
+      "layer": 27,
+      "visible": true,
+      "locked": false,
+      "description": "Modern pixel art, top-down slight angle, metal nightstand, small round lamp glowing warm light, coffee mug, flat tablet or book on surface, clean pixel art",
+      "metadata": {
+        "lastEdited": "2026-04-11T15:52:08.224983",
+        "generatedAt": "2026-04-11T15:48:23.923Z"
+      },
+      "isProgress": false
+    },
+    {
+      "id": "307f9292-9cd7-4c8e-84fb-7cd0a5917800",
+      "name": "Object 0",
+      "filename": "307f9292-9cd7-4c8e-84fb-7cd0a5917800.png",
+      "boundingBox": {
+        "x": 875,
+        "y": 69,
+        "width": 77,
+        "height": 79
+      },
+      "layer": 28,
+      "visible": true,
+      "locked": false,
+      "description": "Wardrobe\nA tall two-door metal locker-style wardrobe, slightly ajar door revealing hanging clothes inside, a sticker or name tag on the front.\n\nModern pixel art, top-down slight angle, tall metal wardrobe locker, one door slightly open, hanging clothes visible inside, small label sticker on door, clean pixel art",
+      "metadata": {
+        "lastEdited": "2026-04-11T15:52:08.224983",
+        "generatedAt": "2026-04-11T15:50:56.497Z"
+      },
+      "isProgress": false
+    },
+    {
+      "id": "1e7c45a2-de62-4f91-b4b8-0de96a536496",
+      "name": "Object 0",
+      "filename": "1e7c45a2-de62-4f91-b4b8-0de96a536496.png",
+      "boundingBox": {
+        "x": 774,
+        "y": 194,
+        "width": 66,
+        "height": 47
+      },
+      "layer": 29,
+      "visible": true,
+      "locked": false,
+      "description": "Desk with Personal Items\nA compact metal desk with a lit lamp, a few scattered papers, a pen holder, and a framed photo.\n\nModern pixel art, top-down slight angle, small metal desk, glowing desk lamp, scattered papers, pen holder, framed photo, personal and lived-in feel, clean pixel art",
+      "metadata": {
+        "lastEdited": "2026-04-11T16:03:24.390714",
+        "generatedAt": "2026-04-11T15:59:57.082Z"
+      },
+      "isProgress": false
+    },
+    {
+      "id": "28909e44-a281-4c66-9601-fcf468cf7736",
+      "name": "Object 0",
+      "filename": "28909e44-a281-4c66-9601-fcf468cf7736.png",
+      "boundingBox": {
+        "x": 257,
+        "y": 305,
+        "width": 52,
+        "height": 93
+      },
+      "layer": 30,
+      "visible": true,
+      "locked": false,
+      "description": "Server Rack\nA tall black rack unit with rows of blinking status LEDs, cable bundles at the bottom, and a faint blue glow from the vents.\n\nModern pixel art, top-down slight angle, server rack unit, blinking LED status lights, bundled cables at base, blue vent glow, black metal frame, clean pixel art",
+      "metadata": {
+        "lastEdited": "2026-04-11T16:03:24.390714",
+        "generatedAt": "2026-04-11T16:02:14.549Z"
+      },
+      "isProgress": false
+    }
+  ]
+}
