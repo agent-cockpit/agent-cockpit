@@ -5,7 +5,7 @@ import { useStore } from '../store/index.js'
 import { useActiveSessions } from '../store/selectors.js'
 import { InstancePopupHub } from '../components/office/InstancePopupHub.js'
 import { drawAgentSprite } from '../components/office/AgentSprite.js'
-import { DIRECTION_ROWS } from '../components/office/spriteStates.js'
+import { DIRECTION_ROWS, STATE_ROW_OFFSET } from '../components/office/spriteStates.js'
 import type { Direction } from '../components/office/spriteStates.js'
 import { GameEngine } from '../game/GameEngine.js'
 import { gameState, WORLD_W, WORLD_H } from '../game/GameState.js'
@@ -111,7 +111,9 @@ export function OfficePage() {
         if (pImg?.complete && pImg.naturalWidth > 0) {
           const px = gameState.player.x - gameState.camera.x
           const py = gameState.player.y - gameState.camera.y
-          const row = DIRECTION_ROWS[gameState.player.direction as Direction] ?? 0
+          const dirRow = DIRECTION_ROWS[gameState.player.direction as Direction] ?? 0
+          const stateOffset = gameState.player.animTime > 0 ? STATE_ROW_OFFSET.blocked : STATE_ROW_OFFSET.idle
+          const row = dirRow + stateOffset
           const col = Math.floor(gameState.player.animTime / WALK_FRAME_DURATION_MS) % WALK_FRAME_COUNT
           ctx.drawImage(pImg, col * 64, row * 64, 64, 64, px, py, 64, 64)
         }

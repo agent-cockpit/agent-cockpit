@@ -3,7 +3,7 @@ import type { Direction } from '../components/office/spriteStates.js'
 
 export const PLAYER_SPEED = 120 // pixels per second
 export const WALK_FRAME_DURATION_MS = 150
-export const WALK_FRAME_COUNT = 4
+export const WALK_FRAME_COUNT = 8
 
 const INV_SQRT2 = 0.7071
 
