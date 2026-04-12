@@ -1,12 +1,20 @@
 {
   "transitions": [
     {
-      "from": "deep space void exterior,pure black with a lot of star dots, no floor surface, pixel art",
+      "from": "dark outer hull floor of a space station, thick reinforced steel panels, orange hazard stripe border at edge, rivets and panel seams, sci-fi ISS aesthetic, pixel art",
+      "to": "solid interior wall of a space station seen from directly above, thick rectangular block, dark gray brushed metal surface, faint panel lines on top face, hard edges, pixel art ",
+      "fromId": 1,
+      "toId": 3,
+      "tilesetId": "06305739-14e7-444d-8661-d487490e2b1c",
+      "transitionSize": 0.5
+    },
+    {
+      "from": "dark outer hull floor of a space station, thick reinforced steel panels, orange hazard stripe border at edge, rivets and panel seams, sci-fi ISS aesthetic, pixel art",
       "to": "deep space void exterior, pure black with distant star dots, no floor surface, pixel art",
-      "fromId": 7,
+      "fromId": 1,
       "toId": 2,
-      "tilesetId": "defb7351-4a72-4aa6-9869-5c87a1433664",
-      "transitionSize": 0
+      "tilesetId": "ca31e858-8595-4a7e-9969-ee689f4d8d1a",
+      "transitionSize": 0.5
     },
     {
       "from": "deep space void exterior, pure black with distant star dots, no floor surface, pixel art",
@@ -25,28 +33,12 @@
       "transitionSize": 0
     },
     {
-      "from": "dark outer hull floor of a space station, thick reinforced steel panels, orange hazard stripe border at edge, rivets and panel seams, sci-fi ISS aesthetic, pixel art",
-      "to": "solid interior wall of a space station seen from directly above, thick rectangular block, dark gray brushed metal surface, faint panel lines on top face, hard edges, pixel art ",
-      "fromId": 1,
-      "toId": 3,
-      "tilesetId": "06305739-14e7-444d-8661-d487490e2b1c",
-      "transitionSize": 0.5
-    },
-    {
-      "from": "Cracked & Hazardous The floor is partially broken \u2014 deep cracks reveal a dark void or subfloor beneath, with caution markings worn off and bolts popped loose. Feels dangerous to walk on",
-      "to": "Scuffed Panels A worn-down version of the clean metal floor. Scratches, dents, and faded paint lines break the uniformity. Still clearly the same material, but neglected.",
-      "fromId": 6,
-      "toId": 5,
-      "tilesetId": "f31075a8-8687-4145-8814-73c886e99b20",
-      "transitionSize": 0.25
-    },
-    {
-      "from": "dark outer hull floor of a space station, thick reinforced steel panels, orange hazard stripe border at edge, rivets and panel seams, sci-fi ISS aesthetic, pixel art",
+      "from": "deep space void exterior,pure black with a lot of star dots, no floor surface, pixel art",
       "to": "deep space void exterior, pure black with distant star dots, no floor surface, pixel art",
-      "fromId": 1,
+      "fromId": 7,
       "toId": 2,
-      "tilesetId": "ca31e858-8595-4a7e-9969-ee689f4d8d1a",
-      "transitionSize": 0.5
+      "tilesetId": "defb7351-4a72-4aa6-9869-5c87a1433664",
+      "transitionSize": 0
     },
     {
       "from": "Scuffed Panels A worn-down version of the clean metal floor. Scratches, dents, and faded paint lines break the uniformity. Still clearly the same material, but neglected.",
@@ -55,6 +47,14 @@
       "toId": 1,
       "tilesetId": "e6f567dd-5cc1-4c71-9d40-aebbae9b8399",
       "transitionSize": 0
+    },
+    {
+      "from": "Cracked & Hazardous The floor is partially broken \u2014 deep cracks reveal a dark void or subfloor beneath, with caution markings worn off and bolts popped loose. Feels dangerous to walk on",
+      "to": "Scuffed Panels A worn-down version of the clean metal floor. Scratches, dents, and faded paint lines break the uniformity. Still clearly the same material, but neglected.",
+      "fromId": 6,
+      "toId": 5,
+      "tilesetId": "f31075a8-8687-4145-8814-73c886e99b20",
+      "transitionSize": 0.25
     }
   ]
 }

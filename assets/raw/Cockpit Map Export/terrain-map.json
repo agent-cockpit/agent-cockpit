@@ -1,6 +1,6 @@
 {
   "format": "sparse",
-  "defaultTerrain": 0,
+  "defaultTerrain": 2,
   "cells": [
     {
       "x": 4,

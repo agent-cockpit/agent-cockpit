@@ -1,197 +1,7 @@
 {
   "version": "1.0.0",
-  "totalObjects": 30,
+  "totalObjects": 17,
   "objects": [
-    {
-      "id": "c613aff9-c0a3-46c1-858d-65493c11310a",
-      "name": "Astronaut",
-      "filename": "c613aff9-c0a3-46c1-858d-65493c11310a.png",
-      "boundingBox": {
-        "x": 242,
-        "y": 666,
-        "width": 92,
-        "height": 92
-      },
-      "layer": 2,
-      "visible": true,
-      "locked": false,
-      "description": "Character: Astronaut (south)",
-      "metadata": {
-        "generatedAt": "2026-04-10T18:40:08.959Z"
-      },
-      "isProgress": false
-    },
-    {
-      "id": "5455e981-18fe-48b6-9a74-c894b3ab83fd",
-      "name": "metallic android robot with LED eye panel, antenna, articulated joints, silver and blue, pixel art, sci-fi AI unit",
-      "filename": "5455e981-18fe-48b6-9a74-c894b3ab83fd.png",
-      "boundingBox": {
-        "x": 235,
-        "y": 767,
-        "width": 92,
-        "height": 92
-      },
-      "layer": 3,
-      "visible": true,
-      "locked": false,
-      "description": "Character: metallic android robot with LED eye panel, antenna, articulated joints, silver and blue, pixel art, sci-fi AI unit (north)",
-      "metadata": {
-        "generatedAt": "2026-04-10T18:40:24.372Z"
-      },
-      "isProgress": false
-    },
-    {
-      "id": "2695515a-49ab-4191-8867-13cc361ba629",
-      "name": "small green alien with large black oval eyes, 4 fingers, minimal clothing, curious expression, pixel art, xenobiologist",
-      "filename": "2695515a-49ab-4191-8867-13cc361ba629.png",
-      "boundingBox": {
-        "x": 262,
-        "y": 672,
-        "width": 92,
-        "height": 92
-      },
-      "layer": 4,
-      "visible": true,
-      "locked": false,
-      "description": "Character: small green alien with large black oval eyes, 4 fingers, minimal clothing, curious expression, pixel art, xenobiologist (south)",
-      "metadata": {
-        "generatedAt": "2026-04-10T18:40:31.158Z"
-      },
-      "isProgress": false
-    },
-    {
-      "id": "9936ba17-1379-4886-92e7-1ed420710916",
-      "name": "translucent blue holographic humanoid, scan lines visible, glowing edges, slightly transparent, pixel art, AI interface projection",
-      "filename": "9936ba17-1379-4886-92e7-1ed420710916.png",
-      "boundingBox": {
-        "x": 243,
-        "y": 736,
-        "width": 92,
-        "height": 92
-      },
-      "layer": 5,
-      "visible": true,
-      "locked": false,
-      "description": "Character: translucent blue holographic humanoid, scan lines visible, glowing edges, slightly transparent, pixel art, AI interface projection (south-east)",
-      "metadata": {
-        "generatedAt": "2026-04-10T18:40:36.674Z"
-      },
-      "isProgress": false
-    },
-    {
-      "id": "e13d0de8-a774-4742-92b9-b8fd9abedf88",
-      "name": "chimpanzee in a white space suit, helmet under arm, curious expression, pixel art, retro NASA test primate",
-      "filename": "e13d0de8-a774-4742-92b9-b8fd9abedf88.png",
-      "boundingBox": {
-        "x": 279,
-        "y": 684,
-        "width": 92,
-        "height": 92
-      },
-      "layer": 6,
-      "visible": true,
-      "locked": false,
-      "description": "Character: chimpanzee in a white space suit, helmet under arm, curious expression, pixel art, retro NASA test primate (south-west)",
-      "metadata": {
-        "generatedAt": "2026-04-10T18:40:46.006Z"
-      },
-      "isProgress": false
-    },
-    {
-      "id": "05ebd217-3aef-4eca-b266-a17949557ad1",
-      "name": "friendly ghost wearing a tiny astronaut helmet, translucent white with slight blue glow, floating, pixel art",
-      "filename": "05ebd217-3aef-4eca-b266-a17949557ad1.png",
-      "boundingBox": {
-        "x": 281,
-        "y": 703,
-        "width": 92,
-        "height": 92
-      },
-      "layer": 7,
-      "visible": true,
-      "locked": false,
-      "description": "Character: friendly ghost wearing a tiny astronaut helmet, translucent white with slight blue glow, floating, pixel art (west)",
-      "metadata": {
-        "generatedAt": "2026-04-10T18:40:57.474Z"
-      },
-      "isProgress": false
-    },
-    {
-      "id": "6e3357be-32af-43ce-8116-55904228f17a",
-      "name": "indigenous healer in traditional headdress and space suit, carrying medicine bag, wise expression, pixel art, chibi style",
-      "filename": "6e3357be-32af-43ce-8116-55904228f17a.png",
-      "boundingBox": {
-        "x": 244,
-        "y": 739,
-        "width": 92,
-        "height": 92
-      },
-      "layer": 8,
-      "visible": true,
-      "locked": false,
-      "description": "Character: indigenous healer in traditional headdress and space suit, carrying medicine bag, wise expression, pixel art, chibi style (north-east)",
-      "metadata": {
-        "generatedAt": "2026-04-10T18:41:37.789Z"
-      },
-      "isProgress": false
-    },
-    {
-      "id": "26293057-551a-4f5d-b11e-261957301609",
-      "name": "space pirate with eyepatch, captain hat, hook hand, worn jacket, pixel art, rogue contractor crew member",
-      "filename": "26293057-551a-4f5d-b11e-261957301609.png",
-      "boundingBox": {
-        "x": 277,
-        "y": 767,
-        "width": 92,
-        "height": 92
-      },
-      "layer": 9,
-      "visible": true,
-      "locked": false,
-      "description": "Character: space pirate with eyepatch, captain hat, hook hand, worn jacket, pixel art, rogue contractor crew member (south-east)",
-      "metadata": {
-        "generatedAt": "2026-04-10T18:41:47.023Z"
-      },
-      "isProgress": false
-    },
-    {
-      "id": "d6f46351-87e3-4488-b800-bf8cfc6454a7",
-      "name": "ninja in black tactical suit, face mask, shuriken on belt, crouching ready stance, pixel art, stealth operative",
-      "filename": "d6f46351-87e3-4488-b800-bf8cfc6454a7.png",
-      "boundingBox": {
-        "x": 280,
-        "y": 723,
-        "width": 92,
-        "height": 92
-      },
-      "layer": 10,
-      "visible": true,
-      "locked": false,
-      "description": "Character: ninja in black tactical suit, face mask, shuriken on belt, crouching ready stance, pixel art, stealth operative (north-west)",
-      "metadata": {
-        "generatedAt": "2026-04-10T18:42:05.988Z"
-      },
-      "isProgress": false
-    },
-    {
-      "id": "327cffbf-a508-4e89-86d4-2e0f36e70bda",
-      "name": "prehistoric human in fur outfit with space helmet, holding a club, pixel art, chibi style",
-      "filename": "327cffbf-a508-4e89-86d4-2e0f36e70bda.png",
-      "boundingBox": {
-        "x": 245,
-        "y": 766,
-        "width": 92,
-        "height": 92
-      },
-      "layer": 11,
-      "visible": true,
-      "locked": false,
-      "description": "Character: prehistoric human in fur outfit with space helmet, holding a club, pixel art, chibi style (north)",
-      "metadata": {
-        "generatedAt": "2026-04-10T18:42:19.521Z"
-      },
-      "isProgress": false
-    },
     {
       "id": "3caf37bd-a97e-4723-b8ee-add6beec6b4c",
       "name": "Object 0",
@@ -373,26 +183,6 @@
       "isProgress": false
     },
     {
-      "id": "ee2b03d2-7e6c-49e0-93b2-0a62b041a9fb",
-      "name": "Object 0",
-      "filename": "ee2b03d2-7e6c-49e0-93b2-0a62b041a9fb.png",
-      "boundingBox": {
-        "x": 932,
-        "y": 450,
-        "width": 82,
-        "height": 46
-      },
-      "layer": 20,
-      "visible": true,
-      "locked": false,
-      "description": "big and colorful couch",
-      "metadata": {
-        "lastEdited": "2026-04-11T14:46:36.987008",
-        "generatedAt": "2026-04-11T14:43:12.898Z"
-      },
-      "isProgress": false
-    },
-    {
       "id": "2e1781ed-883f-4393-9b1a-4ea61be3157b",
       "name": "Object 0",
       "filename": "2e1781ed-883f-4393-9b1a-4ea61be3157b.png",
@@ -409,46 +199,6 @@
       "metadata": {
         "lastEdited": "2026-04-11T14:46:36.987008",
         "generatedAt": "2026-04-11T14:44:46.804Z"
-      },
-      "isProgress": false
-    },
-    {
-      "id": "8527ab28-1495-434a-8c12-9951cf8d6585",
-      "name": "Object 0",
-      "filename": "8527ab28-1495-434a-8c12-9951cf8d6585.png",
-      "boundingBox": {
-        "x": 939,
-        "y": 663,
-        "width": 76,
-        "height": 49
-      },
-      "layer": 22,
-      "visible": true,
-      "locked": false,
-      "description": "Modern pixel art, top-down view, round poker table, green felt surface, white printed markings, wooden rim, small chip stacks on edges, clean pixel art",
-      "metadata": {
-        "lastEdited": "2026-04-11T15:52:08.224983",
-        "generatedAt": "2026-04-11T15:38:28.901Z"
-      },
-      "isProgress": false
-    },
-    {
-      "id": "e3fe1e62-f08d-4384-9423-f209a060232e",
-      "name": "Object 0",
-      "filename": "e3fe1e62-f08d-4384-9423-f209a060232e.png",
-      "boundingBox": {
-        "x": 747,
-        "y": 702,
-        "width": 92,
-        "height": 72
-      },
-      "layer": 23,
-      "visible": true,
-      "locked": false,
-      "description": "Modern pixel art, top-down slight angle, stone ritual altar, melted candles on surface, glowing carved rune, dark stains, ominous warm candlelight glow, clean pixel art",
-      "metadata": {
-        "lastEdited": "2026-04-11T15:52:08.224983",
-        "generatedAt": "2026-04-11T15:40:19.622Z"
       },
       "isProgress": false
     },
@@ -577,8 +327,8 @@
       "name": "Object 0",
       "filename": "28909e44-a281-4c66-9601-fcf468cf7736.png",
       "boundingBox": {
-        "x": 257,
-        "y": 305,
+        "x": 42,
+        "y": 52,
         "width": 52,
         "height": 93
       },
