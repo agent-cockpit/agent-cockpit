@@ -3,7 +3,8 @@
     "idle": 4,
     "blocked": 8,
     "completed": 9,
-    "failed": 7
+    "failed": 7,
+    "walk": 8
   },
   "frameSize": 64,
   "directions": 8

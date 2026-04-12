@@ -18,7 +18,7 @@ const DIRECTIONS = [
   'north-west',
 ] as const
 
-const ANIM_STATES = ['idle', 'blocked', 'completed', 'failed'] as const
+const ANIM_STATES = ['idle', 'blocked', 'completed', 'failed', 'walk'] as const
 
 type Direction = (typeof DIRECTIONS)[number]
 type AnimState = (typeof ANIM_STATES)[number]
@@ -104,6 +104,7 @@ export async function buildSheet(character: string): Promise<void> {
     blocked: 0,
     completed: 0,
     failed: 0,
+    walk: 0,
   }
 
   // Load all frame paths

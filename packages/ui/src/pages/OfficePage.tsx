@@ -112,7 +112,7 @@ export function OfficePage() {
           const px = gameState.player.x - gameState.camera.x
           const py = gameState.player.y - gameState.camera.y
           const dirRow = DIRECTION_ROWS[gameState.player.direction as Direction] ?? 0
-          const stateOffset = gameState.player.animTime > 0 ? STATE_ROW_OFFSET.blocked : STATE_ROW_OFFSET.idle
+          const stateOffset = gameState.player.animTime > 0 ? STATE_ROW_OFFSET.walk : STATE_ROW_OFFSET.idle
           const row = dirRow + stateOffset
           const col = Math.floor(gameState.player.animTime / WALK_FRAME_DURATION_MS) % WALK_FRAME_COUNT
           ctx.drawImage(pImg, col * 64, row * 64, 64, 64, px, py, 64, 64)
