@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.1
 milestone_name: — 2D Pixel Art Game Experience
 status: planning
-stopped_at: Completed 16.5-02-PLAN.md
-last_updated: "2026-04-12T20:17:29.923Z"
+stopped_at: Completed 16.6-01-PLAN.md
+last_updated: "2026-04-13T02:46:06.983Z"
 last_activity: 2026-04-10 — v1.1 roadmap written (7 phases, 16 plans)
 progress:
-  total_phases: 18
+  total_phases: 21
   completed_phases: 9
-  total_plans: 35
-  completed_plans: 33
+  total_plans: 37
+  completed_plans: 34
   percent: 0
 ---
 
@@ -120,12 +120,18 @@ All v1.0 decisions remain active and respected.
 - [Phase 16.5-walking-animation-rework]: isMoving = dx !== 0 || dy !== 0: displacement-based guard prevents moonwalk when opposing keys cancel
 - [Phase 16.5-walking-animation-rework]: STATE_ROW_OFFSET.walk=32 was already added in Phase 16.4-02 (commit b24fe6b) — no duplication needed for 16.5-02
 - [Phase 16.5-walking-animation-rework]: STATE_ROW_OFFSET.walk=32 was already added in Phase 16.4-02 (commit b24fe6b) — no duplication needed; plan verified it exists and wired OfficePage to it
+- [Phase 16.6-sprite-image-quality-upgrade]: imageSmoothingEnabled=true before tilemap blit (bilinear preserved for pre-rendered composite map), false before sprites
+- [Phase 16.6-sprite-image-quality-upgrade]: imageRendering: pixelated on canvas element covers DPR scaling via CSS, not just Canvas 2D API
+- [Phase 16.6-sprite-image-quality-upgrade]: Defensive imageSmoothingEnabled=false in drawAgentSprite() as belt-and-suspenders guard
 
 ### Roadmap Evolution
 
 - v1.0 completed: Office map as default view, popup-based navigation
 - v1.1 planned: Game engine foundation → player controls → NPC behavior → audio system → save/load → UI overlays
 - Phase 16.1 inserted after Phase 16: Map Rendering & Camera Zoom — replace hardcoded world with Cockpit Map-export tilemap (Wang tilesets, 3232×3232px), camera zoom, map overlay + placed objects (INSERTED, prerequisite for Phase 17 NPC zone placement)
+- Phase 16.6 inserted after Phase 16.5: Sprite Image Quality Upgrade — regenerate/upscale sprite sheets so characters look crisp at 2× zoom (URGENT — current sprites too blurry)
+- Phase 16.7 inserted after Phase 16.6: Wall and Object Collision Physics — player walks through walls/objects; implement proper collision layer for all solid tiles and map objects (URGENT)
+- Phase 16.8 inserted after Phase 16.7: Sidebar Design Overhaul — current sidebar design is broken/ugly; full redesign with proper layout, typography, and space theme styling (URGENT)
 
 ### Pending Todos
 
@@ -140,8 +146,8 @@ None yet — requirements phase will surface tasks.
 
 ## Session Continuity
 
-Last session: 2026-04-12T20:13:15.552Z
-Stopped at: Completed 16.5-02-PLAN.md
+Last session: 2026-04-13T02:46:06.981Z
+Stopped at: Completed 16.6-01-PLAN.md
 Resume file: None
 
 *Updated after each plan completion*

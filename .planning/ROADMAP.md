@@ -190,7 +190,7 @@ Plans:
 **Goal:** The astronaut and agent sprites currently look blurry and low-quality in-game. Regenerate or upscale the sprite sheets to a higher resolution/fidelity so all characters look crisp and sharp on the canvas at 2× zoom. Replace the current placeholder quality images with proper high-quality pixel art.
 **Depends on:** Phase 16.5
 **Requirements**: sprite-quality
-**Plans:** 2 plans
+**Plans:** 1/2 plans executed
 
 Plans:
 - [ ] 16.6-01-PLAN.md — Write failing render-quality tests then implement Axis A fix (imageSmoothingEnabled + imageRendering: pixelated) (sprite-quality)
