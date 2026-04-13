@@ -171,14 +171,15 @@ Which phases cover which requirements. Updated during roadmap creation.
 | HIST-01 | Phase 12 | Pending |
 | HIST-02 | Phase 8 | Complete |
 | multi-map-render | Phase 16.9 | Complete |
+| npc-spawn-position | Phase 16.10 | Complete |
 
 **Coverage:**
 - v1 requirements: 39 total
 - Mapped to phases: 39
 - Unmapped: 0 ✓
 - Pending (gap closure phases 10–12): 9
-- Phase-local roadmap requirements mapped: 1 (`multi-map-render`)
+- Phase-local roadmap requirements mapped: 2 (`multi-map-render`, `npc-spawn-position`)
 
 ---
 *Requirements defined: 2026-04-04*
-*Last updated: 2026-04-04 after roadmap creation — traceability complete*
+*Last updated: 2026-04-13 after phase 16.10 completion — traceability updated*
