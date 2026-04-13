@@ -201,10 +201,10 @@ Plans:
 **Goal:** The player character currently walks through walls, furniture, and solid map objects. Implement a proper physics/collision layer that blocks movement into solid tiles and collidable objects. Every solid element on the map must be impassable — walls, desks, pillars, and any other obstacle.
 **Depends on:** Phase 16.6
 **Requirements**: collision-physics
-**Plans:** 1/2 plans executed
+**Plans:** 2/2 plans complete
 
 Plans:
-- [ ] TBD (run /gsd:plan-phase 16.7 to break down)
+- [x] TBD (run /gsd:plan-phase 16.7 to break down) (completed 2026-04-13)
 
 ### Phase 16.8: Sidebar Design Overhaul (INSERTED)
 

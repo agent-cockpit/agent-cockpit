@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.1
 milestone_name: — 2D Pixel Art Game Experience
 status: planning
-stopped_at: Completed 16.7-01-PLAN.md
-last_updated: "2026-04-13T12:10:07.371Z"
+stopped_at: "Completed 16.7-02-PLAN.md — awaiting checkpoint:human-verify"
+last_updated: "2026-04-13T12:17:33.986Z"
 last_activity: 2026-04-10 — v1.1 roadmap written (7 phases, 16 plans)
 progress:
   total_phases: 21
-  completed_phases: 10
+  completed_phases: 11
   total_plans: 39
-  completed_plans: 36
+  completed_plans: 37
   percent: 0
 ---
 
@@ -125,6 +125,8 @@ All v1.0 decisions remain active and respected.
 - [Phase 16.6-sprite-image-quality-upgrade]: Defensive imageSmoothingEnabled=false in drawAgentSprite() as belt-and-suspenders guard
 - [Phase 16.7-wall-and-object-collision-physics]: Sparse Set keyed tileX,tileY for O(1) solid-tile lookup — avoids 10K+ entry array
 - [Phase 16.7-wall-and-object-collision-physics]: Character: objects are non-solid ambient sprites — not collidable obstacles
+- [Phase 16.7-wall-and-object-collision-physics]: collisionMap declared before engine anonymous class so closure in update() can reference it
+- [Phase 16.7-wall-and-object-collision-physics]: Axis-separated slide: X and Y blocked checks use current player position for cross-axis — prevents diagonal stop at corners
 
 ### Roadmap Evolution
 
@@ -148,8 +150,8 @@ None yet — requirements phase will surface tasks.
 
 ## Session Continuity
 
-Last session: 2026-04-13T12:10:07.367Z
-Stopped at: Completed 16.7-01-PLAN.md
+Last session: 2026-04-13T12:17:33.981Z
+Stopped at: Completed 16.7-02-PLAN.md — awaiting checkpoint:human-verify
 Resume file: None
 
 *Updated after each plan completion*
