@@ -329,8 +329,9 @@ export function OfficePage() {
         // Layer 4: subtle world lighting/tint
         drawWorldOverlay(ctx, gameState.camera.viewportW, gameState.camera.viewportH)
 
-        // DEBUG: draw collision boxes (red=objects, green=tiles) — remove when tuned
-        collisionMap.debugDraw(ctx, gameState.camera.x, gameState.camera.y)
+        if (import.meta.env.VITE_DEBUG_HITBOXES === 'true') {
+          collisionMap.debugDraw(ctx, gameState.camera.x, gameState.camera.y)
+        }
 
         ctx.restore()
 
