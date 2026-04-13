@@ -204,7 +204,7 @@ Plans:
 **Plans:** 2/2 plans complete
 
 Plans:
-- [x] TBD (run /gsd:plan-phase 16.7 to break down) (completed 2026-04-13)
+- [x] TBD (run /gsd:plan-phase 16.7 to break down) (completed 2022-04-13)
 
 ### Phase 16.8: Sidebar Design Overhaul (INSERTED)
 
@@ -214,7 +214,7 @@ Plans:
 **Plans:** 3/3 plans complete
 
 Plans:
-- [x] TBD (run /gsd:plan-phase 16.8 to break down) (completed 2026-04-13)
+- [x] TBD (run /gsd:plan-phase 16.8 to break down) (completed 2022-04-13)
 
 ### Phase 16.9: Multi-Map Rendering Fix (INSERTED)
 
@@ -266,6 +266,18 @@ Plans:
 
 Plans:
 - [ ] TBD (run /gsd:plan-phase 16.11 to break down)
+
+### Phase 16.12: Provider-Native Session Launch (Claude + Codex) (INSERTED)
+
+**Goal:** Enable launching new Claude and Codex sessions directly from the app UI using provider-native runtimes (strict auto-launch, no manual copy-command fallback). Session becomes active only after real session_start lifecycle events arrive.
+**Requirements**: 16.12-R1, 16.12-R2, 16.12-R3, 16.12-R4, 16.12-R5 (SESS-02)
+**Depends on:** Phase 16.11
+**Plans:** 3 plans
+
+Plans:
+- [ ] 16.12-01-PLAN.md — Daemon launch contract: strict-auto semantics, preflight checks, mode=initiated for both providers (TDD) (16.12-R1, 16.12-R2, 16.12-R4, 16.12-R5)
+- [ ] 16.12-02-PLAN.md — ClaudeLauncher full implementation: settings-file hooks, spawn, hookParser session-ID passthrough (16.12-R1, 16.12-R2, 16.12-R3, 16.12-R5)
+- [ ] 16.12-03-PLAN.md — UI modal state machine: waiting_for_session_start, event-driven close, 30s timeout (16.12-R1, 16.12-R2, 16.12-R3, 16.12-R4)
 
 ### Phase 17: NPC Agent Behavior
 **Goal:** Agent NPCs on the map walk smoothly to zone positions based on their session state — coding agents move to the workstation zone, agents waiting for approval move to the meeting room zone — using linear interpolation (no pathfinding).
