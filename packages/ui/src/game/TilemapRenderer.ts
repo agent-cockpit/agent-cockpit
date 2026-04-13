@@ -1,13 +1,7 @@
 // TilemapRenderer.ts
-// Loads the pre-rendered map-composite.png (3232×3232) and blits the visible
-// viewport slice each frame. map-composite.png is the authoritative render from
-// the Cockpit Map-export — terrain + overlay + objects all pre-composited.
-// Each frame: call blit(ctx, camX, camY) inside ctx.scale(zoom, zoom) block.
-
-const WORLD_PX = 3232
-const WORLD_PY = 3232
-
-// --- Pure utility functions (exported for testing) ---
+// Loads map composites from a static maps-manifest and blits every map at its
+// world-space origin. Each frame: call blit(ctx, camX, camY) inside
+// ctx.scale(zoom, zoom) block.
 
 // tileToPixel: converts tile-space coordinates to pixel-space.
 // Tile origin offset: minX=-46, minY=-43 (from map.json mapConfig.boundingBox)
@@ -36,7 +30,22 @@ export function wangIndexFromEdges(edges: {
   return idx
 }
 
-// --- Image load helper ---
+export interface MapManifestEntry {
+  id: string
+  dir: string
+  worldOriginX: number
+  worldOriginY: number
+  widthPx: number
+  heightPx: number
+  tileOriginX: number
+  tileOriginY: number
+}
+
+export interface MapsManifest {
+  version: string
+  maps: MapManifestEntry[]
+}
+
 function loadImage(src: string): Promise<HTMLImageElement> {
   return new Promise((resolve, reject) => {
     const img = new Image()
@@ -46,27 +55,31 @@ function loadImage(src: string): Promise<HTMLImageElement> {
   })
 }
 
-// --- TilemapRenderer class ---
 export class TilemapRenderer {
-  private mapImg: HTMLImageElement | null = null
+  private maps: Array<{ img: HTMLImageElement; entry: MapManifestEntry }> = []
   private _ready = false
 
   get ready(): boolean { return this._ready }
 
-  // worldW/worldH exposed for bounds checks in tests
-  readonly worldW = WORLD_PX
-  readonly worldH = WORLD_PY
+  worldW = 0
+  worldH = 0
 
-  async load(): Promise<void> {
-    // Load the pre-rendered composite — all terrain, transitions, overlay, and
-    // objects are already composited into this single 3232×3232 image.
-    this.mapImg = await loadImage('/map/map-composite.png')
+  async load(manifestUrl = '/maps/maps-manifest.json'): Promise<void> {
+    const manifest: MapsManifest = await fetch(manifestUrl).then(r => r.json())
+    this.maps = await Promise.all(
+      manifest.maps.map(entry =>
+        loadImage(`${entry.dir}/map-composite.png`).then(img => ({ img, entry })),
+      ),
+    )
+    this.worldW = Math.max(0, ...this.maps.map(m => m.entry.worldOriginX + m.entry.widthPx))
+    this.worldH = Math.max(0, ...this.maps.map(m => m.entry.worldOriginY + m.entry.heightPx))
     this._ready = true
   }
 
   blit(ctx: CanvasRenderingContext2D, camX: number, camY: number): void {
-    if (!this._ready || !this.mapImg) return
-    // Called inside ctx.scale(zoom, zoom) block — camX/camY are world-space coords.
-    ctx.drawImage(this.mapImg, -camX, -camY)
+    if (!this._ready) return
+    for (const { img, entry } of this.maps) {
+      ctx.drawImage(img, entry.worldOriginX - camX, entry.worldOriginY - camY)
+    }
   }
 }
