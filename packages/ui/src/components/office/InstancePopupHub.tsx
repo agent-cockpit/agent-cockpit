@@ -37,25 +37,28 @@ export function InstancePopupHub({ open, onClose }: Props) {
         <Dialog.Overlay className="fixed inset-0 bg-black/50 z-40" />
         <Dialog.Content
           className="fixed z-50 top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2
-                     w-[82vw] max-w-5xl h-[80vh] bg-background rounded-lg shadow-2xl
-                     flex flex-col overflow-hidden border border-border"
+                     w-[82vw] max-w-5xl h-[80vh] bg-background rounded-none
+                     flex flex-col overflow-hidden border border-border/80
+                     shadow-[0_0_40px_rgba(34,211,238,0.08),0_20px_60px_rgba(0,0,0,0.6)]"
           aria-label={`Session: ${projectName}`}
         >
           {/* Header */}
-          <div className="flex items-center gap-3 px-4 py-3 border-b border-border shrink-0">
-            <Dialog.Title className="text-sm font-semibold text-foreground">
+          <div className="cockpit-frame-full flex items-center gap-3 px-4 py-3 border-b border-border shrink-0 bg-[var(--color-panel-surface)]">
+            <span className="cockpit-corner cockpit-corner-tl" aria-hidden />
+            <span className="cockpit-corner cockpit-corner-tr" aria-hidden />
+            <Dialog.Title className="[font-family:var(--font-mono-data)] text-xs font-semibold text-foreground uppercase tracking-widest">
               {projectName}
             </Dialog.Title>
             {session && (
-              <span className="text-xs text-muted-foreground px-2 py-0.5 rounded bg-muted">
+              <span className={`text-[9px] font-semibold uppercase tracking-wide px-1.5 py-0.5 ${session.provider === 'claude' ? 'badge-provider-claude' : 'badge-provider-codex'}`}>
                 {session.provider}
               </span>
             )}
             <Dialog.Close
-              className="ml-auto text-muted-foreground hover:text-foreground transition-colors"
+              className="ml-auto cockpit-label hover:text-foreground transition-colors px-2 py-1"
               aria-label="Close"
             >
-              ✕
+              [X]
             </Dialog.Close>
           </div>
 
@@ -66,9 +69,7 @@ export function InstancePopupHub({ open, onClose }: Props) {
                 <Tabs.Trigger
                   key={id}
                   value={id}
-                  className="px-3 py-2 text-sm font-medium border-b-2 border-transparent -mb-px
-                             data-[state=active]:border-blue-600 data-[state=active]:text-foreground
-                             text-muted-foreground hover:text-foreground transition-colors"
+                  className="cockpit-tab -mb-px data-[state=active]:text-[color:var(--color-cockpit-cyan)] data-[state=active]:border-b-[color:var(--color-cockpit-cyan)] data-[state=active]:[text-shadow:0_0_4px_var(--color-cockpit-cyan)]"
                 >
                   {TAB_LABELS[id]}
                 </Tabs.Trigger>

@@ -104,19 +104,33 @@ export function OpsLayout() {
         className="relative flex flex-none flex-col overflow-hidden border-r border-border bg-sidebar"
       >
         <div className="border-b border-border px-3 py-3">
-          <div className="rounded-xl border border-border/80 bg-background/20 px-3 py-2.5">
+          <div className="cockpit-frame-full rounded-none border border-border/80 bg-[var(--color-panel-surface)] px-3 py-2.5">
+            <span className="cockpit-corner cockpit-corner-tl" aria-hidden />
+            <span className="cockpit-corner cockpit-corner-tr" aria-hidden />
+            <span className="cockpit-corner cockpit-corner-bl" aria-hidden />
+            <span className="cockpit-corner cockpit-corner-br" aria-hidden />
             <div className="flex items-start justify-between gap-3">
               <div className="min-w-0">
-                <h1 className="[font-family:var(--font-sidebar-display)] text-sm font-semibold tracking-wide text-foreground">
+                <p className="cockpit-label mb-0.5">Mission Control</p>
+                <h1
+                  className="[font-family:var(--font-sidebar-display)] text-[10px] font-semibold tracking-widest text-foreground uppercase"
+                  style={{ textShadow: '0 0 8px oklch(0.75 0.18 195 / 0.6)' }}
+                >
                   Agent Cockpit
                 </h1>
-                <p className="mt-1 truncate [font-family:var(--font-sidebar-body)] text-xs text-muted-foreground">
-                  {activeSessionCount} active session{activeSessionCount === 1 ? '' : 's'}
+                <p className="mt-1 data-readout text-[10px]">
+                  <span className="data-readout-dim">ACTIVE:&nbsp;</span>
+                  <span
+                    className="tabular-nums"
+                    style={{ color: activeSessionCount > 0 ? 'var(--color-cockpit-green)' : 'var(--color-cockpit-dim)' }}
+                  >
+                    {String(activeSessionCount).padStart(2, '0')}
+                  </span>
                 </p>
               </div>
               <button
                 onClick={() => setHistoryOpen(true)}
-                className="[font-family:var(--font-sidebar-body)] rounded-md border border-border/80 px-2.5 py-1.5 text-xs font-semibold text-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
+                className="cockpit-btn shrink-0"
               >
                 History
               </button>
@@ -133,7 +147,7 @@ export function OpsLayout() {
             aria-orientation="vertical"
             tabIndex={0}
             onPointerDown={handleResizeStart}
-            className="absolute inset-y-0 right-0 w-2 cursor-col-resize border-l border-transparent transition-colors hover:border-cyan-300/60"
+            className="absolute inset-y-0 right-0 w-2 cursor-col-resize border-l border-transparent transition-all hover:border-[var(--color-cockpit-cyan)]/60 hover:shadow-[-2px_0_6px_oklch(0.75_0.18_195_/_0.4)]"
           />
         )}
       </aside>

@@ -12,14 +12,14 @@ const TABS: { id: PanelId; label: string }[] = [
 ]
 
 const STATUS_DOT: Record<string, string> = {
-  active: 'bg-green-500',
-  ended: 'bg-gray-400',
-  error: 'bg-red-500',
+  active: 'status-ping status-ping-active h-2 w-2',
+  ended:  'status-ping status-ping-ended h-2 w-2',
+  error:  'status-ping status-ping-error h-2 w-2',
 }
 
 const PROVIDER_BADGE: Record<string, string> = {
-  claude: 'bg-blue-100 text-blue-700',
-  codex: 'bg-purple-100 text-purple-700',
+  claude: 'badge-provider-claude',
+  codex:  'badge-provider-codex',
 }
 
 export function SessionDetailPanel() {
@@ -51,41 +51,41 @@ export function SessionDetailPanel() {
   return (
     <div className="flex flex-col h-full">
       {/* Header */}
-      <div className="flex items-center gap-3 px-4 py-3 border-b shrink-0">
+      <div className="cockpit-frame-full flex items-center gap-3 px-4 py-3 border-b border-border shrink-0 bg-[var(--color-panel-surface)]">
+        <span className="cockpit-corner cockpit-corner-bl" aria-hidden />
+        <span className="cockpit-corner cockpit-corner-br" aria-hidden />
         <span
-          className={`rounded px-1.5 py-0.5 text-xs font-medium ${PROVIDER_BADGE[session.provider] ?? ''}`}
+          className={`px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wide ${PROVIDER_BADGE[session.provider] ?? 'badge-provider-claude'}`}
         >
           {session.provider}
         </span>
-        <span className="text-sm font-semibold truncate">{projectName}</span>
+        <span className="[font-family:var(--font-mono-data)] text-xs font-semibold truncate uppercase tracking-wide">
+          {projectName}
+        </span>
         <span
-          className={`h-2 w-2 rounded-full shrink-0 ${STATUS_DOT[session.status] ?? 'bg-gray-400'}`}
+          className={`shrink-0 ${STATUS_DOT[session.status] ?? 'status-ping status-ping-ended'}`}
           title={session.status}
         />
         {session.pendingApprovals > 0 && (
-          <span className="rounded-full bg-orange-500 px-1.5 py-0.5 text-xs text-white">
-            {session.pendingApprovals}
+          <span
+            className="border border-amber-300/50 bg-amber-500/20 px-1.5 py-0.5 text-[10px] font-semibold text-amber-200 [font-family:var(--font-mono-data)]"
+            style={{ textShadow: '0 0 6px rgba(251,191,36,0.5)' }}
+          >
+            {session.pendingApprovals} PENDING
           </span>
         )}
-        <span className="ml-auto text-xs text-muted-foreground">
+        <span className="ml-auto data-readout text-[10px] tabular-nums">
           {new Date(session.startedAt).toLocaleString()}
         </span>
       </div>
 
       {/* Tab strip */}
-      <div className="flex border-b shrink-0 px-4">
+      <div className="flex border-b border-border shrink-0 px-4">
         {TABS.map((tab) => (
           <NavLink
             key={tab.id}
             to={`/session/${sessionId}/${tab.id}`}
-            className={({ isActive }) =>
-              [
-                'px-3 py-2 text-sm font-medium border-b-2 -mb-px transition-colors',
-                isActive
-                  ? 'border-blue-600 text-blue-600'
-                  : 'border-transparent text-muted-foreground hover:text-foreground',
-              ].join(' ')
-            }
+            className={({ isActive }) => `cockpit-tab -mb-px${isActive ? ' active' : ''}`}
           >
             {tab.label}
           </NavLink>

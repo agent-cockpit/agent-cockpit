@@ -116,7 +116,7 @@ export class CodexAdapter {
     });
 
     // Cleanup on exit
-    proc.on('exit', () => {
+    proc.on('exit', (code) => {
       this.proc = null;
       // Auto-deny all pending approvals
       for (const [, { approvalId, timer }] of this.pendingCodexApprovals) {
@@ -124,6 +124,17 @@ export class CodexAdapter {
         codexApprovalResolvers.delete(approvalId);
       }
       this.pendingCodexApprovals.clear();
+
+      if (this.parserCtx.sessionStartEmitted) {
+        this.onEvent({
+          schemaVersion: 1,
+          sessionId: this.sessionId,
+          provider: 'codex',
+          type: 'session_end',
+          exitCode: typeof code === 'number' && code !== 0 ? 1 : 0,
+          timestamp: new Date().toISOString(),
+        });
+      }
     });
 
     // Build readline interface over stdout (or the proc itself for test mocks)
@@ -166,6 +177,10 @@ export class CodexAdapter {
           .run(this.sessionId, threadId, this.workspacePath, new Date().toISOString());
       }
     }
+
+    // Emit session_start even before the first turn begins so newly launched
+    // Codex sessions appear in the UI immediately.
+    this.emitSessionStartIfNeeded();
 
     // Clean up readline on close
     rl?.on('close', () => { /* readline closed */ });
@@ -323,5 +338,18 @@ export class CodexAdapter {
 
     // Emit event so UI receives it
     this.onEvent(event);
+  }
+
+  private emitSessionStartIfNeeded(): void {
+    if (this.parserCtx.sessionStartEmitted) return;
+    this.parserCtx.sessionStartEmitted = true;
+    this.onEvent({
+      schemaVersion: 1,
+      sessionId: this.sessionId,
+      provider: 'codex',
+      workspacePath: this.workspacePath,
+      type: 'session_start',
+      timestamp: new Date().toISOString(),
+    });
   }
 }

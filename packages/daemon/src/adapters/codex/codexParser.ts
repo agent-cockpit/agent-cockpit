@@ -63,15 +63,9 @@ export function parseCodexLine(
     }
 
     case 'turn/completed': {
-      const turn = params['turn'] as Record<string, unknown> | undefined;
-      const status = turn?.['status'] as string | undefined;
-      const exitCode = status === 'failed' ? 1 : 0;
-      return {
-        ...base,
-        type: 'session_end',
-        provider: 'codex',
-        exitCode,
-      };
+      // A turn completing is not a session ending. Session lifecycle should
+      // be driven by adapter process start/exit, not individual turns.
+      return null;
     }
 
     case 'item/started': {

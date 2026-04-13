@@ -22,46 +22,53 @@ export function AgentHoverCard({ session, lastToolUsed, elapsedMs }: AgentHoverC
       .pop() ?? session.sessionId
 
   const providerLabel = session.provider === 'claude' ? 'Claude' : 'Codex'
-  const providerClass =
-    session.provider === 'claude' ? 'bg-blue-500' : 'bg-green-600'
 
   return (
-    <div className="agent-hover-card p-2 rounded shadow-md bg-white text-sm min-w-[180px]">
+    <div
+      className="cockpit-frame-full agent-hover-card p-3 bg-background/95 border border-[var(--color-cockpit-cyan)]/40 min-w-[180px] shadow-[0_0_16px_rgba(34,211,238,0.15)] backdrop-blur-sm"
+    >
+      <span className="cockpit-corner cockpit-corner-tl" aria-hidden />
+      <span className="cockpit-corner cockpit-corner-tr" aria-hidden />
+      <span className="cockpit-corner cockpit-corner-bl" aria-hidden />
+      <span className="cockpit-corner cockpit-corner-br" aria-hidden />
+
       {/* Provider badge */}
       <span
         data-testid="provider-badge"
-        className={`${providerClass} text-white text-xs font-semibold px-2 py-0.5 rounded-full`}
+        className={`${session.provider === 'claude' ? 'badge-provider-claude' : 'badge-provider-codex'} text-[9px] px-1.5 py-0.5 uppercase tracking-wide`}
       >
         {providerLabel}
       </span>
 
       {/* Task title */}
-      <div data-testid="task-title" className="mt-1 font-medium truncate">
+      <div data-testid="task-title" className="mt-1 [font-family:var(--font-mono-data)] text-xs font-semibold truncate uppercase tracking-wide text-foreground">
         {basename}
       </div>
 
       {/* Status */}
-      <div data-testid="agent-status" className="text-gray-600">
+      <div data-testid="agent-status" className="[font-family:var(--font-mono-data)] text-[10px] uppercase mt-0.5" style={{ color: 'var(--color-cockpit-green)' }}>
         {session.status}
       </div>
 
       {/* Repo name */}
-      <div data-testid="repo-name" className="text-gray-500 text-xs truncate">
+      <div data-testid="repo-name" className="data-readout-dim text-[10px] truncate mt-0.5">
         {basename}
       </div>
 
       {/* Pending approvals */}
-      <div data-testid="pending-approvals" className="text-orange-600">
-        {session.pendingApprovals}
-      </div>
+      {session.pendingApprovals > 0 && (
+        <div data-testid="pending-approvals" className="[font-family:var(--font-mono-data)] text-[10px] text-amber-300 mt-0.5">
+          {session.pendingApprovals} pending
+        </div>
+      )}
 
       {/* Last tool used */}
-      <div data-testid="last-tool" className="text-gray-500 text-xs">
+      <div data-testid="last-tool" className="data-readout-dim text-[10px] mt-0.5">
         {lastToolUsed ?? '—'}
       </div>
 
       {/* Elapsed time */}
-      <div data-testid="elapsed-time" className="text-gray-400 text-xs">
+      <div data-testid="elapsed-time" className="data-readout text-[10px] tabular-nums mt-0.5">
         {formatElapsed(elapsedMs)}
       </div>
     </div>

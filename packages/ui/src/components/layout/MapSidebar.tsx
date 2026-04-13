@@ -8,21 +8,21 @@ interface Props {
 
 const STATUS_STYLES: Record<SessionStatus, { label: string; dotClass: string; toneClass: string; detail: string | null }> = {
   active: {
-    label: 'Active',
-    dotClass: 'bg-emerald-400',
-    toneClass: 'text-emerald-300',
+    label: 'ACTIVE',
+    dotClass: 'status-ping status-ping-active h-2 w-2',
+    toneClass: 'data-readout',
     detail: null,
   },
   ended: {
-    label: 'Ended',
-    dotClass: 'bg-slate-400',
-    toneClass: 'text-slate-300',
+    label: 'ENDED',
+    dotClass: 'status-ping status-ping-ended h-2 w-2',
+    toneClass: 'data-readout-dim',
     detail: 'Session ended',
   },
   error: {
-    label: 'Error',
-    dotClass: 'bg-rose-400',
-    toneClass: 'text-rose-300',
+    label: 'ERROR',
+    dotClass: 'status-ping status-ping-error h-2 w-2',
+    toneClass: '',
     detail: 'Attention required',
   },
 }
@@ -36,8 +36,8 @@ export function MapSidebar({ onFocusSession }: Props) {
   return (
     <div className="flex h-full flex-col gap-2 overflow-y-auto p-2">
       {rows.length === 0 && (
-        <p className="rounded-lg border border-dashed border-border/80 bg-background/30 px-2 py-4 text-center text-xs text-muted-foreground">
-          No active agents
+        <p className="border border-dashed border-border/80 bg-background/30 px-2 py-4 text-center cockpit-label" style={{ color: 'var(--color-cockpit-dim)' }}>
+          -- NO ACTIVE AGENTS --
         </p>
       )}
       {rows.map((session) => {
@@ -64,34 +64,43 @@ export function MapSidebar({ onFocusSession }: Props) {
               selectSession(session.sessionId)
               onFocusSession(session.sessionId)
             }}
-            className={`group w-full rounded-lg border px-3 py-2.5 text-left transition-all duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400/80 focus-visible:ring-offset-2 focus-visible:ring-offset-sidebar ${
+            className={`cockpit-frame-full group w-full rounded-none border px-3 py-2.5 text-left transition-all duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400/80 focus-visible:ring-offset-2 focus-visible:ring-offset-sidebar ${
               isSelected
-                ? 'border-cyan-300/70 bg-cyan-500/10 shadow-[0_0_0_1px_rgba(34,211,238,0.15)]'
+                ? 'border-cyan-300/70 bg-cyan-500/10 shadow-[0_0_0_1px_rgba(34,211,238,0.15),inset_0_0_12px_rgba(34,211,238,0.04)]'
                 : 'border-border/80 bg-background/30 hover:-translate-y-px hover:border-cyan-300/40 hover:bg-accent/40'
             }`}
           >
+            {isSelected && (
+              <>
+                <span className="cockpit-corner cockpit-corner-tl" aria-hidden />
+                <span className="cockpit-corner cockpit-corner-tr" aria-hidden />
+                <span className="cockpit-corner cockpit-corner-bl" aria-hidden />
+                <span className="cockpit-corner cockpit-corner-br" aria-hidden />
+              </>
+            )}
             <div className="flex items-start justify-between gap-3">
               <div className="min-w-0">
                 <div className="flex items-center gap-2">
-                  <span className="truncate text-sm font-semibold text-foreground">{projectName}</span>
-                  <span className="shrink-0 rounded-full border border-border/80 bg-muted/70 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                  <span className="truncate text-xs font-semibold text-foreground [font-family:var(--font-mono-data)] uppercase tracking-wide">{projectName}</span>
+                  <span className={`shrink-0 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wide ${session.provider === 'claude' ? 'badge-provider-claude' : 'badge-provider-codex'}`}>
                     {providerLabel}
                   </span>
                 </div>
-                <div className={`mt-1 flex items-center gap-1.5 text-xs ${statusStyle.toneClass}`}>
+                <div className={`mt-1 flex items-center gap-1.5 ${statusStyle.toneClass}`} style={session.status === 'error' ? { color: 'var(--color-cockpit-red)' } : undefined}>
                   <span
                     data-testid="status-dot"
                     data-status={session.status}
-                    className={`h-2 w-2 shrink-0 rounded-full ${statusStyle.dotClass}`}
+                    className={`shrink-0 ${statusStyle.dotClass}`}
                   />
-                  <span>{statusStyle.label}</span>
+                  <span className="[font-family:var(--font-mono-data)] text-[10px] tracking-wider">{statusStyle.label}</span>
                 </div>
               </div>
 
               {session.pendingApprovals > 0 && (
                 <span
                   data-testid="pending-approvals-pill"
-                  className="inline-flex min-w-6 shrink-0 items-center justify-center rounded-full border border-amber-300/50 bg-amber-500/20 px-2 py-0.5 text-[11px] font-semibold text-amber-200 ring-1 ring-amber-300/30"
+                  className="inline-flex min-w-6 shrink-0 items-center justify-center rounded-none border border-amber-300/50 bg-amber-500/20 px-2 py-0.5 text-[11px] font-semibold text-amber-200 ring-1 ring-amber-300/30 [font-family:var(--font-mono-data)]"
+                  style={{ textShadow: '0 0 6px rgba(251,191,36,0.6)' }}
                 >
                   {session.pendingApprovals}
                 </span>
@@ -99,8 +108,8 @@ export function MapSidebar({ onFocusSession }: Props) {
             </div>
 
             {showSecondaryMetadata && (
-              <p data-testid="secondary-metadata" className="mt-1 truncate text-[11px] text-muted-foreground">
-                {secondaryPieces.join(' • ')}
+              <p data-testid="secondary-metadata" className="mt-1 truncate text-[10px] data-readout-dim">
+                {secondaryPieces.join(' // ')}
               </p>
             )}
           </button>

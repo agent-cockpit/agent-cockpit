@@ -26,29 +26,32 @@ interface ApprovalCardProps {
 
 function ApprovalCard({ approval, disabled, onDecision }: ApprovalCardProps) {
   const buttonBase =
-    'px-3 py-1.5 text-xs font-medium rounded disabled:opacity-50 disabled:cursor-not-allowed'
+    'px-3 py-1.5 text-xs font-medium [font-family:var(--font-mono-data)] uppercase tracking-wide disabled:opacity-50 disabled:cursor-not-allowed transition-colors'
 
   return (
-    <div className="border rounded-lg p-4 mb-3 bg-white shadow-sm">
+    <div className="cockpit-frame-full border border-border/80 p-4 mb-3 bg-[var(--color-panel-surface)]">
+      <span className="cockpit-corner cockpit-corner-tl" aria-hidden />
+      <span className="cockpit-corner cockpit-corner-br" aria-hidden />
+
       {/* Header: action type + risk badge */}
       <div className="flex items-center gap-2 mb-2">
-        <span className="text-sm font-semibold">{formatActionType(approval.actionType)}</span>
+        <span className="[font-family:var(--font-mono-data)] text-xs font-semibold uppercase tracking-wide text-foreground">{formatActionType(approval.actionType)}</span>
         <RiskBadge level={approval.riskLevel as RiskLevel} />
       </div>
 
       {/* Proposed action */}
       <div className="mb-2">
-        <span className="text-xs text-gray-500 uppercase tracking-wide">Proposed action</span>
-        <p className="text-sm font-mono mt-0.5">{approval.proposedAction}</p>
+        <span className="cockpit-label">Proposed action</span>
+        <p className="data-readout text-xs mt-0.5">{approval.proposedAction}</p>
       </div>
 
       {/* Affected paths */}
       {approval.affectedPaths.length > 0 && (
         <div className="mb-2">
-          <span className="text-xs text-gray-500 uppercase tracking-wide">Affected paths</span>
+          <span className="cockpit-label">Affected paths</span>
           <ul className="mt-0.5">
             {approval.affectedPaths.map((path) => (
-              <li key={path} className="text-xs font-mono text-gray-700">
+              <li key={path} className="text-xs [font-family:var(--font-mono-data)] text-muted-foreground">
                 {path}
               </li>
             ))}
@@ -59,8 +62,8 @@ function ApprovalCard({ approval, disabled, onDecision }: ApprovalCardProps) {
       {/* Why risky */}
       {approval.whyRisky && (
         <div className="mb-3">
-          <span className="text-xs text-gray-500 uppercase tracking-wide">Why risky</span>
-          <p className="text-xs text-gray-700 mt-0.5">{approval.whyRisky}</p>
+          <span className="cockpit-label">Why risky</span>
+          <p className="text-xs text-muted-foreground mt-0.5">{approval.whyRisky}</p>
         </div>
       )}
 
@@ -69,7 +72,7 @@ function ApprovalCard({ approval, disabled, onDecision }: ApprovalCardProps) {
         <button
           disabled={disabled}
           onClick={() => onDecision(approval.approvalId, 'approve')}
-          className={`${buttonBase} bg-green-600 text-white hover:bg-green-700`}
+          className={`${buttonBase} bg-[var(--color-cockpit-green)]/20 border border-[var(--color-cockpit-green)]/50 text-[var(--color-cockpit-green)] hover:bg-[var(--color-cockpit-green)]/30`}
           aria-label="Approve"
         >
           Approve
@@ -77,7 +80,7 @@ function ApprovalCard({ approval, disabled, onDecision }: ApprovalCardProps) {
         <button
           disabled={disabled}
           onClick={() => onDecision(approval.approvalId, 'deny')}
-          className={`${buttonBase} bg-red-600 text-white hover:bg-red-700`}
+          className={`${buttonBase} bg-[var(--color-cockpit-red)]/20 border border-[var(--color-cockpit-red)]/50 text-[var(--color-cockpit-red)] hover:bg-[var(--color-cockpit-red)]/30`}
           aria-label="Deny"
         >
           Deny
@@ -85,7 +88,7 @@ function ApprovalCard({ approval, disabled, onDecision }: ApprovalCardProps) {
         <button
           disabled={disabled}
           onClick={() => onDecision(approval.approvalId, 'always_allow')}
-          className={`${buttonBase} bg-blue-600 text-white hover:bg-blue-700`}
+          className={`${buttonBase} bg-[var(--color-cockpit-cyan)]/10 border border-[var(--color-cockpit-cyan)]/40 text-[var(--color-cockpit-cyan)] hover:bg-[var(--color-cockpit-cyan)]/20`}
           aria-label="Always Allow"
         >
           Always Allow
@@ -120,9 +123,12 @@ export function ApprovalInbox() {
     <div className="flex flex-col p-4 overflow-y-auto h-full">
       {/* Header */}
       <div className="flex items-center gap-2 mb-4">
-        <h1 className="text-sm font-semibold">Approval Inbox</h1>
+        <h1 className="cockpit-label">Approval Queue</h1>
         {!isConnected && (
-          <span className="text-xs text-amber-700 bg-amber-100 border border-amber-300 rounded px-1.5 py-0.5">
+          <span
+            className="[font-family:var(--font-mono-data)] text-xs text-amber-200 bg-amber-500/20 border border-amber-400/40 px-1.5 py-0.5"
+            style={{ textShadow: '0 0 6px rgba(251,191,36,0.4)' }}
+          >
             Reconnecting...
           </span>
         )}
@@ -130,8 +136,8 @@ export function ApprovalInbox() {
 
       {/* Content */}
       {visibleApprovals.length === 0 ? (
-        <div className="flex flex-col items-center justify-center flex-1 gap-2 text-gray-400">
-          <p className="text-sm">No pending approvals</p>
+        <div className="flex flex-col items-center justify-center flex-1 gap-2">
+          <p className="cockpit-label" style={{ color: 'var(--color-cockpit-dim)' }}>-- QUEUE EMPTY --</p>
         </div>
       ) : (
         <div>

@@ -119,6 +119,7 @@ describe('CodexAdapter', () => {
     );
 
     await startAdapter(adapter, mockProc, emitLine);
+    onEvent.mockClear();
 
     // Now simulate a server-initiated approval request
     const serverId = 42;
@@ -160,6 +161,7 @@ describe('CodexAdapter', () => {
     );
 
     await startAdapter(adapter, mockProc, emitLine);
+    onEvent.mockClear();
 
     const serverId = 7;
     emitLine(JSON.stringify({
@@ -231,6 +233,7 @@ describe('CodexAdapter', () => {
     );
 
     await startAdapter(adapter, mockProc, emitLine);
+    onEvent.mockClear();
 
     const serverId = 99;
     emitLine(JSON.stringify({
@@ -259,5 +262,58 @@ describe('CodexAdapter', () => {
       .find((m) => m['id'] === serverId && 'result' in m);
 
     expect(replyWrite).toBeUndefined();
+  });
+
+  it('emits session_start after successful thread start so session appears before first turn', async () => {
+    const adapter = new CodexAdapter(
+      'session-start-visible',
+      '/workspace',
+      mockDb as unknown as import('better-sqlite3').Database,
+      onEvent,
+      undefined,
+      () => mockProc as unknown as import('node:child_process').ChildProcess,
+    );
+
+    await startAdapter(adapter, mockProc, emitLine);
+
+    const sessionStart = onEvent.mock.calls
+      .map((call) => call[0] as Record<string, unknown>)
+      .find((event) => event['type'] === 'session_start');
+
+    expect(sessionStart).toBeDefined();
+    expect(sessionStart).toMatchObject({
+      type: 'session_start',
+      provider: 'codex',
+      sessionId: 'session-start-visible',
+      workspacePath: '/workspace',
+    });
+  });
+
+  it('emits session_end when codex process exits after session start', async () => {
+    const adapter = new CodexAdapter(
+      'session-exit-visible',
+      '/workspace',
+      mockDb as unknown as import('better-sqlite3').Database,
+      onEvent,
+      undefined,
+      () => mockProc as unknown as import('node:child_process').ChildProcess,
+    );
+
+    await startAdapter(adapter, mockProc, emitLine);
+    onEvent.mockClear();
+
+    mockProc.emit('exit', 0);
+
+    const sessionEnd = onEvent.mock.calls
+      .map((call) => call[0] as Record<string, unknown>)
+      .find((event) => event['type'] === 'session_end');
+
+    expect(sessionEnd).toBeDefined();
+    expect(sessionEnd).toMatchObject({
+      type: 'session_end',
+      provider: 'codex',
+      sessionId: 'session-exit-visible',
+      exitCode: 0,
+    });
   });
 });

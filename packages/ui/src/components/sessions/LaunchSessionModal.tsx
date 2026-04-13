@@ -2,6 +2,7 @@ import { useState } from 'react'
 
 // Claude launch uses configure-and-copy mode per RESEARCH.md
 // (GitHub issue #771 — Node.js spawn blocked for Claude CLI)
+const DAEMON_URL = import.meta.env['VITE_DAEMON_URL'] ?? 'http://localhost:3001'
 
 interface LaunchSessionModalProps {
   open: boolean
@@ -26,16 +27,26 @@ export function LaunchSessionModal({ open, onClose }: LaunchSessionModalProps) {
     e.preventDefault()
     setState({ type: 'loading' })
     try {
-      const res = await fetch('/api/sessions', {
+      const res = await fetch(`${DAEMON_URL}/api/sessions`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ provider, workspacePath }),
       })
-      const data = (await res.json()) as {
+      const raw = await res.text()
+      let data: {
         sessionId: string
         hookCommand?: string
         mode: string
         error?: string
+      }
+      try {
+        data = JSON.parse(raw) as typeof data
+      } catch {
+        setState({
+          type: 'error',
+          message: `Daemon returned non-JSON response (${res.status}). Check daemon URL/port.`,
+        })
+        return
       }
       if (!res.ok) {
         setState({ type: 'error', message: data.error ?? 'Request failed' })

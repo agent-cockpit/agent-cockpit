@@ -133,12 +133,9 @@ describe('parseCodexLine', () => {
     expect((event as { type: string; _codexServerId: unknown })._codexServerId).toBe('req_2');
   });
 
-  it('turn/completed with status completed → returns session_end event', () => {
+  it('turn/completed with status completed → returns null (turn end is not session end)', () => {
     const event = parseCodexLine(turnCompletedFixture, ctx);
-    expect(event).not.toBeNull();
-    expect(event!.type).toBe('session_end');
-    expect((event as { type: string; provider: string }).provider).toBe('codex');
-    expect((event as { type: string; exitCode?: number }).exitCode).toBe(0);
+    expect(event).toBeNull();
   });
 
   it('malformed JSON string → returns provider_parse_error event (not thrown)', () => {
