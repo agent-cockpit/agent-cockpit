@@ -244,10 +244,11 @@ Plans:
   3. When more sessions than spawn slots exist, additional agents cycle through the slots (no overlap stacking — add a small jitter offset)
   4. The player start position (currently hard-coded in `GameState.ts`) is also verified to be on walkable floor
   5. Existing sessions whose NPC position is already set are not relocated
-**Plans:** TBD
+**Plans:** 2 plans
 
 Plans:
-- [ ] TBD (run /gsd:plan-phase 16.10 to break down)
+- [ ] 16.10-01-PLAN.md — TDD: add failing spawn-slot tests to OfficePage.test.tsx (npc-spawn-position)
+- [ ] 16.10-02-PLAN.md — Fix NPC seeding useEffect with SPAWN_SLOTS, visual QA checkpoint (npc-spawn-position)
 
 ### Phase 16.11: Agent Modal — Terminal UX Redesign (INSERTED)
 
