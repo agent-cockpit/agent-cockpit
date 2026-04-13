@@ -25,9 +25,9 @@ See: .planning/PROJECT.md (updated 2026-04-10)
 
 ## Current Position
 
-Phase: 17 — NPC Agent Behavior
+Phase: 16.9 — Multi-Map Rendering Fix
 Plan: 01
-Status: Ready to start — Phase 16.8 complete (plans 01-03)
+Status: Ready to plan — Phase 16.8 complete (plans 01-03)
 Last activity: 2026-04-13 — Completed 16.8-03 (sidebar focus behavior + QA checkpoint approval)
 
 Progress: [██████████] 97%
@@ -145,6 +145,9 @@ All v1.0 decisions remain active and respected.
 - Phase 16.6 inserted after Phase 16.5: Sprite Image Quality Upgrade — regenerate/upscale sprite sheets so characters look crisp at 2× zoom (URGENT — current sprites too blurry)
 - Phase 16.7 inserted after Phase 16.6: Wall and Object Collision Physics — player walks through walls/objects; implement proper collision layer for all solid tiles and map objects (URGENT)
 - Phase 16.8 inserted after Phase 16.7: Sidebar Design Overhaul — current sidebar design is broken/ugly; full redesign with proper layout, typography, and space theme styling (URGENT)
+- Phase 16.9 inserted after Phase 16.8: Multi-Map Rendering Fix — second map added but only the last renders; fix TilemapRenderer to load and blit all map composites
+- Phase 16.10 inserted after Phase 16.9: NPC Spawn Inside Map Fix — new session agents spawn at (0,0) which is deep-space void; define safe spawn slots on walkable floor
+- Phase 16.11 inserted after Phase 16.10: Agent Modal Terminal UX Redesign — black text on dark bg, timeline order wrong, raw JSON messages; full redesign with terminal input (uses /frontend-design)
 
 ### Pending Todos
 

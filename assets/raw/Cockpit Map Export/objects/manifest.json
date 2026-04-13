@@ -1,6 +1,6 @@
 {
   "version": "1.0.0",
-  "totalObjects": 17,
+  "totalObjects": 22,
   "objects": [
     {
       "id": "3caf37bd-a97e-4723-b8ee-add6beec6b4c",
@@ -27,8 +27,8 @@
       "name": "Object 0 (Copy)",
       "filename": "040bf22f-19db-41f3-af4c-b2a1947f82e1.png",
       "boundingBox": {
-        "x": 422,
-        "y": 55,
+        "x": 487,
+        "y": 58,
         "width": 91,
         "height": 63
       },
@@ -39,46 +39,6 @@
       "metadata": {
         "lastEdited": "2026-04-10T22:23:35.786512",
         "generatedAt": "2026-04-10T22:02:31.879Z"
-      },
-      "isProgress": false
-    },
-    {
-      "id": "b40301f7-d45b-4ad5-a955-4115d8ff775e",
-      "name": "Object 0",
-      "filename": "b40301f7-d45b-4ad5-a955-4115d8ff775e.png",
-      "boundingBox": {
-        "x": 909,
-        "y": 542,
-        "width": 120,
-        "height": 82
-      },
-      "layer": 13,
-      "visible": true,
-      "locked": false,
-      "description": "3d, big pool table",
-      "metadata": {
-        "lastEdited": "2026-04-11T14:46:36.987008",
-        "generatedAt": "2026-04-11T04:44:09.489Z"
-      },
-      "isProgress": false
-    },
-    {
-      "id": "c5a3e0b7-b564-4009-9d6b-00738b8921a4",
-      "name": "Object 0",
-      "filename": "c5a3e0b7-b564-4009-9d6b-00738b8921a4.png",
-      "boundingBox": {
-        "x": 416,
-        "y": 588,
-        "width": 72,
-        "height": 85
-      },
-      "layer": 15,
-      "visible": true,
-      "locked": false,
-      "description": "Big Piano",
-      "metadata": {
-        "lastEdited": "2026-04-11T14:46:36.987008",
-        "generatedAt": "2026-04-11T04:48:55.904Z"
       },
       "isProgress": false
     },
@@ -207,8 +167,8 @@
       "name": "Object 0",
       "filename": "b7628625-fe6e-4557-9470-a436234c19f0.png",
       "boundingBox": {
-        "x": 750,
-        "y": 429,
+        "x": 796,
+        "y": 414,
         "width": 64,
         "height": 105
       },
@@ -227,8 +187,8 @@
       "name": "Object 0",
       "filename": "2518bf6e-2b5b-41c1-b822-04df0194b935.png",
       "boundingBox": {
-        "x": 833,
-        "y": 445,
+        "x": 938,
+        "y": 433,
         "width": 56,
         "height": 83
       },
@@ -307,8 +267,8 @@
       "name": "Object 0",
       "filename": "1e7c45a2-de62-4f91-b4b8-0de96a536496.png",
       "boundingBox": {
-        "x": 774,
-        "y": 194,
+        "x": 579,
+        "y": 62,
         "width": 66,
         "height": 47
       },
@@ -327,8 +287,8 @@
       "name": "Object 0",
       "filename": "28909e44-a281-4c66-9601-fcf468cf7736.png",
       "boundingBox": {
-        "x": 42,
-        "y": 52,
+        "x": 44,
+        "y": 49,
         "width": 52,
         "height": 93
       },
@@ -339,6 +299,140 @@
       "metadata": {
         "lastEdited": "2026-04-11T16:03:24.390714",
         "generatedAt": "2026-04-11T16:02:14.549Z"
+      },
+      "isProgress": false
+    },
+    {
+      "id": "aae37b15-b47b-479c-9318-7beeaee5b295",
+      "name": "Object 0",
+      "filename": "aae37b15-b47b-479c-9318-7beeaee5b295.png",
+      "boundingBox": {
+        "x": 92,
+        "y": 67,
+        "width": 92,
+        "height": 56
+      },
+      "layer": 18,
+      "visible": true,
+      "locked": false,
+      "description": "Chemical Shelf\nA wall-mounted shelf holding several glass bottles and vials of different colors, some with labels, one slightly bubbling.\n\nModern pixel art, top-down slight angle, wall shelf with glass chemical bottles and vials, various colors, small labels, one bubbling bottle, laboratory setting, clean pixel art",
+      "metadata": {
+        "generatedAt": "2026-04-13T15:52:59.022Z"
+      },
+      "isProgress": false
+    },
+    {
+      "id": "89704f79-77ce-4884-b0db-f0fc6d84e80b",
+      "name": "Object 0 (Copy)",
+      "filename": "89704f79-77ce-4884-b0db-f0fc6d84e80b.png",
+      "boundingBox": {
+        "x": 185,
+        "y": 68,
+        "width": 92,
+        "height": 56
+      },
+      "layer": 18,
+      "visible": true,
+      "locked": false,
+      "description": "Chemical Shelf\nA wall-mounted shelf holding several glass bottles and vials of different colors, some with labels, one slightly bubbling.\n\nModern pixel art, top-down slight angle, wall shelf with glass chemical bottles and vials, various colors, small labels, one bubbling bottle, laboratory setting, clean pixel art",
+      "metadata": {
+        "generatedAt": "2026-04-13T15:53:24.298Z"
+      },
+      "isProgress": false
+    },
+    {
+      "id": "cf19c520-f776-4ced-b6f5-fa393c29e60e",
+      "name": "Object 0",
+      "filename": "cf19c520-f776-4ced-b6f5-fa393c29e60e.png",
+      "boundingBox": {
+        "x": 103,
+        "y": 150,
+        "width": 112,
+        "height": 96
+      },
+      "layer": 21,
+      "visible": true,
+      "locked": false,
+      "description": "whit table\n",
+      "metadata": {
+        "generatedAt": "2026-04-13T15:59:05.032Z"
+      },
+      "isProgress": false
+    },
+    {
+      "id": "67c459d5-1871-4e6b-9807-9320a2ed341d",
+      "name": "Object 0",
+      "filename": "67c459d5-1871-4e6b-9807-9320a2ed341d.png",
+      "boundingBox": {
+        "x": 560,
+        "y": 636,
+        "width": 120,
+        "height": 95
+      },
+      "layer": 21,
+      "visible": true,
+      "locked": false,
+      "description": "big rectangle wood vintage table",
+      "metadata": {
+        "generatedAt": "2026-04-13T16:03:02.657Z"
+      },
+      "isProgress": false
+    },
+    {
+      "id": "e408fb9d-5bba-4030-a18a-61a609dfb065",
+      "name": "Object 0 (Copy)",
+      "filename": "e408fb9d-5bba-4030-a18a-61a609dfb065.png",
+      "boundingBox": {
+        "x": 679,
+        "y": 635,
+        "width": 120,
+        "height": 95
+      },
+      "layer": 21,
+      "visible": true,
+      "locked": false,
+      "description": "big rectangle wood vintage table",
+      "metadata": {
+        "generatedAt": "2026-04-13T16:03:12.924Z"
+      },
+      "isProgress": false
+    },
+    {
+      "id": "43977394-07a4-4fff-a839-ab361882f9f6",
+      "name": "Object 0 (Copy) (Copy)",
+      "filename": "43977394-07a4-4fff-a839-ab361882f9f6.png",
+      "boundingBox": {
+        "x": 798,
+        "y": 635,
+        "width": 120,
+        "height": 95
+      },
+      "layer": 21,
+      "visible": true,
+      "locked": false,
+      "description": "big rectangle wood vintage table",
+      "metadata": {
+        "generatedAt": "2026-04-13T16:03:22.890Z"
+      },
+      "isProgress": false
+    },
+    {
+      "id": "476bf040-20a5-48e8-90fd-474ac008d6e0",
+      "name": "Object 0 (Copy)",
+      "filename": "476bf040-20a5-48e8-90fd-474ac008d6e0.png",
+      "boundingBox": {
+        "x": 421,
+        "y": 63,
+        "width": 66,
+        "height": 47
+      },
+      "layer": 29,
+      "visible": true,
+      "locked": false,
+      "description": "Desk with Personal Items\nA compact metal desk with a lit lamp, a few scattered papers, a pen holder, and a framed photo.\n\nModern pixel art, top-down slight angle, small metal desk, glowing desk lamp, scattered papers, pen holder, framed photo, personal and lived-in feel, clean pixel art",
+      "metadata": {
+        "lastEdited": "2026-04-11T16:03:24.390714",
+        "generatedAt": "2026-04-13T18:07:04.529Z"
       },
       "isProgress": false
     }
