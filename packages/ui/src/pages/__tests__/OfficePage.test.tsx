@@ -67,7 +67,9 @@ vi.mock('../../components/office/AgentSprite.js', () => ({
 }))
 
 import { OfficePage } from '../OfficePage.js'
+import { scrollToSession } from '../OfficePage.js'
 import { gameState } from '../../game/GameState.js'
+import { useActiveSessions } from '../../store/selectors.js'
 
 describe('OfficePage canvas mount', () => {
   beforeEach(() => {
@@ -80,6 +82,8 @@ describe('OfficePage canvas mount', () => {
     Object.keys(gameState.npcs).forEach(k => delete gameState.npcs[k])
     gameState.player.x = 2 * 96
     gameState.player.y = 5 * 96
+    gameState.camera = { x: 0, y: 0, targetX: 0, targetY: 0, viewportW: 400, viewportH: 300, zoom: 2 }
+    ;(useActiveSessions as ReturnType<typeof vi.fn>).mockReturnValue([])
   })
 
   afterEach(() => {
@@ -126,7 +130,6 @@ describe('OfficePage canvas mount', () => {
 
   it('canvas click at NPC position calls selectSession with correct id', async () => {
     // Make useActiveSessions return a session so the seeding effect keeps it alive
-    const { useActiveSessions } = await import('../../store/selectors.js')
     ;(useActiveSessions as ReturnType<typeof vi.fn>).mockReturnValue([
       {
         sessionId: 'test-session-1',
@@ -206,5 +209,67 @@ describe('OfficePage canvas mount', () => {
     // Click at (200, 200) — well outside the 64px sprite at (10, 10)
     fireEvent.click(canvas, { clientX: 200, clientY: 200 })
     expect(selectSessionMock).not.toHaveBeenCalled()
+  })
+})
+
+describe('OfficePage scrollToSession', () => {
+  beforeEach(() => {
+    Object.keys(gameState.npcs).forEach(k => delete gameState.npcs[k])
+    gameState.player.x = 2 * 96
+    gameState.player.y = 5 * 96
+    gameState.camera = { x: 0, y: 0, targetX: 0, targetY: 0, viewportW: 400, viewportH: 300, zoom: 2 }
+    ;(useActiveSessions as ReturnType<typeof vi.fn>).mockReturnValue([
+      {
+        sessionId: 'test-session-1',
+        provider: 'claude',
+        workspacePath: '/workspace/test',
+        startedAt: '2024-01-01T00:00:00Z',
+        status: 'active',
+        lastEventAt: '2024-01-01T00:01:00Z',
+        pendingApprovals: 0,
+      },
+    ])
+  })
+
+  it('focuses target session by snapping camera to centered coordinates', () => {
+    render(<OfficePage />)
+    gameState.npcs['test-session-1'] = { x: 400, y: 300 }
+
+    act(() => {
+      scrollToSession('test-session-1')
+    })
+
+    expect(gameState.camera.targetX).toBe(200)
+    expect(gameState.camera.targetY).toBe(150)
+    expect(gameState.camera.x).toBe(200)
+    expect(gameState.camera.y).toBe(150)
+  })
+
+  it('keeps player position synchronized with focused NPC position', () => {
+    render(<OfficePage />)
+    gameState.npcs['test-session-1'] = { x: 400, y: 300 }
+
+    act(() => {
+      scrollToSession('test-session-1')
+    })
+
+    expect(gameState.player.x).toBe(400)
+    expect(gameState.player.y).toBe(300)
+  })
+
+  it('is a safe no-op when the session id is unknown', () => {
+    render(<OfficePage />)
+    const beforeCamera = { ...gameState.camera }
+    const beforePlayer = { x: gameState.player.x, y: gameState.player.y }
+
+    expect(() => {
+      act(() => {
+        scrollToSession('missing-session')
+      })
+    }).not.toThrow()
+
+    expect(gameState.camera).toEqual(beforeCamera)
+    expect(gameState.player.x).toBe(beforePlayer.x)
+    expect(gameState.player.y).toBe(beforePlayer.y)
   })
 })
