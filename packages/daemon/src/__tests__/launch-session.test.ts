@@ -6,6 +6,15 @@ import { persistEvent } from '../db/queries.js';
 import type Database from 'better-sqlite3';
 import type { NormalizedEvent } from '@cockpit/shared';
 
+// Module-level mock for child_process so we can control execFileSync behavior
+vi.mock('node:child_process', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('node:child_process')>();
+  return {
+    ...actual,
+    execFileSync: vi.fn(actual.execFileSync),
+  };
+});
+
 // Helper: make an HTTP POST request and return status + parsed JSON body
 function httpPost(port: number, path: string, body: unknown): Promise<{ status: number; data: Record<string, unknown> }> {
   return new Promise((resolve, reject) => {
@@ -158,12 +167,26 @@ describe('POST /api/sessions', () => {
 describe('ClaudeLauncher preflight', () => {
   it('throws LaunchError with code MISSING_BINARY when claude binary is absent', async () => {
     const { ClaudeLauncher, LaunchError } = await import('../adapters/claude/claudeLauncher.js');
-    const launcher = new ClaudeLauncher(3002);
-    // Mock execFileSync to throw (binary not found)
     const cp = await import('node:child_process');
-    vi.spyOn(cp, 'execFileSync').mockImplementation(() => { throw new Error('not found'); });
+    // Override the mocked execFileSync to simulate missing binary
+    vi.mocked(cp.execFileSync).mockImplementationOnce(() => { throw new Error('not found'); });
+    const launcher = new ClaudeLauncher(3002);
     await expect(launcher.preflight('/tmp')).rejects.toThrow(LaunchError);
-    await expect(launcher.preflight('/tmp')).rejects.toMatchObject({ code: 'MISSING_BINARY' });
+  });
+
+  it('preflight throws LaunchError code MISSING_BINARY (code field check)', async () => {
+    const { ClaudeLauncher, LaunchError } = await import('../adapters/claude/claudeLauncher.js');
+    const cp = await import('node:child_process');
+    vi.mocked(cp.execFileSync).mockImplementationOnce(() => { throw new Error('not found'); });
+    const launcher = new ClaudeLauncher(3002);
+    let caught: unknown;
+    try {
+      await launcher.preflight('/tmp');
+    } catch (e) {
+      caught = e;
+    }
+    expect(caught).toBeInstanceOf(LaunchError);
+    expect((caught as InstanceType<typeof LaunchError>).code).toBe('MISSING_BINARY');
   });
 });
 

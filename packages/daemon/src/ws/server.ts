@@ -1,10 +1,12 @@
 import { createServer } from 'node:http';
 import http from 'node:http';
 import crypto from 'node:crypto';
+import fs from 'node:fs';
 import { WebSocketServer, WebSocket } from 'ws';
 import type Database from 'better-sqlite3';
 import { handleConnection } from './handlers.js';
 import { CodexAdapter } from '../adapters/codex/codexAdapter.js';
+import { ClaudeLauncher, LaunchError } from '../adapters/claude/claudeLauncher.js';
 import { eventBus } from '../eventBus.js';
 import { getEventsBySession, searchAll, getAllSessions, getSessionSummary } from '../db/queries.js';
 import { resolveClaudeMdPath, resolveAutoMemoryPath, readFileSafe, writeFileSafe, getWorkspacePath } from '../memory/memoryReader.js';
@@ -21,40 +23,55 @@ function handleLaunchSession(
   let body = '';
   req.on('data', (chunk) => { body += chunk; });
   req.on('end', () => {
-    try {
-      const { provider, workspacePath } = JSON.parse(body) as { provider?: string; workspacePath?: string };
-      if (!provider || !workspacePath) {
+    void (async () => {
+      try {
+        const { provider, workspacePath } = JSON.parse(body) as { provider?: string; workspacePath?: string };
+        if (!provider || !workspacePath) {
+          res.writeHead(400, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ error: 'provider and workspacePath are required' }));
+          return;
+        }
+
+        // Shared preflight: validate workspace exists
+        if (!fs.existsSync(workspacePath)) {
+          res.writeHead(422, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ error: `Workspace path does not exist: ${workspacePath}`, error_code: 'INVALID_WORKSPACE' }));
+          return;
+        }
+
+        const sessionId = crypto.randomUUID();
+        const hookPort = Number(process.env['COCKPIT_HOOK_PORT'] ?? '3002');
+
+        if (provider === 'claude') {
+          const launcher = new ClaudeLauncher(hookPort);
+          await launcher.preflight(workspacePath);
+          await launcher.launch(sessionId, workspacePath);
+          res.writeHead(200, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ sessionId, mode: 'initiated' }));
+        } else {
+          // Codex: spawn codex app-server as a child process
+          const adapter = new CodexAdapter(
+            sessionId,
+            workspacePath,
+            db,
+            (event) => eventBus.emit('event', event),
+          );
+          adapter.start().catch((err: unknown) => {
+            console.error('[cockpit-daemon] CodexAdapter.start() failed:', err);
+          });
+          res.writeHead(200, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ sessionId, mode: 'initiated' }));
+        }
+      } catch (err: unknown) {
+        if (err instanceof LaunchError) {
+          res.writeHead(422, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ error: err.message, error_code: err.code }));
+          return;
+        }
         res.writeHead(400, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ error: 'provider and workspacePath are required' }));
-        return;
+        res.end(JSON.stringify({ error: 'invalid JSON body' }));
       }
-      const sessionId = crypto.randomUUID();
-      if (provider === 'claude') {
-        // SESS-02 configure-and-copy: Claude cannot be safely spawned as Node child process
-        // (see RESEARCH.md open question 1 / GitHub issue #771)
-        // Return the hook configuration command for the user to run manually
-        const hookPort = process.env['COCKPIT_HOOK_PORT'] ?? '3002';
-        const hookCommand = `COCKPIT_SESSION_ID=${sessionId} claude --hooks http://localhost:${hookPort}/hook`;
-        res.writeHead(200, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ sessionId, hookCommand, mode: 'configure-and-copy' }));
-      } else {
-        // Codex: spawn codex app-server as a child process
-        const adapter = new CodexAdapter(
-          sessionId,
-          workspacePath,
-          db,
-          (event) => eventBus.emit('event', event),
-        );
-        adapter.start().catch((err: unknown) => {
-          console.error('[cockpit-daemon] CodexAdapter.start() failed:', err);
-        });
-        res.writeHead(200, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ sessionId, mode: 'spawn' }));
-      }
-    } catch {
-      res.writeHead(400, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ error: 'invalid JSON body' }));
-    }
+    })();
   });
 }
 
