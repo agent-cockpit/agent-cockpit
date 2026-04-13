@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v1.1
 milestone_name: — 2D Pixel Art Game Experience
 status: completed
-stopped_at: Completed 16.10-01-PLAN.md
-last_updated: "2026-04-13T21:47:09.033Z"
-last_activity: 2026-04-13 — Completed 16.10-01 (spawn-slot RED test baseline)
+stopped_at: Completed 16.10-02-PLAN.md
+last_updated: "2026-04-13T22:09:06.073Z"
+last_activity: 2026-04-13 — Completed 16.10-02 (spawn-slot wall collision fix)
 progress:
   total_phases: 24
-  completed_phases: 13
+  completed_phases: 14
   total_plans: 50
-  completed_plans: 43
-  percent: 91
+  completed_plans: 44
+  percent: 92
 ---
 
 # Project State
@@ -27,10 +27,10 @@ See: .planning/PROJECT.md (updated 2026-04-10)
 
 Phase: 16.10 — NPC Spawn Inside Map Fix
 Plan: 02
-Status: In Progress — 16.10-01 complete
-Last activity: 2026-04-13 — Completed 16.10-01 (spawn-slot RED test baseline)
+Status: Completed — 16.10-02 complete
+Last activity: 2026-04-13 — Completed 16.10-02 (spawn-slot wall collision fix)
 
-Progress: [█████████░] 91%
+Progress: [█████████░] 92%
 
 ## v1.0 Completed
 
@@ -142,6 +142,8 @@ All v1.0 decisions remain active and respected.
 - [Phase 16.9]: Out-of-scope full-suite test failures were logged to deferred-items.md instead of being fixed in this plan
 - [Phase 16.10]: Plan 16.10-01 keeps SPAWN_SLOTS inline in tests because production constant is introduced in Plan 16.10-02.
 - [Phase 16.10]: OfficePage click-hit test now pins sess-1 at origin explicitly so selection behavior remains isolated from spawn policy changes.
+- [Phase 16.10]: Spawn slots validated against PLAYER_HITBOX collision overlap, not terrain tile type alone.
+- [Phase 16.10]: Preserved user-owned PLAYER_HITBOX debug rendering diff as unstaged work while committing only spawn-slot/task-test updates.
 
 ### Roadmap Evolution
 
@@ -168,8 +170,8 @@ None yet — requirements phase will surface tasks.
 
 ## Session Continuity
 
-Last session: 2026-04-13T21:47:09.026Z
-Stopped at: Completed 16.10-01-PLAN.md
+Last session: 2026-04-13T22:09:06.069Z
+Stopped at: Completed 16.10-02-PLAN.md
 Resume file: None
 
 *Updated after each plan completion*
