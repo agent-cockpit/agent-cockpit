@@ -3,13 +3,9 @@ export interface Rect { x: number; y: number; w: number; h: number }
 export const PLAYER_HITBOX = { offsetX: 16, offsetY: 32, w: 32, h: 32 }
 
 const TILE_SIZE = 32
-const TILE_ORIGIN_X = -46  // from map.json mapConfig.boundingBox.minX
-const TILE_ORIGIN_Y = -43  // from map.json mapConfig.boundingBox.minY
 
 // Objects in manifest.json use coordinates relative to the map content canvas origin.
-// The canvas starts at the first wall row: tile (1, 2) → world px (1504, 1440).
-const OBJECT_ORIGIN_X = (1 - TILE_ORIGIN_X) * TILE_SIZE   // 1504
-const OBJECT_ORIGIN_Y = (2 - TILE_ORIGIN_Y) * TILE_SIZE   // 1440
+// The canvas starts at the first wall row: tile (1, 2) in map-local tile space.
 const OBJECT_RENDER_ANCHOR_Y_PX = 32
 
 // Terrain IDs that block movement
@@ -24,17 +20,32 @@ interface ObjectEntry {
   filename?: string
 }
 export interface ObjectAlphaBounds { x: number; y: number; w: number; h: number }
+interface MapLoadOptions {
+  tileOriginX?: number
+  tileOriginY?: number
+  worldOriginX?: number
+  worldOriginY?: number
+  append?: boolean
+}
 
 export class CollisionMap {
   private solidTiles = new Set<string>()
   private solidObjects: Rect[] = []
 
-  loadTerrain(data: TerrainMapData): void {
-    this.solidTiles.clear()
+  loadTerrain(data: TerrainMapData, opts?: MapLoadOptions): void {
+    const {
+      tileOriginX = -46,
+      tileOriginY = -43,
+      worldOriginX = 0,
+      worldOriginY = 0,
+      append = false,
+    } = opts ?? {}
+
+    if (!append) this.solidTiles.clear()
     for (const cell of data.cells) {
       if (SOLID_TERRAIN_IDS.has(cell.terrainId)) {
-        const px = (cell.x - TILE_ORIGIN_X) * TILE_SIZE
-        const py = (cell.y - TILE_ORIGIN_Y) * TILE_SIZE
+        const px = (cell.x - tileOriginX) * TILE_SIZE + worldOriginX
+        const py = (cell.y - tileOriginY) * TILE_SIZE + worldOriginY
         // Key by tile index (not pixel) — each tile covers 32x32px
         const tx = Math.floor(px / TILE_SIZE)
         const ty = Math.floor(py / TILE_SIZE)
@@ -46,8 +57,19 @@ export class CollisionMap {
   loadObjects(
     objects: ObjectEntry[],
     alphaBoundsByFilename: Record<string, ObjectAlphaBounds> = {},
+    opts?: MapLoadOptions,
   ): void {
-    this.solidObjects = []
+    const {
+      tileOriginX = -46,
+      tileOriginY = -43,
+      worldOriginX = 0,
+      worldOriginY = 0,
+      append = false,
+    } = opts ?? {}
+    const objectOriginX = (1 - tileOriginX) * TILE_SIZE + worldOriginX
+    const objectOriginY = (2 - tileOriginY) * TILE_SIZE + worldOriginY
+
+    if (!append) this.solidObjects = []
     for (const obj of objects) {
       if (!obj.visible) continue
       if (obj.description.startsWith('Character:')) continue  // ambient sprites, not obstacles
@@ -63,8 +85,8 @@ export class CollisionMap {
       const relH = alpha?.h ?? height
       if (relW <= 0 || relH <= 0) continue
       this.solidObjects.push({
-        x: relX + OBJECT_ORIGIN_X,
-        y: relY + OBJECT_ORIGIN_Y,
+        x: relX + objectOriginX,
+        y: relY + objectOriginY,
         w: relW,
         h: relH,
       })
