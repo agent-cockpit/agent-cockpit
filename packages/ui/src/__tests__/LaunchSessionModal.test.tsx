@@ -122,24 +122,36 @@ describe('LaunchSessionModal — waiting state', () => {
 
 describe('LaunchSessionModal — timeout', () => {
   it('shows timed out error after 30000ms with no session_start', async () => {
-    vi.useFakeTimers()
+    // Must set up fake timers BEFORE rendering so setTimeout in useEffect uses fake clock
+    vi.useFakeTimers({ shouldAdvanceTime: false })
+
+    let resolveFetch!: (value: string) => void
+    const fetchBodyPromise = new Promise<string>((res) => { resolveFetch = res })
 
     global.fetch = vi.fn().mockResolvedValue({
       ok: true,
-      text: async () =>
-        JSON.stringify({ sessionId: MOCK_SESSION_ID, mode: 'initiated' }),
-    } as Response)
+      text: () => fetchBodyPromise,
+    } as unknown as Response)
 
     renderModal()
 
-    // Submit and wait for async fetch
+    // Submit form
+    fireEvent.change(screen.getByLabelText(/workspace path/i), { target: { value: '/tmp/test' } })
+    const form = screen.getByLabelText(/workspace path/i).closest('form')!
+    fireEvent.submit(form)
+
+    // Resolve the fetch while running all pending microtasks
     await act(async () => {
-      await submitForm()
+      resolveFetch(JSON.stringify({ sessionId: MOCK_SESSION_ID, mode: 'initiated' }))
+      // Flush microtasks (promises)
+      await Promise.resolve()
+      await Promise.resolve()
     })
 
-    await screen.findByText(/waiting for session to start/i)
+    // The component should now be in waiting_for_session_start state
+    expect(screen.getByText(/waiting for session to start/i)).toBeInTheDocument()
 
-    // Advance timers past 30s
+    // Advance fake clock past 30 seconds to trigger timeout
     act(() => {
       vi.advanceTimersByTime(30001)
     })

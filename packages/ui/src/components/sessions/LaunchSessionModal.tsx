@@ -1,7 +1,6 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
+import { useStore } from '../../store/index.js'
 
-// Claude launch uses configure-and-copy mode per RESEARCH.md
-// (GitHub issue #771 — Node.js spawn blocked for Claude CLI)
 const DAEMON_URL = import.meta.env['VITE_DAEMON_URL'] ?? 'http://localhost:3001'
 
 interface LaunchSessionModalProps {
@@ -12,14 +11,38 @@ interface LaunchSessionModalProps {
 type SubmitState =
   | { type: 'idle' }
   | { type: 'loading' }
-  | { type: 'claude-success'; hookCommand: string; sessionId: string }
-  | { type: 'codex-success'; sessionId: string }
+  | { type: 'waiting_for_session_start'; sessionId: string }
   | { type: 'error'; message: string }
 
 export function LaunchSessionModal({ open, onClose }: LaunchSessionModalProps) {
   const [provider, setProvider] = useState<'claude' | 'codex'>('claude')
   const [workspacePath, setWorkspacePath] = useState('')
   const [state, setState] = useState<SubmitState>({ type: 'idle' })
+
+  // Watch Zustand store for the launched session to appear (set by session_start WebSocket event)
+  useEffect(() => {
+    if (state.type !== 'waiting_for_session_start') return
+    const { sessionId } = state
+
+    const unsubscribe = useStore.subscribe(
+      (s) => s.sessions[sessionId],
+      (session) => {
+        if (session) {
+          handleClose()
+        }
+      },
+    )
+
+    const timer = setTimeout(() => {
+      setState({ type: 'error', message: 'Session launch timed out. Check daemon logs and try again.' })
+    }, 30_000)
+
+    return () => {
+      unsubscribe()
+      clearTimeout(timer)
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [state.type === 'waiting_for_session_start' ? (state as { type: 'waiting_for_session_start'; sessionId: string }).sessionId : null])
 
   if (!open) return null
 
@@ -35,7 +58,6 @@ export function LaunchSessionModal({ open, onClose }: LaunchSessionModalProps) {
       const raw = await res.text()
       let data: {
         sessionId: string
-        hookCommand?: string
         mode: string
         error?: string
       }
@@ -52,11 +74,7 @@ export function LaunchSessionModal({ open, onClose }: LaunchSessionModalProps) {
         setState({ type: 'error', message: data.error ?? 'Request failed' })
         return
       }
-      if (provider === 'claude' && data.hookCommand) {
-        setState({ type: 'claude-success', hookCommand: data.hookCommand, sessionId: data.sessionId })
-      } else {
-        setState({ type: 'codex-success', sessionId: data.sessionId })
-      }
+      setState({ type: 'waiting_for_session_start', sessionId: data.sessionId })
     } catch (err) {
       setState({ type: 'error', message: String(err) })
     }
@@ -94,7 +112,7 @@ export function LaunchSessionModal({ open, onClose }: LaunchSessionModalProps) {
           </button>
         </div>
 
-        {state.type !== 'claude-success' && state.type !== 'codex-success' && (
+        {state.type !== 'waiting_for_session_start' && (
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
               <label htmlFor="launch-provider" className="cockpit-label block mb-1.5">
@@ -152,47 +170,15 @@ export function LaunchSessionModal({ open, onClose }: LaunchSessionModalProps) {
           </form>
         )}
 
-        {state.type === 'claude-success' && (
+        {state.type === 'waiting_for_session_start' && (
           <div className="space-y-4">
             <p className="[font-family:var(--font-mono-data)] text-xs text-muted-foreground">
-              Run this command in your terminal to start Claude with Cockpit hooks:
+              Waiting for session to start…
             </p>
-            <pre className="overflow-x-auto bg-[var(--color-panel-surface)] border border-border/60 p-3 [font-family:var(--font-mono-data)] text-xs text-[var(--color-cockpit-cyan)]">
-              {state.hookCommand}
-            </pre>
-            <div className="flex justify-end gap-2">
-              <button
-                type="button"
-                onClick={() => navigator.clipboard.writeText(state.type === 'claude-success' ? (state as { type: 'claude-success'; hookCommand: string }).hookCommand : '')}
-                className="cockpit-btn"
-              >
-                Copy
-              </button>
-              <button
-                type="button"
-                onClick={handleClose}
-                className="cockpit-btn"
-                style={{ color: 'var(--color-cockpit-green)', borderColor: 'var(--color-cockpit-green)' }}
-              >
-                Done
-              </button>
-            </div>
-          </div>
-        )}
-
-        {state.type === 'codex-success' && (
-          <div className="space-y-4">
-            <p className="[font-family:var(--font-mono-data)] text-xs" style={{ color: 'var(--color-cockpit-green)' }}>
-              Session started (ID: {state.sessionId})
-            </p>
+            <p className="cockpit-label text-[0.65rem]">Session ID: {state.sessionId}</p>
             <div className="flex justify-end">
-              <button
-                type="button"
-                onClick={handleClose}
-                className="cockpit-btn"
-                style={{ color: 'var(--color-cockpit-green)', borderColor: 'var(--color-cockpit-green)' }}
-              >
-                Done
+              <button type="button" onClick={handleClose} className="cockpit-btn">
+                Cancel
               </button>
             </div>
           </div>
