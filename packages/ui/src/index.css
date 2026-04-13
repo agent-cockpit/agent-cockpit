@@ -1,5 +1,20 @@
 @import "tailwindcss";
 
+@theme {
+  --color-background: oklch(0.2 0.02 255);
+  --color-foreground: oklch(0.96 0.01 255);
+  --color-sidebar: oklch(0.24 0.03 250);
+  --color-border: oklch(0.4 0.02 252);
+  --color-muted: oklch(0.31 0.02 252);
+  --color-muted-foreground: oklch(0.8 0.02 250);
+  --color-accent: oklch(0.65 0.12 215);
+  --color-accent-foreground: oklch(0.98 0.01 255);
+}
+
+:root {
+  --font-sidebar-display: "Press Start 2P", "VT323", "Courier New", monospace;
+  --font-sidebar-body: "IBM Plex Sans", "Inter", "Segoe UI", sans-serif;
+}
 
 /* Agent sprite glow states */
 .sprite-planning  { --glow-color: #A371F7; }

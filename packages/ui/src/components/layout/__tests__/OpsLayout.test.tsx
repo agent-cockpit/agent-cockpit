@@ -56,6 +56,10 @@ function renderLayout(ui: ReactNode = <OpsLayout />) {
 
 describe('OpsLayout', () => {
   beforeEach(() => {
+    if (!window.PointerEvent) {
+      ;(window as typeof window & { PointerEvent?: typeof PointerEvent }).PointerEvent =
+        MouseEvent as unknown as typeof PointerEvent
+    }
     localStorage.clear()
     setupMatchMedia(true)
   })
