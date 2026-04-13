@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v1.1
 milestone_name: — 2D Pixel Art Game Experience
-status: planning
-stopped_at: Phase 16.8 context gathered
-last_updated: "2026-04-13T14:30:15.143Z"
-last_activity: 2026-04-10 — v1.1 roadmap written (7 phases, 16 plans)
+status: executing
+stopped_at: Completed 16.8-sidebar-design-overhaul-02-PLAN.md
+last_updated: "2026-04-13T15:12:44.213Z"
+last_activity: 2026-04-13 — Completed 16.8-02 sidebar row redesign and test hardening
 progress:
   total_phases: 21
   completed_phases: 11
-  total_plans: 39
-  completed_plans: 37
-  percent: 0
+  total_plans: 42
+  completed_plans: 38
+  percent: 94
 ---
 
 # Project State
@@ -25,12 +25,12 @@ See: .planning/PROJECT.md (updated 2026-04-10)
 
 ## Current Position
 
-Phase: 15 — Game Engine Foundation
-Plan: —
-Status: Ready to plan Phase 15
-Last activity: 2026-04-10 — v1.1 roadmap written (7 phases, 16 plans)
+Phase: 16.8 — Sidebar Design Overhaul
+Plan: 03
+Status: In progress — Plan 02 completed; ready for Plan 03
+Last activity: 2026-04-13 — Completed 16.8-02 (MapSidebar redesign + deterministic row-contract tests)
 
-Progress: [          ] 0%
+Progress: [█████████░] 94%
 
 ## v1.0 Completed
 
@@ -127,6 +127,10 @@ All v1.0 decisions remain active and respected.
 - [Phase 16.7-wall-and-object-collision-physics]: Character: objects are non-solid ambient sprites — not collidable obstacles
 - [Phase 16.7-wall-and-object-collision-physics]: collisionMap declared before engine anonymous class so closure in update() can reference it
 - [Phase 16.7-wall-and-object-collision-physics]: Axis-separated slide: X and Y blocked checks use current player position for cross-axis — prevents diagonal stop at corners
+- [Phase 16.8-sidebar-design-overhaul]: MapSidebar now performs local lastEventAt descending sort to preserve selector behavior elsewhere
+- [Phase 16.8-sidebar-design-overhaul]: MapSidebar row click contract is selectSession(sessionId) before onFocusSession(sessionId)
+- [Phase 16.8-sidebar-design-overhaul]: Status mapping aligned to SessionStatus active|ended|error with text+dot semantics
+- [Phase 16.8-sidebar-design-overhaul]: Secondary metadata line is conditional: pending approvals or non-active status
 
 ### Roadmap Evolution
 
@@ -150,8 +154,8 @@ None yet — requirements phase will surface tasks.
 
 ## Session Continuity
 
-Last session: 2026-04-13T14:30:15.133Z
-Stopped at: Phase 16.8 context gathered
-Resume file: .planning/phases/16.8-sidebar-design-overhaul/16.8-CONTEXT.md
+Last session: 2026-04-13T15:12:44.204Z
+Stopped at: Completed 16.8-sidebar-design-overhaul-02-PLAN.md
+Resume file: None
 
 *Updated after each plan completion*
