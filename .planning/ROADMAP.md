@@ -185,6 +185,37 @@ Plans:
 - [ ] 16.5-01-PLAN.md — Fix frame timing (100ms) + moonwalk guard (isMoving=dx/dy) with TDD (animation-timing)
 - [ ] 16.5-02-PLAN.md — Fix walk row selection (STATE_ROW_OFFSET.walk) + visual QA checkpoint (animation-direction)
 
+### Phase 16.6: Sprite Image Quality Upgrade (INSERTED)
+
+**Goal:** The astronaut and agent sprites currently look blurry and low-quality in-game. Regenerate or upscale the sprite sheets to a higher resolution/fidelity so all characters look crisp and sharp on the canvas at 2× zoom. Replace the current placeholder quality images with proper high-quality pixel art.
+**Depends on:** Phase 16.5
+**Requirements**: sprite-quality
+**Plans:** 2 plans
+
+Plans:
+- [ ] 16.6-01-PLAN.md — Write failing render-quality tests then implement Axis A fix (imageSmoothingEnabled + imageRendering: pixelated) (sprite-quality)
+- [ ] 16.6-02-PLAN.md — Visual QA checkpoint: confirm sprites crisp at 2x zoom (sprite-quality)
+
+### Phase 16.7: Wall and Object Collision Physics (INSERTED)
+
+**Goal:** The player character currently walks through walls, furniture, and solid map objects. Implement a proper physics/collision layer that blocks movement into solid tiles and collidable objects. Every solid element on the map must be impassable — walls, desks, pillars, and any other obstacle.
+**Depends on:** Phase 16.6
+**Requirements**: collision-physics
+**Plans:** 0 plans
+
+Plans:
+- [ ] TBD (run /gsd:plan-phase 16.7 to break down)
+
+### Phase 16.8: Sidebar Design Overhaul (INSERTED)
+
+**Goal:** The current sidebar is visually broken and ugly. Completely redesign the sidebar with clean, polished UI — proper layout, typography, spacing, visual hierarchy, and a coherent style that fits the space/pixel-art theme of the game.
+**Depends on:** Phase 16.7
+**Requirements**: sidebar-design
+**Plans:** 0 plans
+
+Plans:
+- [ ] TBD (run /gsd:plan-phase 16.8 to break down)
+
 ### Phase 17: NPC Agent Behavior
 **Goal:** Agent NPCs on the map walk smoothly to zone positions based on their session state — coding agents move to the workstation zone, agents waiting for approval move to the meeting room zone — using linear interpolation (no pathfinding).
 **Depends on:** Phase 16
