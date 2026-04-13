@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.1
 milestone_name: — 2D Pixel Art Game Experience
 status: planning
-stopped_at: Completed 16.12-02-PLAN.md
-last_updated: "2026-04-13T23:16:36.237Z"
+stopped_at: Completed 16.12-03-PLAN.md
+last_updated: "2026-04-13T23:22:24.145Z"
 last_activity: 2026-04-13 — Completed phase 16.10 execution + verification
 progress:
   total_phases: 25
-  completed_phases: 14
+  completed_phases: 15
   total_plans: 53
-  completed_plans: 46
+  completed_plans: 47
   percent: 92
 ---
 
@@ -149,6 +149,7 @@ All v1.0 decisions remain active and respected.
 - [Phase 16.12-provider-native-session-launch-claude-codex]: Settings file written to os.tmpdir()/cockpit-claude-{uuid}.json — unique per session, no collisions
 - [Phase 16.12-provider-native-session-launch-claude-codex]: hookParser.getOrCreateSessionId Tier 2 DB lookup handles pre-registered UUIDs correctly — no code change needed in hookParser.ts
 - [Phase 16.12-provider-native-session-launch-claude-codex]: proc.once('spawn') resolves launch() immediately when OS starts the process — does not wait for exit
+- [Phase 16.12-provider-native-session-launch-claude-codex]: waiting_for_session_start replaces claude-success/codex-success; useStore.subscribe selector detects session arrival; fake timer test pattern with manual promise resolution
 
 ### Roadmap Evolution
 
@@ -176,8 +177,8 @@ None yet — requirements phase will surface tasks.
 
 ## Session Continuity
 
-Last session: 2026-04-13T23:16:36.232Z
-Stopped at: Completed 16.12-02-PLAN.md
+Last session: 2026-04-13T23:22:24.140Z
+Stopped at: Completed 16.12-03-PLAN.md
 Resume file: None
 
 *Updated after each plan completion*
