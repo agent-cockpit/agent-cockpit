@@ -2,12 +2,12 @@
 gsd_state_version: 1.0
 milestone: v1.1
 milestone_name: — 2D Pixel Art Game Experience
-status: completed
-stopped_at: Completed phase 16.10 execution + verification
-last_updated: "2026-04-13T22:16:05.115Z"
+status: planning
+stopped_at: Phase 16.12 context gathered
+last_updated: "2026-04-13T22:41:40.867Z"
 last_activity: 2026-04-13 — Completed phase 16.10 execution + verification
 progress:
-  total_phases: 24
+  total_phases: 25
   completed_phases: 14
   total_plans: 50
   completed_plans: 44
@@ -156,6 +156,7 @@ All v1.0 decisions remain active and respected.
 - Phase 16.9 inserted after Phase 16.8: Multi-Map Rendering Fix — second map added but only the last renders; fix TilemapRenderer to load and blit all map composites
 - Phase 16.10 inserted after Phase 16.9: NPC Spawn Inside Map Fix — new session agents spawn at (0,0) which is deep-space void; define safe spawn slots on walkable floor
 - Phase 16.11 inserted after Phase 16.10: Agent Modal Terminal UX Redesign — black text on dark bg, timeline order wrong, raw JSON messages; full redesign with terminal input (uses /frontend-design)
+- Phase 16.12 inserted after Phase 16.11: Provider-Native Session Launch (Claude + Codex) (URGENT)
 
 ### Pending Todos
 
@@ -170,8 +171,8 @@ None yet — requirements phase will surface tasks.
 
 ## Session Continuity
 
-Last session: 2026-04-13T22:09:06.069Z
-Stopped at: Completed 16.10-02-PLAN.md
-Resume file: None
+Last session: 2026-04-13T22:41:40.856Z
+Stopped at: Phase 16.12 context gathered
+Resume file: .planning/phases/16.12-provider-native-session-launch-claude-codex/16.12-CONTEXT.md
 
 *Updated after each plan completion*
