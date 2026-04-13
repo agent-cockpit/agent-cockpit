@@ -2,8 +2,9 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { openDatabase } from '../db/database.js';
 import type BetterSqlite3 from 'better-sqlite3';
 
-import { parseHookPayload, setClaudeSessionCache, setClaudeSessionDb } from '../adapters/claude/hookParser.js';
+import { parseHookPayload, setClaudeSessionCache, setClaudeSessionDb, getOrCreateSessionId } from '../adapters/claude/hookParser.js';
 import type { HookPayload } from '../adapters/claude/hookParser.js';
+import { setClaudeSessionId } from '../db/queries.js';
 
 // Helper: create a SessionStart hook payload
 function makeSessionStart(overrides: Partial<HookPayload> = {}): HookPayload {
@@ -101,5 +102,57 @@ describe('parseHookPayload session mapping persistence', () => {
       'SELECT workspace FROM claude_sessions WHERE claude_id = ?'
     ).get('subagent-2') as { workspace: string } | undefined;
     expect(row?.workspace).toBe('/test/subagent-workspace');
+  });
+});
+
+describe('getOrCreateSessionId passthrough (pre-registered sessions)', () => {
+  let db: BetterSqlite3.Database;
+
+  beforeEach(() => {
+    db = openDatabase(':memory:');
+    setClaudeSessionDb(db);
+    setClaudeSessionCache(new Map());
+  });
+
+  afterEach(() => {
+    setClaudeSessionDb(null);
+    setClaudeSessionCache(new Map());
+    db.close();
+  });
+
+  it('returns pre-registered UUID unchanged when DB has mapping (launched session passthrough)', () => {
+    // Simulate what ClaudeLauncher.launch() does: pre-register sessionId → sessionId
+    const presetUuid = 'aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee';
+    setClaudeSessionId(db, presetUuid, 'claude-hook-abc', '/workspace');
+
+    // When hook arrives with 'claude-hook-abc', should return 'presetUuid' (not a new random UUID)
+    const result = getOrCreateSessionId('claude-hook-abc', '/workspace', db, new Map());
+    expect(result).toBe(presetUuid);
+  });
+
+  it('when sessionId === claudeSessionId (self-mapped launch), returns same UUID on first hook', () => {
+    const launchedUuid = 'bbbbbbbb-cccc-4ddd-8eee-ffffffffffff';
+    // ClaudeLauncher registers (session_id=launchedUuid, claude_id=launchedUuid)
+    setClaudeSessionId(db, launchedUuid, launchedUuid, '/work');
+
+    const result = getOrCreateSessionId(launchedUuid, '/work', db, new Map());
+    expect(result).toBe(launchedUuid);
+  });
+
+  it('cold cache + cold DB generates a new UUID (Tier 3 unchanged)', () => {
+    const result = getOrCreateSessionId('organic-session-x', '/ws', db, new Map());
+    expect(result).toBeDefined();
+    expect(result).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i);
+    // result must NOT equal the input (since input is not a UUID)
+    expect(result).not.toBe('organic-session-x');
+  });
+
+  it('repeated calls for same claudeSessionId return the same UUID (idempotent)', () => {
+    const cache = new Map<string, string>();
+    const result1 = getOrCreateSessionId('stable-session', '/ws', db, cache);
+    const result2 = getOrCreateSessionId('stable-session', '/ws', db, cache);
+    const result3 = getOrCreateSessionId('stable-session', '/ws', db, cache);
+    expect(result1).toBe(result2);
+    expect(result2).toBe(result3);
   });
 });
