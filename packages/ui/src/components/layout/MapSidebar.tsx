@@ -43,9 +43,9 @@ export function MapSidebar({ onFocusSession }: Props) {
         <button
           type="button"
           onClick={() => setLaunchOpen(true)}
-          className="w-full rounded bg-blue-600 px-3 py-1.5 text-sm text-white hover:bg-blue-700"
+          className="cockpit-btn w-full"
         >
-          Launch Session
+          + Launch Session
         </button>
       </div>
       <div className="flex flex-1 flex-col gap-2 overflow-y-auto p-2">
