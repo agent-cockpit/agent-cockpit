@@ -216,9 +216,59 @@ Plans:
 Plans:
 - [x] TBD (run /gsd:plan-phase 16.8 to break down) (completed 2026-04-13)
 
+### Phase 16.9: Multi-Map Rendering Fix (INSERTED)
+
+**Goal:** TilemapRenderer currently hard-codes a single `/map/map-composite.png`. A second map was added but only the last one renders. Fix the renderer to load all available map composites (each in their own subdirectory under `/maps/`) and blit them at their correct world-space offsets each frame so every map is visible simultaneously.
+**Depends on:** Phase 16.8
+**Requirements**: multi-map-render
+**Success Criteria** (what must be TRUE):
+  1. All map composites found under `/maps/` (e.g. `/maps/map1/map-composite.png`, `/maps/map2/map-composite.png`) are loaded on startup
+  2. Each map blits at its configured world-space origin offset (from a manifest or per-map `map.json` boundingBox)
+  3. No map is skipped or overwritten — both render every frame in correct layer order
+  4. World bounds (`WORLD_W` / `WORLD_H`) expand to cover the union of all loaded map rectangles
+  5. Collision and terrain data load correctly for all maps, not just the last
+**Plans:** 2 plans
+
+Plans:
+- [ ] 16.9-01-PLAN.md — TDD: multi-map TilemapRenderer (manifest load, array blit, worldW/H union) + CollisionMap append/origin opts (multi-map-render)
+- [ ] 16.9-02-PLAN.md — Wire manifest + multi-map collision load in OfficePage, update GameState world bounds, visual QA checkpoint (multi-map-render)
+
+### Phase 16.10: NPC Spawn Inside Map Fix (INSERTED)
+
+**Goal:** When a new session starts, its NPC character spawns at world coordinates `(0, 0)` which falls in the deep-space void outside the playable map area. Fix NPC seeding so every new agent spawns at a safe, pre-defined position on open walkable floor inside the map, spread across a set of designated spawn slots.
+**Depends on:** Phase 16.9
+**Requirements**: npc-spawn-position
+**Success Criteria** (what must be TRUE):
+  1. Every new NPC spawns at a world position that is on walkable floor (not void/wall tiles)
+  2. Up to N spawn slots are defined (as pixel coords) at open floor positions near the map centre
+  3. When more sessions than spawn slots exist, additional agents cycle through the slots (no overlap stacking — add a small jitter offset)
+  4. The player start position (currently hard-coded in `GameState.ts`) is also verified to be on walkable floor
+  5. Existing sessions whose NPC position is already set are not relocated
+**Plans:** TBD
+
+Plans:
+- [ ] TBD (run /gsd:plan-phase 16.10 to break down)
+
+### Phase 16.11: Agent Modal — Terminal UX Redesign (INSERTED)
+
+**Goal:** The InstancePopupHub agent modal has three critical UX problems: (1) black text on dark background makes it unreadable, (2) the Timeline tab lists events oldest-first instead of newest-first, (3) event payloads are raw JSON blobs — hard to read. Redesign the modal into a polished, space-themed terminal interface: beautiful event rendering, reversed timeline, readable contrast, and a live terminal input bar so the user can type commands and send them to the running session.
+**Depends on:** Phase 16.10
+**Requirements**: modal-terminal-ux
+**Design**: Use /frontend-design:frontend-design skill for all UI decisions — contrast, typography, layout, event card design, terminal chrome
+**Success Criteria** (what must be TRUE):
+  1. All text in the modal is legible at WCAG AA contrast against the dark panel background
+  2. Timeline tab shows most-recent event at the top; scrolling down goes further into the past
+  3. Each event type renders with a dedicated beautiful card (tool name + formatted params, not raw JSON)
+  4. A terminal input bar at the bottom lets the user type and submit a command string to the active session via WebSocket
+  5. Modal passes a visual QA checkpoint — designer sign-off on contrast, spacing, and terminal chrome
+**Plans:** TBD
+
+Plans:
+- [ ] TBD (run /gsd:plan-phase 16.11 to break down)
+
 ### Phase 17: NPC Agent Behavior
 **Goal:** Agent NPCs on the map walk smoothly to zone positions based on their session state — coding agents move to the workstation zone, agents waiting for approval move to the meeting room zone — using linear interpolation (no pathfinding).
-**Depends on:** Phase 16
+**Depends on:** Phase 16.11
 **Requirements:** npc-zone-movement, session-state-sync
 **Success Criteria** (what must be TRUE):
   1. When a session transitions to `coding` state, its NPC walks to the workstation zone (lerp, not instant)
