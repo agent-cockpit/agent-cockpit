@@ -20,6 +20,10 @@ export function scrollToSession(id: string) { _scrollToSession?.(id) }
 
 type MapObject = Parameters<CollisionMap['loadObjects']>[0][number]
 type ObjectAlphaBoundsMap = Parameters<CollisionMap['loadObjects']>[1]
+interface SceneFxPatterns {
+  noise: CanvasPattern | null
+  scanlines: CanvasPattern | null
+}
 
 function loadImage(src: string): Promise<HTMLImageElement> {
   return new Promise((resolve, reject) => {
@@ -83,6 +87,102 @@ async function buildObjectAlphaBounds(objects: MapObject[]): Promise<ObjectAlpha
   return map
 }
 
+function createNoisePattern(ctx: CanvasRenderingContext2D): CanvasPattern | null {
+  const noiseCanvas = document.createElement('canvas')
+  noiseCanvas.width = 64
+  noiseCanvas.height = 64
+  const noiseCtx = noiseCanvas.getContext('2d')
+  if (!noiseCtx) return null
+
+  const img = noiseCtx.createImageData(64, 64)
+  for (let i = 0; i < img.data.length; i += 4) {
+    const n = Math.floor(Math.random() * 256)
+    img.data[i] = n
+    img.data[i + 1] = n
+    img.data[i + 2] = n
+    img.data[i + 3] = 36
+  }
+  noiseCtx.putImageData(img, 0, 0)
+  return ctx.createPattern(noiseCanvas, 'repeat')
+}
+
+function createScanlinePattern(ctx: CanvasRenderingContext2D): CanvasPattern | null {
+  const lineCanvas = document.createElement('canvas')
+  lineCanvas.width = 2
+  lineCanvas.height = 4
+  const lineCtx = lineCanvas.getContext('2d')
+  if (!lineCtx) return null
+  lineCtx.fillStyle = 'rgba(0,0,0,0.45)'
+  lineCtx.fillRect(0, 0, 2, 1)
+  lineCtx.fillStyle = 'rgba(255,255,255,0.08)'
+  lineCtx.fillRect(0, 2, 2, 1)
+  return ctx.createPattern(lineCanvas, 'repeat')
+}
+
+function drawEntityShadow(ctx: CanvasRenderingContext2D, x: number, y: number, size = 1): void {
+  ctx.save()
+  ctx.fillStyle = 'rgba(0, 0, 0, 0.28)'
+  ctx.beginPath()
+  ctx.ellipse(x + 32, y + 56, 14 * size, 6 * size, 0, 0, Math.PI * 2)
+  ctx.fill()
+  ctx.restore()
+}
+
+function drawWorldOverlay(ctx: CanvasRenderingContext2D, viewportW: number, viewportH: number): void {
+  ctx.save()
+  ctx.globalCompositeOperation = 'multiply'
+  const grad = ctx.createLinearGradient(0, 0, 0, viewportH)
+  grad.addColorStop(0, 'rgba(8, 16, 32, 0.12)')
+  grad.addColorStop(0.65, 'rgba(6, 10, 24, 0.06)')
+  grad.addColorStop(1, 'rgba(4, 7, 18, 0.18)')
+  ctx.fillStyle = grad
+  ctx.fillRect(0, 0, viewportW, viewportH)
+  ctx.restore()
+}
+
+function drawScreenOverlays(
+  ctx: CanvasRenderingContext2D,
+  w: number,
+  h: number,
+  patterns: SceneFxPatterns,
+  tick: number,
+): void {
+  ctx.save()
+  const vignette = ctx.createRadialGradient(
+    w * 0.5,
+    h * 0.5,
+    Math.min(w, h) * 0.18,
+    w * 0.5,
+    h * 0.5,
+    Math.max(w, h) * 0.72,
+  )
+  vignette.addColorStop(0, 'rgba(0, 0, 0, 0)')
+  vignette.addColorStop(1, 'rgba(0, 0, 0, 0.34)')
+  ctx.fillStyle = vignette
+  ctx.fillRect(0, 0, w, h)
+  ctx.restore()
+
+  if (patterns.scanlines) {
+    ctx.save()
+    ctx.globalCompositeOperation = 'multiply'
+    ctx.globalAlpha = 0.1
+    ctx.fillStyle = patterns.scanlines
+    ctx.fillRect(0, 0, w, h)
+    ctx.restore()
+  }
+
+  if (patterns.noise) {
+    ctx.save()
+    ctx.globalCompositeOperation = 'overlay'
+    ctx.globalAlpha = 0.07
+    const drift = tick % 64
+    ctx.translate(drift * 0.5, drift * 0.25)
+    ctx.fillStyle = patterns.noise
+    ctx.fillRect(-64, -64, w + 128, h + 128)
+    ctx.restore()
+  }
+}
+
 export function OfficePage() {
   const sessions = useActiveSessions()
   const [popupOpen, setPopupOpen] = useState(false)
@@ -90,6 +190,7 @@ export function OfficePage() {
   const containerRef = useRef<HTMLDivElement>(null)
   const imageCacheRef = useRef<Map<string, HTMLImageElement>>(new Map())
   const playerImgRef = useRef<HTMLImageElement | null>(null)
+  const sceneFxPatternsRef = useRef<SceneFxPatterns>({ noise: null, scanlines: null })
 
   // Register scroll callback (no-op — DnD scroll removed, kept for MapSidebar compatibility)
   useEffect(() => {
@@ -152,6 +253,9 @@ export function OfficePage() {
         // Read sessions and events from the store snapshot (not hook — called in rAF)
         const { sessions: liveSessions, events: liveEvents } = useStore.getState()
         const zoom = gameState.camera.zoom  // = 2
+        const fxPatterns = sceneFxPatternsRef.current
+        if (!fxPatterns.noise) fxPatterns.noise = createNoisePattern(ctx)
+        if (!fxPatterns.scanlines) fxPatterns.scanlines = createScanlinePattern(ctx)
 
         ctx.save()
         ctx.scale(zoom, zoom)
@@ -164,7 +268,20 @@ export function OfficePage() {
         // Sprites use nearest-neighbor — required for pixel art sharpness at 2× zoom
         ctx.imageSmoothingEnabled = false
 
-        // Layer 1: NPC sprites (existing code, coordinates unchanged)
+        // Layer 1: world-space character shadows
+        Object.values(liveSessions ?? {}).forEach((session) => {
+          const pos = gameState.npcs[session.sessionId]
+          if (!pos) return
+          drawEntityShadow(ctx, pos.x - gameState.camera.x, pos.y - gameState.camera.y, 0.95)
+        })
+        drawEntityShadow(
+          ctx,
+          gameState.player.x - gameState.camera.x,
+          gameState.player.y - gameState.camera.y,
+          1,
+        )
+
+        // Layer 2: NPC sprites (existing code, coordinates unchanged)
         Object.values(liveSessions ?? {}).forEach((session) => {
           const pos = gameState.npcs[session.sessionId]
           if (!pos) return
@@ -180,7 +297,7 @@ export function OfficePage() {
           })
         })
 
-        // Layer 2: Player sprite (existing code, coordinates unchanged)
+        // Layer 3: Player sprite (existing code, coordinates unchanged)
         const pImg = playerImgRef.current
         if (pImg?.complete && pImg.naturalWidth > 0) {
           const px = gameState.player.x - gameState.camera.x
@@ -192,10 +309,16 @@ export function OfficePage() {
           ctx.drawImage(pImg, col * 64, row * 64, 64, 64, px, py, 64, 64)
         }
 
+        // Layer 4: subtle world lighting/tint
+        drawWorldOverlay(ctx, gameState.camera.viewportW, gameState.camera.viewportH)
+
         // DEBUG: draw collision boxes (red=objects, green=tiles) — remove when tuned
         collisionMap.debugDraw(ctx, gameState.camera.x, gameState.camera.y)
 
         ctx.restore()
+
+        // Layer 5: screen-space polish (vignette + scanlines + noise)
+        drawScreenOverlays(ctx, canvas.width, canvas.height, fxPatterns, gameState.tick)
       }
     }(canvas)
 
