@@ -6,7 +6,8 @@
     "test": "vitest",
     "test:watch": "vitest",
     "build": "pnpm -r build",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "sync-map": "rsync -av --delete \"assets/raw/Cockpit Map Export/\" packages/ui/public/map/"
   },
   "devDependencies": {
     "typescript": "^5.0.0",

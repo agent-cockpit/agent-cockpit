@@ -1,6 +1,6 @@
 {
   "format": "sparse",
-  "defaultTerrain": 0,
+  "defaultTerrain": 2,
   "cells": [
     {
       "x": 4,
@@ -12315,7 +12315,7 @@
     {
       "x": 16,
       "y": 6,
-      "terrainId": 1
+      "terrainId": 5
     },
     {
       "x": 17,
@@ -12325,7 +12325,7 @@
     {
       "x": 18,
       "y": 6,
-      "terrainId": 1
+      "terrainId": 5
     },
     {
       "x": 19,

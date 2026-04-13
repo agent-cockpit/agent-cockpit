@@ -1,7 +1,7 @@
 {
   "version": "1.0.0",
   "name": "Cockpit Map",
-  "exportDate": "2026-04-11T22:21:51.606959Z",
+  "exportDate": "2026-04-13T18:11:28.529844Z",
   "engine": "pixellab-map-editor",
   "mapConfig": {
     "tileSize": 32,
@@ -20,10 +20,10 @@
   },
   "terrains": [
     {
-      "id": 7,
-      "name": "deep space void exterior,pure black with a lot of star dots, no floor surface, pixel art",
+      "id": 1,
+      "name": "dark outer hull floor of a space station, thick reinforced steel panels, orange hazard stripe border at edge, rivets and panel seams, sci-fi ISS aesthetic, pixel art",
       "color": "#9ca3af",
-      "baseTileId": "006460e0-37a2-43f8-942b-8afa7f7ed0bb"
+      "baseTileId": "9f3d74b8-57e7-45a0-8164-452729dfc9e1"
     },
     {
       "id": 2,
@@ -44,25 +44,51 @@
       "baseTileId": "56df3dfc-520a-452e-a2e9-377cb30a791b"
     },
     {
-      "id": 1,
-      "name": "dark outer hull floor of a space station, thick reinforced steel panels, orange hazard stripe border at edge, rivets and panel seams, sci-fi ISS aesthetic, pixel art",
+      "id": 3,
+      "name": "solid interior wall of a space station seen from directly above, thick rectangular block, dark gray brushed metal surface, faint panel lines on top face, hard edges, pixel art ",
       "color": "#9ca3af",
-      "baseTileId": "9f3d74b8-57e7-45a0-8164-452729dfc9e1"
+      "baseTileId": "2403c01d-daf6-410b-8d07-33914ef80584"
+    },
+    {
+      "id": 7,
+      "name": "deep space void exterior,pure black with a lot of star dots, no floor surface, pixel art",
+      "color": "#9ca3af",
+      "baseTileId": "006460e0-37a2-43f8-942b-8afa7f7ed0bb"
     },
     {
       "id": 4,
       "name": "futuristic and space line to guide the space patrol",
       "color": "#9ca3af",
       "baseTileId": "7bf7612b-0667-475e-89d6-ff45a0554c37"
-    },
-    {
-      "id": 3,
-      "name": "solid interior wall of a space station seen from directly above, thick rectangular block, dark gray brushed metal surface, faint panel lines on top face, hard edges, pixel art ",
-      "color": "#9ca3af",
-      "baseTileId": "2403c01d-daf6-410b-8d07-33914ef80584"
     }
   ],
   "tilesets": [
+    {
+      "id": "e6f567dd-5cc1-4c71-9d40-aebbae9b8399",
+      "filename": "Scuffed Panels A worn-down version of the clean metal floor. Scratches, dents, and faded paint lines break the uniformity. Still clearly the same material, but neglected.-dark outer hull floor of a space station, thick reinforced steel panels, orange hazard stripe border at edge, rivets and panel seams, sci-fi ISS aesthetic, pixel art.png",
+      "lowerTerrain": "Scuffed Panels A worn-down version of the clean metal floor. Scratches, dents, and faded paint lines break the uniformity. Still clearly the same material, but neglected.",
+      "upperTerrain": "dark outer hull floor of a space station, thick reinforced steel panels, orange hazard stripe border at edge, rivets and panel seams, sci-fi ISS aesthetic, pixel art",
+      "lowerTerrainId": 5,
+      "upperTerrainId": 1,
+      "transitionSize": 0,
+      "transitionDescription": "",
+      "tileSize": 32,
+      "gridLayout": "4x4",
+      "wangIndexMapping": "standard"
+    },
+    {
+      "id": "0c8e5a05-91c5-497c-aded-8ed7fd596e67",
+      "filename": "futuristic and space line to guide the space patrol-dark outer hull floor of a space station, thick reinforced steel panels, orange hazard stripe border at edge, rivets and panel seams, sci-fi ISS aesthetic, pixel art.png",
+      "lowerTerrain": "futuristic and space line to guide the space patrol",
+      "upperTerrain": "dark outer hull floor of a space station, thick reinforced steel panels, orange hazard stripe border at edge, rivets and panel seams, sci-fi ISS aesthetic, pixel art",
+      "lowerTerrainId": 4,
+      "upperTerrainId": 1,
+      "transitionSize": 0,
+      "transitionDescription": "",
+      "tileSize": 32,
+      "gridLayout": "4x4",
+      "wangIndexMapping": "standard"
+    },
     {
       "id": "defb7351-4a72-4aa6-9869-5c87a1433664",
       "filename": "deep space void exterior,pure black with a lot of star dots, no floor surface, pixel art-deep space void exterior, pure black with distant star dots, no floor surface, pixel art.png",
@@ -85,19 +111,6 @@
       "upperTerrainId": 3,
       "transitionSize": 0.5,
       "transitionDescription": "mixed gravel",
-      "tileSize": 32,
-      "gridLayout": "4x4",
-      "wangIndexMapping": "standard"
-    },
-    {
-      "id": "0c8e5a05-91c5-497c-aded-8ed7fd596e67",
-      "filename": "futuristic and space line to guide the space patrol-dark outer hull floor of a space station, thick reinforced steel panels, orange hazard stripe border at edge, rivets and panel seams, sci-fi ISS aesthetic, pixel art.png",
-      "lowerTerrain": "futuristic and space line to guide the space patrol",
-      "upperTerrain": "dark outer hull floor of a space station, thick reinforced steel panels, orange hazard stripe border at edge, rivets and panel seams, sci-fi ISS aesthetic, pixel art",
-      "lowerTerrainId": 4,
-      "upperTerrainId": 1,
-      "transitionSize": 0,
-      "transitionDescription": "",
       "tileSize": 32,
       "gridLayout": "4x4",
       "wangIndexMapping": "standard"
@@ -137,19 +150,6 @@
       "upperTerrainId": 2,
       "transitionSize": 0.5,
       "transitionDescription": "hull wall edge \u2014 abrupt hard boundary where interior floor meets the black void of space, thick metal lip",
-      "tileSize": 32,
-      "gridLayout": "4x4",
-      "wangIndexMapping": "standard"
-    },
-    {
-      "id": "e6f567dd-5cc1-4c71-9d40-aebbae9b8399",
-      "filename": "Scuffed Panels A worn-down version of the clean metal floor. Scratches, dents, and faded paint lines break the uniformity. Still clearly the same material, but neglected.-dark outer hull floor of a space station, thick reinforced steel panels, orange hazard stripe border at edge, rivets and panel seams, sci-fi ISS aesthetic, pixel art.png",
-      "lowerTerrain": "Scuffed Panels A worn-down version of the clean metal floor. Scratches, dents, and faded paint lines break the uniformity. Still clearly the same material, but neglected.",
-      "upperTerrain": "dark outer hull floor of a space station, thick reinforced steel panels, orange hazard stripe border at edge, rivets and panel seams, sci-fi ISS aesthetic, pixel art",
-      "lowerTerrainId": 5,
-      "upperTerrainId": 1,
-      "transitionSize": 0,
-      "transitionDescription": "",
       "tileSize": 32,
       "gridLayout": "4x4",
       "wangIndexMapping": "standard"

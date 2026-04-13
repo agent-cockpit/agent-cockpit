@@ -2516,30 +2516,6 @@
       }
     },
     {
-      "x": 16,
-      "y": 5,
-      "edges": {
-        "south": {
-          "fromTerrain": "Scuffed Panels A worn-down version of the clean metal floor. Scratches, dents, and faded paint lines break the uniformity. Still clearly the same material, but neglected.",
-          "toTerrain": "dark outer hull floor of a space station, thick reinforced steel panels, orange hazard stripe border at edge, rivets and panel seams, sci-fi ISS aesthetic, pixel art",
-          "tilesetId": "e6f567dd-5cc1-4c71-9d40-aebbae9b8399",
-          "transitionSize": 0
-        }
-      }
-    },
-    {
-      "x": 18,
-      "y": 5,
-      "edges": {
-        "south": {
-          "fromTerrain": "Scuffed Panels A worn-down version of the clean metal floor. Scratches, dents, and faded paint lines break the uniformity. Still clearly the same material, but neglected.",
-          "toTerrain": "dark outer hull floor of a space station, thick reinforced steel panels, orange hazard stripe border at edge, rivets and panel seams, sci-fi ISS aesthetic, pixel art",
-          "tilesetId": "e6f567dd-5cc1-4c71-9d40-aebbae9b8399",
-          "transitionSize": 0
-        }
-      }
-    },
-    {
       "x": 20,
       "y": 5,
       "edges": {
@@ -2805,108 +2781,6 @@
     },
     {
       "x": 12,
-      "y": 6,
-      "edges": {
-        "west": {
-          "fromTerrain": "Scuffed Panels A worn-down version of the clean metal floor. Scratches, dents, and faded paint lines break the uniformity. Still clearly the same material, but neglected.",
-          "toTerrain": "dark outer hull floor of a space station, thick reinforced steel panels, orange hazard stripe border at edge, rivets and panel seams, sci-fi ISS aesthetic, pixel art",
-          "tilesetId": "e6f567dd-5cc1-4c71-9d40-aebbae9b8399",
-          "transitionSize": 0
-        }
-      }
-    },
-    {
-      "x": 15,
-      "y": 6,
-      "edges": {
-        "east": {
-          "fromTerrain": "Scuffed Panels A worn-down version of the clean metal floor. Scratches, dents, and faded paint lines break the uniformity. Still clearly the same material, but neglected.",
-          "toTerrain": "dark outer hull floor of a space station, thick reinforced steel panels, orange hazard stripe border at edge, rivets and panel seams, sci-fi ISS aesthetic, pixel art",
-          "tilesetId": "e6f567dd-5cc1-4c71-9d40-aebbae9b8399",
-          "transitionSize": 0
-        }
-      }
-    },
-    {
-      "x": 16,
-      "y": 6,
-      "edges": {
-        "north": {
-          "fromTerrain": "dark outer hull floor of a space station, thick reinforced steel panels, orange hazard stripe border at edge, rivets and panel seams, sci-fi ISS aesthetic, pixel art",
-          "toTerrain": "Scuffed Panels A worn-down version of the clean metal floor. Scratches, dents, and faded paint lines break the uniformity. Still clearly the same material, but neglected.",
-          "tilesetId": "e6f567dd-5cc1-4c71-9d40-aebbae9b8399",
-          "transitionSize": 0
-        },
-        "east": {
-          "fromTerrain": "dark outer hull floor of a space station, thick reinforced steel panels, orange hazard stripe border at edge, rivets and panel seams, sci-fi ISS aesthetic, pixel art",
-          "toTerrain": "Scuffed Panels A worn-down version of the clean metal floor. Scratches, dents, and faded paint lines break the uniformity. Still clearly the same material, but neglected.",
-          "tilesetId": "e6f567dd-5cc1-4c71-9d40-aebbae9b8399",
-          "transitionSize": 0
-        },
-        "south": {
-          "fromTerrain": "dark outer hull floor of a space station, thick reinforced steel panels, orange hazard stripe border at edge, rivets and panel seams, sci-fi ISS aesthetic, pixel art",
-          "toTerrain": "Scuffed Panels A worn-down version of the clean metal floor. Scratches, dents, and faded paint lines break the uniformity. Still clearly the same material, but neglected.",
-          "tilesetId": "e6f567dd-5cc1-4c71-9d40-aebbae9b8399",
-          "transitionSize": 0
-        },
-        "west": {
-          "fromTerrain": "dark outer hull floor of a space station, thick reinforced steel panels, orange hazard stripe border at edge, rivets and panel seams, sci-fi ISS aesthetic, pixel art",
-          "toTerrain": "Scuffed Panels A worn-down version of the clean metal floor. Scratches, dents, and faded paint lines break the uniformity. Still clearly the same material, but neglected.",
-          "tilesetId": "e6f567dd-5cc1-4c71-9d40-aebbae9b8399",
-          "transitionSize": 0
-        }
-      }
-    },
-    {
-      "x": 17,
-      "y": 6,
-      "edges": {
-        "east": {
-          "fromTerrain": "Scuffed Panels A worn-down version of the clean metal floor. Scratches, dents, and faded paint lines break the uniformity. Still clearly the same material, but neglected.",
-          "toTerrain": "dark outer hull floor of a space station, thick reinforced steel panels, orange hazard stripe border at edge, rivets and panel seams, sci-fi ISS aesthetic, pixel art",
-          "tilesetId": "e6f567dd-5cc1-4c71-9d40-aebbae9b8399",
-          "transitionSize": 0
-        },
-        "west": {
-          "fromTerrain": "Scuffed Panels A worn-down version of the clean metal floor. Scratches, dents, and faded paint lines break the uniformity. Still clearly the same material, but neglected.",
-          "toTerrain": "dark outer hull floor of a space station, thick reinforced steel panels, orange hazard stripe border at edge, rivets and panel seams, sci-fi ISS aesthetic, pixel art",
-          "tilesetId": "e6f567dd-5cc1-4c71-9d40-aebbae9b8399",
-          "transitionSize": 0
-        }
-      }
-    },
-    {
-      "x": 18,
-      "y": 6,
-      "edges": {
-        "north": {
-          "fromTerrain": "dark outer hull floor of a space station, thick reinforced steel panels, orange hazard stripe border at edge, rivets and panel seams, sci-fi ISS aesthetic, pixel art",
-          "toTerrain": "Scuffed Panels A worn-down version of the clean metal floor. Scratches, dents, and faded paint lines break the uniformity. Still clearly the same material, but neglected.",
-          "tilesetId": "e6f567dd-5cc1-4c71-9d40-aebbae9b8399",
-          "transitionSize": 0
-        },
-        "east": {
-          "fromTerrain": "dark outer hull floor of a space station, thick reinforced steel panels, orange hazard stripe border at edge, rivets and panel seams, sci-fi ISS aesthetic, pixel art",
-          "toTerrain": "Scuffed Panels A worn-down version of the clean metal floor. Scratches, dents, and faded paint lines break the uniformity. Still clearly the same material, but neglected.",
-          "tilesetId": "e6f567dd-5cc1-4c71-9d40-aebbae9b8399",
-          "transitionSize": 0
-        },
-        "south": {
-          "fromTerrain": "dark outer hull floor of a space station, thick reinforced steel panels, orange hazard stripe border at edge, rivets and panel seams, sci-fi ISS aesthetic, pixel art",
-          "toTerrain": "Scuffed Panels A worn-down version of the clean metal floor. Scratches, dents, and faded paint lines break the uniformity. Still clearly the same material, but neglected.",
-          "tilesetId": "e6f567dd-5cc1-4c71-9d40-aebbae9b8399",
-          "transitionSize": 0
-        },
-        "west": {
-          "fromTerrain": "dark outer hull floor of a space station, thick reinforced steel panels, orange hazard stripe border at edge, rivets and panel seams, sci-fi ISS aesthetic, pixel art",
-          "toTerrain": "Scuffed Panels A worn-down version of the clean metal floor. Scratches, dents, and faded paint lines break the uniformity. Still clearly the same material, but neglected.",
-          "tilesetId": "e6f567dd-5cc1-4c71-9d40-aebbae9b8399",
-          "transitionSize": 0
-        }
-      }
-    },
-    {
-      "x": 19,
       "y": 6,
       "edges": {
         "west": {
@@ -3186,30 +3060,6 @@
       "y": 7,
       "edges": {
         "west": {
-          "fromTerrain": "Scuffed Panels A worn-down version of the clean metal floor. Scratches, dents, and faded paint lines break the uniformity. Still clearly the same material, but neglected.",
-          "toTerrain": "dark outer hull floor of a space station, thick reinforced steel panels, orange hazard stripe border at edge, rivets and panel seams, sci-fi ISS aesthetic, pixel art",
-          "tilesetId": "e6f567dd-5cc1-4c71-9d40-aebbae9b8399",
-          "transitionSize": 0
-        }
-      }
-    },
-    {
-      "x": 16,
-      "y": 7,
-      "edges": {
-        "north": {
-          "fromTerrain": "Scuffed Panels A worn-down version of the clean metal floor. Scratches, dents, and faded paint lines break the uniformity. Still clearly the same material, but neglected.",
-          "toTerrain": "dark outer hull floor of a space station, thick reinforced steel panels, orange hazard stripe border at edge, rivets and panel seams, sci-fi ISS aesthetic, pixel art",
-          "tilesetId": "e6f567dd-5cc1-4c71-9d40-aebbae9b8399",
-          "transitionSize": 0
-        }
-      }
-    },
-    {
-      "x": 18,
-      "y": 7,
-      "edges": {
-        "north": {
           "fromTerrain": "Scuffed Panels A worn-down version of the clean metal floor. Scratches, dents, and faded paint lines break the uniformity. Still clearly the same material, but neglected.",
           "toTerrain": "dark outer hull floor of a space station, thick reinforced steel panels, orange hazard stripe border at edge, rivets and panel seams, sci-fi ISS aesthetic, pixel art",
           "tilesetId": "e6f567dd-5cc1-4c71-9d40-aebbae9b8399",
