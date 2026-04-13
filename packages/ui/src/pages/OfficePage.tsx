@@ -12,6 +12,7 @@ import { gameState, WORLD_W, WORLD_H } from '../game/GameState.js'
 import { updateCamera } from '../game/Camera.js'
 import { attachInput, detachInput, getKeysDown, movePlayer, WALK_FRAME_DURATION_MS, WALK_FRAME_COUNT } from '../game/PlayerInput.js'
 import { TilemapRenderer } from '../game/TilemapRenderer.js'
+import { CollisionMap } from '../game/CollisionMap.js'
 
 // Module-level scroll singleton — kept as no-op for MapSidebar compatibility
 let _scrollToSession: ((id: string) => void) | null = null
@@ -65,10 +66,12 @@ export function OfficePage() {
     // Load map assets before starting engine (non-blocking: engine starts after assets ready)
     tilemapRenderer.load().catch(err => console.error('[TilemapRenderer] load failed:', err))
 
+    const collisionMap = new CollisionMap()
+
     const engine = new class extends GameEngine {
       update(deltaMs: number) {
         gameState.tick += 1
-        movePlayer(gameState.player, getKeysDown(), deltaMs)
+        movePlayer(gameState.player, getKeysDown(), deltaMs, collisionMap)
         const cam = gameState.camera
         const zoom = cam.zoom  // = 2
         // Set viewportW each frame in case zoom changes (future-proof)
@@ -129,6 +132,17 @@ export function OfficePage() {
 
     engine.start()
     attachInput()
+
+    Promise.all([
+      fetch('/map/terrain-map.json').then(r => r.json()),
+      fetch('/map/objects/manifest.json').then(r => r.json()),
+    ]).then(([terrainData, objectsData]: [unknown, { objects: unknown[] }]) => {
+      collisionMap.loadTerrain(terrainData as Parameters<CollisionMap['loadTerrain']>[0])
+      collisionMap.loadObjects(objectsData.objects as Parameters<CollisionMap['loadObjects']>[0])
+    }).catch((err: unknown) => {
+      console.error('[CollisionMap] Failed to load collision data:', err)
+    })
+
     return () => {
       engine.stop()
       detachInput()
