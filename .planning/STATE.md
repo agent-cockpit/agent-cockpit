@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.1
 milestone_name: — 2D Pixel Art Game Experience
 status: planning
-stopped_at: Completed 16.6-01-PLAN.md
-last_updated: "2026-04-13T02:53:57.444Z"
+stopped_at: Completed 16.7-01-PLAN.md
+last_updated: "2026-04-13T12:10:07.371Z"
 last_activity: 2026-04-10 — v1.1 roadmap written (7 phases, 16 plans)
 progress:
   total_phases: 21
   completed_phases: 10
-  total_plans: 37
-  completed_plans: 35
+  total_plans: 39
+  completed_plans: 36
   percent: 0
 ---
 
@@ -123,6 +123,8 @@ All v1.0 decisions remain active and respected.
 - [Phase 16.6-sprite-image-quality-upgrade]: imageSmoothingEnabled=true before tilemap blit (bilinear preserved for pre-rendered composite map), false before sprites
 - [Phase 16.6-sprite-image-quality-upgrade]: imageRendering: pixelated on canvas element covers DPR scaling via CSS, not just Canvas 2D API
 - [Phase 16.6-sprite-image-quality-upgrade]: Defensive imageSmoothingEnabled=false in drawAgentSprite() as belt-and-suspenders guard
+- [Phase 16.7-wall-and-object-collision-physics]: Sparse Set keyed tileX,tileY for O(1) solid-tile lookup — avoids 10K+ entry array
+- [Phase 16.7-wall-and-object-collision-physics]: Character: objects are non-solid ambient sprites — not collidable obstacles
 
 ### Roadmap Evolution
 
@@ -146,8 +148,8 @@ None yet — requirements phase will surface tasks.
 
 ## Session Continuity
 
-Last session: 2026-04-13T02:46:06.981Z
-Stopped at: Completed 16.6-01-PLAN.md
+Last session: 2026-04-13T12:10:07.367Z
+Stopped at: Completed 16.7-01-PLAN.md
 Resume file: None
 
 *Updated after each plan completion*
