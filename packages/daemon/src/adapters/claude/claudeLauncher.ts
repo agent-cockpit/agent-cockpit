@@ -66,8 +66,9 @@ export class ClaudeLauncher {
       setClaudeSessionId(this.db, sessionId, sessionId, workspacePath);
     }
 
-    // 4. Spawn the claude process
-    const args = ['--session-id', sessionId, '--settings', settingsPath, '--workspace', workspacePath];
+    // 4. Spawn the claude process (cwd=workspacePath, no --workspace flag exists in claude CLI)
+    console.log(`[ClaudeLauncher] spawning claude --session-id ${sessionId} --settings ${settingsPath} in cwd=${workspacePath}`);
+    const args = ['--session-id', sessionId, '--settings', settingsPath];
     const spawnOpts = { cwd: workspacePath, stdio: ['ignore', 'pipe', 'pipe'] as ['ignore', 'pipe', 'pipe'], detached: true };
 
     const proc = this.procFactory
@@ -83,11 +84,14 @@ export class ClaudeLauncher {
       const stderrStream = proc.stderr;
       if (stderrStream) {
         stderrStream.on('data', (chunk: Buffer) => {
-          stderr += chunk.toString();
+          const text = chunk.toString();
+          stderr += text;
+          console.error(`[ClaudeLauncher] stderr: ${text.trim()}`);
         });
       }
 
       proc.once('spawn', () => {
+        console.log(`[ClaudeLauncher] claude process spawned (pid=${proc.pid})`);
         resolve();
       });
 

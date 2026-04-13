@@ -43,9 +43,11 @@ function handleLaunchSession(
         const hookPort = Number(process.env['COCKPIT_HOOK_PORT'] ?? '3002');
 
         if (provider === 'claude') {
-          const launcher = new ClaudeLauncher(hookPort);
+          const launcher = new ClaudeLauncher(hookPort, db);
           await launcher.preflight(workspacePath);
+          console.log(`[cockpit-daemon] Launching claude session ${sessionId} in ${workspacePath}`);
           await launcher.launch(sessionId, workspacePath);
+          console.log(`[cockpit-daemon] claude spawned for session ${sessionId}`);
           res.writeHead(200, { 'Content-Type': 'application/json' });
           res.end(JSON.stringify({ sessionId, mode: 'initiated' }));
         } else {
