@@ -129,10 +129,10 @@ describe('OfficePage', () => {
   it('seeds gameState.npcs with grid positions for each session', () => {
     mockUseActiveSessions.mockReturnValue([SESSION_1, SESSION_2])
     act(() => { render(<OfficePage />) })
-    // Session at index 0: x=0, y=0 (COLS=5, CELL=96)
-    expect(gameState.npcs['sess-1']).toEqual({ x: 0, y: 0 })
-    // Session at index 1: x=96, y=0
-    expect(gameState.npcs['sess-2']).toEqual({ x: 96, y: 0 })
+    // Session at index 0: SPAWN_SLOTS[0]
+    expect(gameState.npcs['sess-1']).toEqual({ x: 1952, y: 1792 })
+    // Session at index 1: SPAWN_SLOTS[1]
+    expect(gameState.npcs['sess-2']).toEqual({ x: 2016, y: 1792 })
   })
 
   it('cleans up gameState.npcs for sessions that ended', () => {
@@ -167,7 +167,9 @@ describe('OfficePage', () => {
       toJSON: () => ({}),
     })
 
-    // sess-1 seeded at x:0, y:0; click within 64px sprite
+    // Click test validates hit detection, not spawn slot assignment.
+    gameState.npcs['sess-1'] = { x: 0, y: 0 }
+    // sess-1 at x:0, y:0; click within 64px sprite
     canvas.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, clientX: 30, clientY: 30 }))
     expect(mockSelectSession).toHaveBeenCalledWith('sess-1')
   })
@@ -183,5 +185,74 @@ describe('OfficePage', () => {
     mockUseActiveSessions.mockReturnValue([SESSION_2])
     act(() => { render(<OfficePage />) })
     expect(gameState.npcs['sess-2']).toBeDefined()
+  })
+})
+
+describe('NPC spawn slot seeding', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    vi.stubGlobal('ResizeObserver', MockResizeObserver)
+    Object.keys(gameState.npcs).forEach(k => delete gameState.npcs[k])
+    gameState.camera.x = 0
+    gameState.camera.y = 0
+    mockUseActiveSessions.mockReturnValue([])
+  })
+
+  afterEach(() => {
+    vi.unstubAllGlobals()
+  })
+
+  it('seeds first sessions into slot positions instead of grid origin', () => {
+    mockUseActiveSessions.mockReturnValue([SESSION_1, SESSION_2])
+    act(() => { render(<OfficePage />) })
+
+    expect(gameState.npcs['sess-1']).toEqual({ x: 1952, y: 1792 })
+    expect(gameState.npcs['sess-2']).toEqual({ x: 2016, y: 1792 })
+  })
+
+  it('existing NPC position is not overwritten on re-seed', () => {
+    gameState.npcs['sess-1'] = { x: 999, y: 999 }
+    mockUseActiveSessions.mockReturnValue([SESSION_1])
+    act(() => { render(<OfficePage />) })
+    expect(gameState.npcs['sess-1']).toEqual({ x: 999, y: 999 })
+  })
+
+  it('slot cycles modulo 12 when sessions exceed slot count', () => {
+    const sessions = Array.from({ length: 13 }, (_, i) => makeSession({ sessionId: `sess-${i}` }))
+    mockUseActiveSessions.mockReturnValue(sessions)
+
+    act(() => { render(<OfficePage />) })
+
+    expect(gameState.npcs['sess-12']).toEqual({ x: 1968, y: 1792 })
+  })
+
+  it('all 12 SPAWN_SLOTS are within world bounds (1..3232)', () => {
+    const slots = [
+      { x: 1952, y: 1792 }, { x: 2016, y: 1792 }, { x: 2112, y: 1792 }, { x: 2240, y: 1792 },
+      { x: 2080, y: 1920 }, { x: 2176, y: 1920 }, { x: 2272, y: 1920 },
+      { x: 1984, y: 2016 }, { x: 2112, y: 2016 }, { x: 2240, y: 2016 },
+      { x: 1952, y: 2144 }, { x: 2080, y: 2144 },
+    ]
+
+    const maxCoord = 3232 - 64
+    for (const slot of slots) {
+      expect(slot.x).toBeGreaterThanOrEqual(1)
+      expect(slot.y).toBeGreaterThanOrEqual(1)
+      expect(slot.x).toBeLessThanOrEqual(maxCoord)
+      expect(slot.y).toBeLessThanOrEqual(maxCoord)
+    }
+  })
+
+  it('no NPC spawns at void origin (0,0)', () => {
+    mockUseActiveSessions.mockReturnValue([
+      makeSession({ sessionId: 'sess-a' }),
+      makeSession({ sessionId: 'sess-b' }),
+      makeSession({ sessionId: 'sess-c' }),
+    ])
+
+    act(() => { render(<OfficePage />) })
+
+    const hasVoidSpawn = Object.values(gameState.npcs).some((npc) => npc.x === 0 && npc.y === 0)
+    expect(hasVoidSpawn).toBe(false)
   })
 })
