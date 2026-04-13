@@ -54,5 +54,6 @@ export function drawAgentSprite({
   }
   if (!img.complete) return  // skip frame if not loaded yet
 
+  ctx.imageSmoothingEnabled = false  // nearest-neighbor for pixel art (defensive belt-and-suspenders)
   ctx.drawImage(img, col * 64, row * 64, 64, 64, position.x, position.y, 64, 64)
 }

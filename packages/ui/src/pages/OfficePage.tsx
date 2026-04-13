@@ -88,7 +88,12 @@ export function OfficePage() {
         ctx.scale(zoom, zoom)
 
         // Layer 0: Tilemap (terrain + overlay + objects) — pre-rendered OffscreenCanvas
+        // Bilinear smoothing preserved for the pre-rendered composite map
+        ctx.imageSmoothingEnabled = true
         tilemapRenderer.blit(ctx, gameState.camera.x, gameState.camera.y)
+
+        // Sprites use nearest-neighbor — required for pixel art sharpness at 2× zoom
+        ctx.imageSmoothingEnabled = false
 
         // Layer 1: NPC sprites (existing code, coordinates unchanged)
         Object.values(liveSessions ?? {}).forEach((session) => {
@@ -193,7 +198,7 @@ export function OfficePage() {
       >
         <canvas
           ref={canvasRef}
-          style={{ position: 'absolute', inset: 0, zIndex: 0 }}
+          style={{ position: 'absolute', inset: 0, zIndex: 0, imageRendering: 'pixelated' }}
           data-testid="game-canvas"
         />
         <div style={{ position: 'relative', zIndex: 1, width: '100%', height: '100%' }}>
