@@ -1,6 +1,8 @@
+import { useState } from 'react'
 import { useActiveSessions } from '../../store/selectors.js'
 import { useStore } from '../../store/index.js'
 import type { SessionStatus } from '../../store/index.js'
+import { LaunchSessionModal } from '../sessions/LaunchSessionModal.js'
 
 interface Props {
   onFocusSession: (sessionId: string) => void
@@ -33,9 +35,20 @@ export function MapSidebar({ onFocusSession }: Props) {
   const selectSession = useStore((s) => s.selectSession)
   const setSessionDetailOpen = useStore((s) => s.setSessionDetailOpen)
   const rows = [...sessions].sort((a, b) => b.lastEventAt.localeCompare(a.lastEventAt))
+  const [launchOpen, setLaunchOpen] = useState(false)
 
   return (
-    <div className="flex h-full flex-col gap-2 overflow-y-auto p-2">
+    <div className="flex h-full flex-col overflow-hidden">
+      <div className="px-2 pt-2 pb-1">
+        <button
+          type="button"
+          onClick={() => setLaunchOpen(true)}
+          className="w-full rounded bg-blue-600 px-3 py-1.5 text-sm text-white hover:bg-blue-700"
+        >
+          Launch Session
+        </button>
+      </div>
+      <div className="flex flex-1 flex-col gap-2 overflow-y-auto p-2">
       {rows.length === 0 && (
         <p className="border border-dashed border-border/80 bg-background/30 px-2 py-4 text-center cockpit-label" style={{ color: 'var(--color-cockpit-dim)' }}>
           -- NO ACTIVE AGENTS --
@@ -117,6 +130,8 @@ export function MapSidebar({ onFocusSession }: Props) {
           </button>
         )
       })}
+      </div>
+      <LaunchSessionModal open={launchOpen} onClose={() => setLaunchOpen(false)} />
     </div>
   )
 }
