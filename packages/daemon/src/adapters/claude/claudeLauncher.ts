@@ -1,5 +1,9 @@
 import fs from 'node:fs';
-import { execFileSync } from 'node:child_process';
+import os from 'node:os';
+import { execFileSync, spawn } from 'node:child_process';
+import type { ChildProcess } from 'node:child_process';
+import type Database from 'better-sqlite3';
+import { setClaudeSessionId } from '../../db/queries.js';
 
 export class LaunchError extends Error {
   constructor(
@@ -11,8 +15,20 @@ export class LaunchError extends Error {
   }
 }
 
+type ProcFactory = (args: string[], opts: object) => ChildProcess;
+
 export class ClaudeLauncher {
-  constructor(private readonly hookPort: number) {}
+  private readonly db: Database.Database | null;
+  private readonly procFactory: ProcFactory | undefined;
+
+  constructor(
+    private readonly hookPort: number,
+    db: Database.Database | null = null,
+    procFactory?: ProcFactory,
+  ) {
+    this.db = db;
+    this.procFactory = procFactory;
+  }
 
   async preflight(workspacePath: string): Promise<void> {
     if (!fs.existsSync(workspacePath)) {
@@ -25,8 +41,69 @@ export class ClaudeLauncher {
     }
   }
 
-  async launch(_sessionId: string, _workspacePath: string): Promise<void> {
-    // Full implementation in Plan 02
-    void this.hookPort;
+  async launch(sessionId: string, workspacePath: string): Promise<void> {
+    // 1. Build settings object with all 8 hook event types
+    const hookUrl = `http://localhost:${this.hookPort}/hook`;
+    const settings = {
+      hooks: {
+        SessionStart: [{ type: 'http', url: hookUrl }],
+        SessionEnd: [{ type: 'http', url: hookUrl }],
+        PreToolUse: [{ type: 'http', url: hookUrl, timeout: 60 }],
+        PostToolUse: [{ type: 'http', url: hookUrl }],
+        PermissionRequest: [{ type: 'http', url: hookUrl, timeout: 60 }],
+        SubagentStart: [{ type: 'http', url: hookUrl }],
+        SubagentStop: [{ type: 'http', url: hookUrl }],
+        Notification: [{ type: 'http', url: hookUrl }],
+      },
+    };
+
+    // 2. Write settings to temp file
+    const settingsPath = `${os.tmpdir()}/cockpit-claude-${sessionId}.json`;
+    fs.writeFileSync(settingsPath, JSON.stringify(settings, null, 2));
+
+    // 3. Pre-register the session ID mapping before spawning so hookParser finds it on Tier 1/2
+    if (this.db) {
+      setClaudeSessionId(this.db, sessionId, sessionId, workspacePath);
+    }
+
+    // 4. Spawn the claude process
+    const args = ['--session-id', sessionId, '--settings', settingsPath, '--workspace', workspacePath];
+    const spawnOpts = { cwd: workspacePath, stdio: ['ignore', 'pipe', 'pipe'] as ['ignore', 'pipe', 'pipe'], detached: true };
+
+    const proc = this.procFactory
+      ? this.procFactory(args, spawnOpts)
+      : spawn('claude', args, spawnOpts);
+
+    proc.unref();
+
+    // 5. Wrap in a Promise that resolves on 'spawn' and rejects on error/non-zero exit
+    return new Promise<void>((resolve, reject) => {
+      let stderr = '';
+
+      const stderrStream = proc.stderr;
+      if (stderrStream) {
+        stderrStream.on('data', (chunk: Buffer) => {
+          stderr += chunk.toString();
+        });
+      }
+
+      proc.once('spawn', () => {
+        resolve();
+      });
+
+      proc.once('error', (err: NodeJS.ErrnoException) => {
+        if (err.code === 'ENOENT') {
+          reject(new LaunchError('MISSING_BINARY', `claude binary not found: ${err.message}`));
+        } else {
+          reject(new LaunchError('SPAWN_FAILED', `Failed to spawn claude: ${err.message}`));
+        }
+      });
+
+      proc.once('exit', (code) => {
+        if (code !== null && code !== 0) {
+          reject(new LaunchError('SPAWN_FAILED', `claude exited with code ${code}: ${stderr}`));
+        }
+      });
+    });
   }
 }
