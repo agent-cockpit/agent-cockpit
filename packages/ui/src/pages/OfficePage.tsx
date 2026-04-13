@@ -8,10 +8,10 @@ import { drawAgentSprite } from '../components/office/AgentSprite.js'
 import { DIRECTION_ROWS, STATE_ROW_OFFSET } from '../components/office/spriteStates.js'
 import type { Direction } from '../components/office/spriteStates.js'
 import { GameEngine } from '../game/GameEngine.js'
-import { gameState, WORLD_W, WORLD_H } from '../game/GameState.js'
+import { gameState, setWorldBounds, WORLD_W, WORLD_H } from '../game/GameState.js'
 import { updateCamera } from '../game/Camera.js'
 import { attachInput, detachInput, getKeysDown, movePlayer, WALK_FRAME_DURATION_MS, WALK_FRAME_COUNT } from '../game/PlayerInput.js'
-import { TilemapRenderer } from '../game/TilemapRenderer.js'
+import { TilemapRenderer, type MapsManifest } from '../game/TilemapRenderer.js'
 import { CollisionMap } from '../game/CollisionMap.js'
 
 // Module-level sidebar focus callback for MapSidebar compatibility.
@@ -66,11 +66,11 @@ async function computeOpaqueBounds(src: string): Promise<{ x: number; y: number;
   return { x: minX, y: minY, w: maxX - minX + 1, h: maxY - minY + 1 }
 }
 
-async function buildObjectAlphaBounds(objects: MapObject[]): Promise<ObjectAlphaBoundsMap> {
+async function buildObjectAlphaBounds(objects: MapObject[], mapDir: string): Promise<ObjectAlphaBoundsMap> {
   const entries = await Promise.all(objects.map(async (obj) => {
     if (!obj.filename) return null
     try {
-      const bounds = await computeOpaqueBounds(`/map/objects/${obj.filename}`)
+      const bounds = await computeOpaqueBounds(`${mapDir}/objects/${obj.filename}`)
       if (!bounds) return null
       return [obj.filename, bounds] as const
     } catch {
@@ -242,7 +242,12 @@ export function OfficePage() {
 
     const tilemapRenderer = new TilemapRenderer()
     // Load map assets before starting engine (non-blocking: engine starts after assets ready)
-    tilemapRenderer.load().catch(err => console.error('[TilemapRenderer] load failed:', err))
+    const tilemapLoadPromise = tilemapRenderer
+      .load()
+      .then(() => {
+        setWorldBounds(tilemapRenderer.worldW || 3232, tilemapRenderer.worldH || 3232)
+      })
+      .catch(err => console.error('[TilemapRenderer] load failed:', err))
 
     const collisionMap = new CollisionMap()
 
@@ -337,17 +342,35 @@ export function OfficePage() {
     engine.start()
     attachInput()
 
-    Promise.all([
-      fetch('/map/terrain-map.json').then(r => r.json()),
-      fetch('/map/objects/manifest.json').then(r => r.json()),
-    ]).then(async ([terrainData, objectsData]: [unknown, { objects: unknown[] }]) => {
-      collisionMap.loadTerrain(terrainData as Parameters<CollisionMap['loadTerrain']>[0])
-      const objects = objectsData.objects as Parameters<CollisionMap['loadObjects']>[0]
-      const alphaBounds = await buildObjectAlphaBounds(objects)
-      collisionMap.loadObjects(objects, alphaBounds)
-    }).catch((err: unknown) => {
-      console.error('[CollisionMap] Failed to load collision data:', err)
-    })
+    fetch('/maps/maps-manifest.json')
+      .then(r => r.json())
+      .then(async (manifest: MapsManifest) => {
+        if (!Array.isArray(manifest.maps)) {
+          throw new Error('Invalid maps manifest payload')
+        }
+        for (let i = 0; i < manifest.maps.length; i++) {
+          const entry = manifest.maps[i]
+          const [terrainData, objectsData] = await Promise.all([
+            fetch(`${entry.dir}/terrain-map.json`).then(r => r.json()),
+            fetch(`${entry.dir}/objects/manifest.json`).then(r => r.json()),
+          ])
+          const objects = (objectsData as { objects: unknown[] }).objects as Parameters<CollisionMap['loadObjects']>[0]
+          const alphaBounds = await buildObjectAlphaBounds(objects, entry.dir)
+          const loadOpts = {
+            tileOriginX: entry.tileOriginX,
+            tileOriginY: entry.tileOriginY,
+            worldOriginX: entry.worldOriginX,
+            worldOriginY: entry.worldOriginY,
+            append: i > 0,
+          }
+          collisionMap.loadTerrain(terrainData as Parameters<CollisionMap['loadTerrain']>[0], loadOpts)
+          collisionMap.loadObjects(objects, alphaBounds, loadOpts)
+        }
+        await tilemapLoadPromise
+      })
+      .catch((err: unknown) => {
+        console.error('[CollisionMap] Failed to load collision data:', err)
+      })
 
     return () => {
       engine.stop()
@@ -399,7 +422,7 @@ export function OfficePage() {
           cam.y = cam.targetY
           useStore.getState().selectSession(sessionId)
           useStore.getState().setHistoryMode?.(false)
-          setSessionDetailOpen(true)
+          setSessionDetailOpen?.(true)
           break
         }
       }
@@ -425,7 +448,7 @@ export function OfficePage() {
           {/* React UI overlays rendered here in future phases */}
         </div>
       </div>
-      <InstancePopupHub open={sessionDetailOpen} onClose={() => setSessionDetailOpen(false)} />
+      <InstancePopupHub open={sessionDetailOpen} onClose={() => setSessionDetailOpen?.(false)} />
     </>
   )
 }

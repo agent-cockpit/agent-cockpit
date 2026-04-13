@@ -1,5 +1,11 @@
-export const WORLD_W = 3232  // 101×32 = 3232px — Cockpit Map-export world width
-export const WORLD_H = 3232  // 101×32 = 3232px — Cockpit Map-export world height
+export let WORLD_W = 3232  // 101×32 = 3232px — Cockpit Map-export world width
+export let WORLD_H = 3232  // 101×32 = 3232px — Cockpit Map-export world height
+// Updated after tilemapRenderer.load() resolves — see OfficePage.tsx.
+
+export function setWorldBounds(w: number, h: number): void {
+  WORLD_W = w
+  WORLD_H = h
+}
 
 import type { CameraState } from './Camera.js'
 
