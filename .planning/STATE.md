@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.1
 milestone_name: — 2D Pixel Art Game Experience
 status: planning
-stopped_at: Completed 16.12-01-PLAN.md
-last_updated: "2026-04-13T23:11:25.261Z"
+stopped_at: Completed 16.12-02-PLAN.md
+last_updated: "2026-04-13T23:16:36.237Z"
 last_activity: 2026-04-13 — Completed phase 16.10 execution + verification
 progress:
   total_phases: 25
   completed_phases: 14
   total_plans: 53
-  completed_plans: 45
+  completed_plans: 46
   percent: 92
 ---
 
@@ -146,6 +146,9 @@ All v1.0 decisions remain active and respected.
 - [Phase 16.10]: Preserved user-owned PLAYER_HITBOX debug rendering diff as unstaged work while committing only spawn-slot/task-test updates.
 - [Phase 16.12-provider-native-session-launch-claude-codex]: vi.mock('node:child_process') at module level required — vi.spyOn cannot redefine ESM namespace properties
 - [Phase 16.12-provider-native-session-launch-claude-codex]: ClaudeLauncher.launch() is a no-op stub in Plan 01; full spawn implementation deferred to Plan 02
+- [Phase 16.12-provider-native-session-launch-claude-codex]: Settings file written to os.tmpdir()/cockpit-claude-{uuid}.json — unique per session, no collisions
+- [Phase 16.12-provider-native-session-launch-claude-codex]: hookParser.getOrCreateSessionId Tier 2 DB lookup handles pre-registered UUIDs correctly — no code change needed in hookParser.ts
+- [Phase 16.12-provider-native-session-launch-claude-codex]: proc.once('spawn') resolves launch() immediately when OS starts the process — does not wait for exit
 
 ### Roadmap Evolution
 
@@ -173,8 +176,8 @@ None yet — requirements phase will surface tasks.
 
 ## Session Continuity
 
-Last session: 2026-04-13T23:11:25.257Z
-Stopped at: Completed 16.12-01-PLAN.md
+Last session: 2026-04-13T23:16:36.232Z
+Stopped at: Completed 16.12-02-PLAN.md
 Resume file: None
 
 *Updated after each plan completion*
