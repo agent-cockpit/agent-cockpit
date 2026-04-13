@@ -3,7 +3,7 @@ import type { Direction } from '../components/office/spriteStates.js'
 import type { CollisionMap } from './CollisionMap.js'
 import { PLAYER_HITBOX } from './CollisionMap.js'
 
-export const PLAYER_SPEED = 120 // pixels per second
+export const PLAYER_SPEED = 120 // pixels per second (×2 zoom = 144 visual px/s)
 export const WALK_FRAME_DURATION_MS = 100  // 10fps walk cycle — natural humanoid gait (was 150)
 export const WALK_FRAME_COUNT = 8
 
@@ -92,14 +92,31 @@ export function movePlayer(
 
   const newX = player.x + dx * dist
   const newY = player.y + dy * dist
+  const clampedX = Math.max(0, Math.min(newX, WORLD_W - 64))
+  const clampedY = Math.max(0, Math.min(newY, WORLD_H - 64))
   if (collisionMap) {
-    const xBlocked = collisionMap.overlaps(newX + PLAYER_HITBOX.offsetX, player.y + PLAYER_HITBOX.offsetY, PLAYER_HITBOX.w, PLAYER_HITBOX.h)
-    const yBlocked = collisionMap.overlaps(player.x + PLAYER_HITBOX.offsetX, newY + PLAYER_HITBOX.offsetY, PLAYER_HITBOX.w, PLAYER_HITBOX.h)
-    player.x = xBlocked ? player.x : Math.max(0, Math.min(newX, WORLD_W - 64))
-    player.y = yBlocked ? player.y : Math.max(0, Math.min(newY, WORLD_H - 64))
+    // Resolve X first, then resolve Y against the updated X. This prevents
+    // diagonal corner clipping when only the final diagonal position overlaps.
+    const xBlocked = collisionMap.overlaps(
+      clampedX + PLAYER_HITBOX.offsetX,
+      player.y + PLAYER_HITBOX.offsetY,
+      PLAYER_HITBOX.w,
+      PLAYER_HITBOX.h,
+    )
+    const resolvedX = xBlocked ? player.x : clampedX
+
+    const yBlocked = collisionMap.overlaps(
+      resolvedX + PLAYER_HITBOX.offsetX,
+      clampedY + PLAYER_HITBOX.offsetY,
+      PLAYER_HITBOX.w,
+      PLAYER_HITBOX.h,
+    )
+
+    player.x = resolvedX
+    player.y = yBlocked ? player.y : clampedY
   } else {
-    player.x = Math.max(0, Math.min(newX, WORLD_W - 64))
-    player.y = Math.max(0, Math.min(newY, WORLD_H - 64))
+    player.x = clampedX
+    player.y = clampedY
   }
 
   const direction = deriveDirection(dx, dy)

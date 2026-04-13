@@ -18,6 +18,71 @@ import { CollisionMap } from '../game/CollisionMap.js'
 let _scrollToSession: ((id: string) => void) | null = null
 export function scrollToSession(id: string) { _scrollToSession?.(id) }
 
+type MapObject = Parameters<CollisionMap['loadObjects']>[0][number]
+type ObjectAlphaBoundsMap = Parameters<CollisionMap['loadObjects']>[1]
+
+function loadImage(src: string): Promise<HTMLImageElement> {
+  return new Promise((resolve, reject) => {
+    const img = new Image()
+    img.onload = () => resolve(img)
+    img.onerror = () => reject(new Error(`Failed to load image: ${src}`))
+    img.src = src
+  })
+}
+
+async function computeOpaqueBounds(src: string): Promise<{ x: number; y: number; w: number; h: number } | null> {
+  const img = await loadImage(src)
+  const canvas = document.createElement('canvas')
+  canvas.width = img.naturalWidth
+  canvas.height = img.naturalHeight
+  const ctx = canvas.getContext('2d')
+  if (!ctx) return null
+  ctx.drawImage(img, 0, 0)
+  const data = ctx.getImageData(0, 0, canvas.width, canvas.height).data
+
+  // Ignore near-transparent glow/AA pixels so colliders fit the visible body.
+  const ALPHA_SOLID_THRESHOLD = 24
+  let minX = canvas.width
+  let minY = canvas.height
+  let maxX = -1
+  let maxY = -1
+
+  for (let y = 0; y < canvas.height; y++) {
+    for (let x = 0; x < canvas.width; x++) {
+      const alpha = data[(y * canvas.width + x) * 4 + 3]
+      if (alpha < ALPHA_SOLID_THRESHOLD) continue
+      if (x < minX) minX = x
+      if (y < minY) minY = y
+      if (x > maxX) maxX = x
+      if (y > maxY) maxY = y
+    }
+  }
+
+  if (maxX < minX || maxY < minY) return null
+  return { x: minX, y: minY, w: maxX - minX + 1, h: maxY - minY + 1 }
+}
+
+async function buildObjectAlphaBounds(objects: MapObject[]): Promise<ObjectAlphaBoundsMap> {
+  const entries = await Promise.all(objects.map(async (obj) => {
+    if (!obj.filename) return null
+    try {
+      const bounds = await computeOpaqueBounds(`/map/objects/${obj.filename}`)
+      if (!bounds) return null
+      return [obj.filename, bounds] as const
+    } catch {
+      return null
+    }
+  }))
+
+  const map: ObjectAlphaBoundsMap = {}
+  for (const entry of entries) {
+    if (!entry) continue
+    const [filename, bounds] = entry
+    map[filename] = bounds
+  }
+  return map
+}
+
 export function OfficePage() {
   const sessions = useActiveSessions()
   const [popupOpen, setPopupOpen] = useState(false)
@@ -77,12 +142,13 @@ export function OfficePage() {
         // Set viewportW each frame in case zoom changes (future-proof)
         cam.viewportW = canvas.width / zoom
         cam.viewportH = canvas.height / zoom
-        cam.targetX = gameState.player.x - cam.viewportW / 2
-        cam.targetY = gameState.player.y - cam.viewportH / 2
+        cam.targetX = gameState.player.x + 32 - cam.viewportW / 2
+        cam.targetY = gameState.player.y + 32 - cam.viewportH / 2
         updateCamera(cam, { minX: 0, minY: 0, maxX: WORLD_W, maxY: WORLD_H }, deltaMs)
       }
       render() {
-        ctx.clearRect(0, 0, canvas.width, canvas.height)
+        ctx.fillStyle = '#000000'
+        ctx.fillRect(0, 0, canvas.width, canvas.height)
         // Read sessions and events from the store snapshot (not hook — called in rAF)
         const { sessions: liveSessions, events: liveEvents } = useStore.getState()
         const zoom = gameState.camera.zoom  // = 2
@@ -126,6 +192,9 @@ export function OfficePage() {
           ctx.drawImage(pImg, col * 64, row * 64, 64, 64, px, py, 64, 64)
         }
 
+        // DEBUG: draw collision boxes (red=objects, green=tiles) — remove when tuned
+        collisionMap.debugDraw(ctx, gameState.camera.x, gameState.camera.y)
+
         ctx.restore()
       }
     }(canvas)
@@ -136,9 +205,11 @@ export function OfficePage() {
     Promise.all([
       fetch('/map/terrain-map.json').then(r => r.json()),
       fetch('/map/objects/manifest.json').then(r => r.json()),
-    ]).then(([terrainData, objectsData]: [unknown, { objects: unknown[] }]) => {
+    ]).then(async ([terrainData, objectsData]: [unknown, { objects: unknown[] }]) => {
       collisionMap.loadTerrain(terrainData as Parameters<CollisionMap['loadTerrain']>[0])
-      collisionMap.loadObjects(objectsData.objects as Parameters<CollisionMap['loadObjects']>[0])
+      const objects = objectsData.objects as Parameters<CollisionMap['loadObjects']>[0]
+      const alphaBounds = await buildObjectAlphaBounds(objects)
+      collisionMap.loadObjects(objects, alphaBounds)
     }).catch((err: unknown) => {
       console.error('[CollisionMap] Failed to load collision data:', err)
     })

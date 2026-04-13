@@ -113,8 +113,8 @@ describe('CollisionMap — object loading', () => {
         boundingBox: { x: 400, y: 400, width: 96, height: 64 },
       },
     ])
-    // AABB at same location should overlap
-    expect(map.overlaps(400, 400, 96, 64)).toBe(true)
+    // Object bbox is content-relative; overlaps() uses world pixels (offset 1504,1440)
+    expect(map.overlaps(1904, 1840, 96, 64)).toBe(true)
   })
 
   it('loadObjects registers partial overlap of furniture as solid', () => {
@@ -125,8 +125,45 @@ describe('CollisionMap — object loading', () => {
         boundingBox: { x: 600, y: 600, width: 64, height: 64 },
       },
     ])
-    // Small AABB overlapping just a corner of the furniture
-    expect(map.overlaps(630, 630, 32, 32)).toBe(true)
+    // Partial overlap: bbox world pos = (2104,2040), check a corner inside it
+    expect(map.overlaps(2130, 2060, 32, 32)).toBe(true)
+  })
+
+  it('loadObjects applies opaque pixel bounds override when provided', () => {
+    map.loadObjects(
+      [
+        {
+          description: 'Couch',
+          visible: true,
+          filename: 'couch.png',
+          boundingBox: { x: 400, y: 400, width: 96, height: 64 },
+        },
+      ],
+      {
+        'couch.png': { x: 10, y: 6, w: 50, h: 22 },
+      },
+    )
+    // Raw bbox world pos would be (1904,1840). For real map objects (filename present),
+    // map-composite uses a fixed Y anchor offset of 32px; override then applies.
+    // Final world rect = (1914, 1814) size 50x22.
+    expect(map.overlaps(1914, 1814, 50, 22)).toBe(true)
+    expect(map.overlaps(1904, 1840, 8, 8)).toBe(false)
+  })
+
+  it('loadObjects applies render-anchor Y offset for map objects with filename', () => {
+    map.loadObjects([
+      {
+        description: 'Arcade',
+        visible: true,
+        filename: 'arcade.png',
+        boundingBox: { x: 400, y: 400, width: 46, height: 80 },
+      },
+    ])
+    // world x = 400 + 1504 = 1904
+    // world y = 400 - 32 + 1440 = 1808
+    expect(map.overlaps(1904, 1808, 46, 80)).toBe(true)
+    // This point is above the unshifted rect top (1840), but inside shifted rect.
+    expect(map.overlaps(1904, 1816, 8, 8)).toBe(true)
   })
 })
 

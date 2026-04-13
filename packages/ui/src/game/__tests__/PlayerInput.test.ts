@@ -341,13 +341,17 @@ describe('movePlayer — animTime', () => {
   })
 })
 
-// Helper: build a CollisionMap with one synthetic solid object at pixel coords (objectX, objectY, 32x32)
-function makeCollisionMapWithObject(objectX: number, objectY: number): CollisionMap {
+// Helper: build a CollisionMap with one synthetic solid object at WORLD pixel coords.
+// loadObjects applies the manifest origin offset (1504, 1344), so we subtract it here
+// so the object ends up at the intended world pixel position after the offset is added.
+const OBJECT_ORIGIN_X = 1504
+const OBJECT_ORIGIN_Y = 1440
+function makeCollisionMapWithObject(worldX: number, worldY: number): CollisionMap {
   const map = new CollisionMap()
   map.loadObjects([{
     description: 'Test Wall',
     visible: true,
-    boundingBox: { x: objectX, y: objectY, width: 32, height: 32 }
+    boundingBox: { x: worldX - OBJECT_ORIGIN_X, y: worldY - OBJECT_ORIGIN_Y, width: 32, height: 32 }
   }])
   return map
 }
@@ -387,12 +391,26 @@ describe('movePlayer — collision map', () => {
   it('corner-blocked: neither x nor y advances when both axes are blocked', () => {
     const map = new CollisionMap()
     map.loadObjects([
-      { description: 'Wall X', visible: true, boundingBox: { x: 700, y: 630, width: 32, height: 32 } },
-      { description: 'Wall Y', visible: true, boundingBox: { x: 616, y: 716, width: 32, height: 32 } },
+      { description: 'Wall X', visible: true, boundingBox: { x: 700 - OBJECT_ORIGIN_X, y: 630 - OBJECT_ORIGIN_Y, width: 32, height: 32 } },
+      { description: 'Wall Y', visible: true, boundingBox: { x: 616 - OBJECT_ORIGIN_X, y: 716 - OBJECT_ORIGIN_Y, width: 32, height: 32 } },
     ])
     const player = makePlayer(600, 600)
     movePlayer(player, keys('KeyD', 'KeyS'), 1000, map)
     expect(player.x).toBe(600)
+    expect(player.y).toBe(600)
+  })
+
+  // Regression: object intersects only the final diagonal destination.
+  // Old logic checked Y against old X and allowed clipping into this corner.
+  it('diagonal corner overlap: slides on free axis instead of clipping into obstacle', () => {
+    const map = new CollisionMap()
+    map.loadObjects([
+      { description: 'Corner Block', visible: true, boundingBox: { x: 690 - OBJECT_ORIGIN_X, y: 705 - OBJECT_ORIGIN_Y, width: 40, height: 40 } },
+    ])
+    const player = makePlayer(600, 600)
+    movePlayer(player, keys('KeyD', 'KeyS'), 1000, map)
+
+    expect(player.x).toBeGreaterThan(600)
     expect(player.y).toBe(600)
   })
 

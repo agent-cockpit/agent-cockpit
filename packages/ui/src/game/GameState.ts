@@ -12,7 +12,7 @@ export interface GameState {
 
 export const gameState: GameState = {
   camera: { x: 0, y: 0, targetX: 0, targetY: 0, viewportW: 0, viewportH: 0, zoom: 2 },
-  player: { x: 1472, y: 1376, direction: 'south', animTime: 0 },  // tile (0,0) → pixel (46*32, 43*32)
+  player: { x: 2080, y: 1920, direction: 'south', animTime: 0 },  // map tile (19,17) → pixel (65*32, 60*32) — open floor
   npcs: {},
   tick: 0,
 }

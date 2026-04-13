@@ -7,8 +7,8 @@ describe('GameState', () => {
     expect(gameState.camera).toEqual({ x: 0, y: 0, targetX: 0, targetY: 0, viewportW: 0, viewportH: 0, zoom: 2 })
   })
 
-  it("gameState.player initial value has x: 1472 (46*32), y: 1376 (43*32), direction: 'south', animTime: 0", () => {
-    expect(gameState.player).toEqual({ x: 1472, y: 1376, direction: 'south', animTime: 0 })
+  it("gameState.player initial value has x: 2080 (65*32), y: 1920 (60*32), direction: 'south', animTime: 0", () => {
+    expect(gameState.player).toEqual({ x: 2080, y: 1920, direction: 'south', animTime: 0 })
   })
 
   it('gameState.tick initial value is 0', () => {
