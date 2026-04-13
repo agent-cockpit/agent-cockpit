@@ -12,7 +12,7 @@ import { gameState, setWorldBounds, WORLD_W, WORLD_H } from '../game/GameState.j
 import { updateCamera } from '../game/Camera.js'
 import { attachInput, detachInput, getKeysDown, movePlayer, WALK_FRAME_DURATION_MS, WALK_FRAME_COUNT } from '../game/PlayerInput.js'
 import { TilemapRenderer, type MapsManifest } from '../game/TilemapRenderer.js'
-import { CollisionMap } from '../game/CollisionMap.js'
+import { CollisionMap, PLAYER_HITBOX } from '../game/CollisionMap.js'
 
 // Module-level sidebar focus callback for MapSidebar compatibility.
 let _scrollToSession: ((id: string) => void) | null = null
@@ -345,6 +345,31 @@ export function OfficePage() {
 
         if (import.meta.env.VITE_DEBUG_HITBOXES === 'true') {
           collisionMap.debugDraw(ctx, gameState.camera.x, gameState.camera.y)
+
+          // Character hitboxes (blue=NPC, yellow=player)
+          ctx.save()
+          ctx.lineWidth = 1
+
+          Object.values(liveSessions ?? {}).forEach((session) => {
+            const pos = gameState.npcs[session.sessionId]
+            if (!pos) return
+            ctx.strokeStyle = 'rgba(0, 150, 255, 0.9)'
+            ctx.strokeRect(
+              pos.x - gameState.camera.x + PLAYER_HITBOX.offsetX,
+              pos.y - gameState.camera.y + PLAYER_HITBOX.offsetY,
+              PLAYER_HITBOX.w,
+              PLAYER_HITBOX.h,
+            )
+          })
+
+          ctx.strokeStyle = 'rgba(255, 220, 0, 0.9)'
+          ctx.strokeRect(
+            gameState.player.x - gameState.camera.x + PLAYER_HITBOX.offsetX,
+            gameState.player.y - gameState.camera.y + PLAYER_HITBOX.offsetY,
+            PLAYER_HITBOX.w,
+            PLAYER_HITBOX.h,
+          )
+          ctx.restore()
         }
 
         ctx.restore()
