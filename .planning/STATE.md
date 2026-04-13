@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v1.1
 milestone_name: — 2D Pixel Art Game Experience
 status: executing
-stopped_at: Completed 16.8-sidebar-design-overhaul-02-PLAN.md
-last_updated: "2026-04-13T15:12:44.213Z"
-last_activity: 2026-04-13 — Completed 16.8-02 sidebar row redesign and test hardening
+stopped_at: Completed 16.8-01-PLAN.md
+last_updated: "2026-04-13T16:03:49Z"
+last_activity: 2026-04-13 — Completed 16.8-01 (sidebar shell tokens + resizable OpsLayout + regression pass)
 progress:
   total_phases: 21
   completed_phases: 11
-  total_plans: 42
-  completed_plans: 38
-  percent: 94
+  total_plans: 70
+  completed_plans: 67
+  percent: 96
 ---
 
 # Project State
@@ -27,10 +27,10 @@ See: .planning/PROJECT.md (updated 2026-04-10)
 
 Phase: 16.8 — Sidebar Design Overhaul
 Plan: 03
-Status: In progress — Plan 02 completed; ready for Plan 03
-Last activity: 2026-04-13 — Completed 16.8-02 (MapSidebar redesign + deterministic row-contract tests)
+Status: In progress — Plans 01 and 02 completed; ready for Plan 03
+Last activity: 2026-04-13 — Completed 16.8-01 (sidebar shell tokens + resizable OpsLayout + regression pass)
 
-Progress: [█████████░] 94%
+Progress: [██████████] 96%
 
 ## v1.0 Completed
 
@@ -131,6 +131,8 @@ All v1.0 decisions remain active and respected.
 - [Phase 16.8-sidebar-design-overhaul]: MapSidebar row click contract is selectSession(sessionId) before onFocusSession(sessionId)
 - [Phase 16.8-sidebar-design-overhaul]: Status mapping aligned to SessionStatus active|ended|error with text+dot semantics
 - [Phase 16.8-sidebar-design-overhaul]: Secondary metadata line is conditional: pending approvals or non-active status
+- [Phase 16.8-sidebar-design-overhaul]: Defined semantic Tailwind v4 tokens in index.css instead of local hardcoded utility colors.
+- [Phase 16.8-sidebar-design-overhaul]: Implemented desktop-only resize handle via matchMedia('(min-width: 1024px)') with width clamp [260, 460].
 
 ### Roadmap Evolution
 
@@ -154,8 +156,8 @@ None yet — requirements phase will surface tasks.
 
 ## Session Continuity
 
-Last session: 2026-04-13T15:12:44.204Z
-Stopped at: Completed 16.8-sidebar-design-overhaul-02-PLAN.md
+Last session: 2026-04-13T16:03:49Z
+Stopped at: Completed 16.8-01-PLAN.md
 Resume file: None
 
 *Updated after each plan completion*

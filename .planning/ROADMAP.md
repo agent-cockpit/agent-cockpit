@@ -211,7 +211,7 @@ Plans:
 **Goal:** The current sidebar is visually broken and ugly. Completely redesign the sidebar with clean, polished UI — proper layout, typography, spacing, visual hierarchy, and a coherent style that fits the space/pixel-art theme of the game.
 **Depends on:** Phase 16.7
 **Requirements**: sidebar-design
-**Plans:** 1/3 plans executed
+**Plans:** 2/3 plans executed
 
 Plans:
 - [ ] TBD (run /gsd:plan-phase 16.8 to break down)
