@@ -14,7 +14,7 @@ import { attachInput, detachInput, getKeysDown, movePlayer, WALK_FRAME_DURATION_
 import { TilemapRenderer } from '../game/TilemapRenderer.js'
 import { CollisionMap } from '../game/CollisionMap.js'
 
-// Module-level scroll singleton — kept as no-op for MapSidebar compatibility
+// Module-level sidebar focus callback for MapSidebar compatibility.
 let _scrollToSession: ((id: string) => void) | null = null
 export function scrollToSession(id: string) { _scrollToSession?.(id) }
 
@@ -192,9 +192,20 @@ export function OfficePage() {
   const playerImgRef = useRef<HTMLImageElement | null>(null)
   const sceneFxPatternsRef = useRef<SceneFxPatterns>({ noise: null, scanlines: null })
 
-  // Register scroll callback (no-op — DnD scroll removed, kept for MapSidebar compatibility)
+  // Register sidebar focus callback for map/session synchronization.
   useEffect(() => {
-    _scrollToSession = (_id: string) => {}
+    _scrollToSession = (id: string) => {
+      const pos = gameState.npcs[id]
+      if (!pos) return
+
+      const cam = gameState.camera
+      gameState.player.x = pos.x
+      gameState.player.y = pos.y
+      cam.targetX = Math.max(0, Math.min(pos.x - cam.viewportW / 2, WORLD_W - cam.viewportW))
+      cam.targetY = Math.max(0, Math.min(pos.y - cam.viewportH / 2, WORLD_H - cam.viewportH))
+      cam.x = cam.targetX
+      cam.y = cam.targetY
+    }
     return () => { _scrollToSession = null }
   }, [])
 
