@@ -272,7 +272,7 @@ Plans:
 **Goal:** Enable launching new Claude and Codex sessions directly from the app UI using provider-native runtimes (strict auto-launch, no manual copy-command fallback). Session becomes active only after real session_start lifecycle events arrive.
 **Requirements**: 16.12-R1, 16.12-R2, 16.12-R3, 16.12-R4, 16.12-R5 (SESS-02)
 **Depends on:** Phase 16.11
-**Plans:** 3 plans
+**Plans:** 1/3 plans executed
 
 Plans:
 - [ ] 16.12-01-PLAN.md — Daemon launch contract: strict-auto semantics, preflight checks, mode=initiated for both providers (TDD) (16.12-R1, 16.12-R2, 16.12-R4, 16.12-R5)

@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.1
 milestone_name: — 2D Pixel Art Game Experience
 status: planning
-stopped_at: Phase 16.12 context gathered
-last_updated: "2026-04-13T22:41:40.867Z"
+stopped_at: Completed 16.12-01-PLAN.md
+last_updated: "2026-04-13T23:11:25.261Z"
 last_activity: 2026-04-13 — Completed phase 16.10 execution + verification
 progress:
   total_phases: 25
   completed_phases: 14
-  total_plans: 50
-  completed_plans: 44
+  total_plans: 53
+  completed_plans: 45
   percent: 92
 ---
 
@@ -144,6 +144,8 @@ All v1.0 decisions remain active and respected.
 - [Phase 16.10]: OfficePage click-hit test now pins sess-1 at origin explicitly so selection behavior remains isolated from spawn policy changes.
 - [Phase 16.10]: Spawn slots validated against PLAYER_HITBOX collision overlap, not terrain tile type alone.
 - [Phase 16.10]: Preserved user-owned PLAYER_HITBOX debug rendering diff as unstaged work while committing only spawn-slot/task-test updates.
+- [Phase 16.12-provider-native-session-launch-claude-codex]: vi.mock('node:child_process') at module level required — vi.spyOn cannot redefine ESM namespace properties
+- [Phase 16.12-provider-native-session-launch-claude-codex]: ClaudeLauncher.launch() is a no-op stub in Plan 01; full spawn implementation deferred to Plan 02
 
 ### Roadmap Evolution
 
@@ -171,8 +173,8 @@ None yet — requirements phase will surface tasks.
 
 ## Session Continuity
 
-Last session: 2026-04-13T22:41:40.856Z
-Stopped at: Phase 16.12 context gathered
-Resume file: .planning/phases/16.12-provider-native-session-launch-claude-codex/16.12-CONTEXT.md
+Last session: 2026-04-13T23:11:25.257Z
+Stopped at: Completed 16.12-01-PLAN.md
+Resume file: None
 
 *Updated after each plan completion*
