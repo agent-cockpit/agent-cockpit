@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import http from 'node:http';
 import { createWsServer } from '../ws/server.js';
 import { openDatabase } from '../db/database.js';
@@ -94,29 +94,30 @@ beforeEach(async () => {
 afterEach(async () => {
   await new Promise<void>((resolve) => httpServer.close(() => resolve()));
   db.close();
+  vi.restoreAllMocks();
 });
 
 describe('POST /api/sessions', () => {
-  it('returns 200 with { sessionId, hookCommand } for Claude', async () => {
+  it('returns 200 with { sessionId, mode: "initiated" } for Claude (no hookCommand)', async () => {
     const { status, data } = await httpPost(port, '/api/sessions', {
       provider: 'claude',
-      workspacePath: '/tmp/test',
+      workspacePath: '/tmp',
     });
     expect(status).toBe(200);
     expect(typeof data.sessionId).toBe('string');
     expect(data.sessionId).toMatch(/^[0-9a-f-]{36}$/);
-    expect(typeof data.hookCommand).toBe('string');
-    expect(data.mode).toBe('configure-and-copy');
+    expect(data.mode).toBe('initiated');
+    expect(data.hookCommand).toBeUndefined();
   });
 
-  it('returns 200 with { sessionId } for Codex', async () => {
+  it('returns 200 with { sessionId, mode: "initiated" } for Codex', async () => {
     const { status, data } = await httpPost(port, '/api/sessions', {
       provider: 'codex',
-      workspacePath: '/tmp/test',
+      workspacePath: '/tmp',
     });
     expect(status).toBe(200);
     expect(typeof data.sessionId).toBe('string');
-    expect(data.mode).toBe('spawn');
+    expect(data.mode).toBe('initiated');
   });
 
   it('returns 400 for missing workspacePath', async () => {
@@ -128,19 +129,41 @@ describe('POST /api/sessions', () => {
 
   it('returns 400 for missing provider', async () => {
     const { status } = await httpPost(port, '/api/sessions', {
-      workspacePath: '/tmp/test',
+      workspacePath: '/tmp',
     });
     expect(status).toBe(400);
   });
 
-  it('hookCommand for Claude includes the COCKPIT_HOOK_PORT value', async () => {
-    process.env['COCKPIT_HOOK_PORT'] = '9999';
-    const { data } = await httpPost(port, '/api/sessions', {
+  it('returns 422 with error_code INVALID_WORKSPACE for non-existent workspacePath', async () => {
+    const { status, data } = await httpPost(port, '/api/sessions', {
       provider: 'claude',
-      workspacePath: '/tmp/test',
+      workspacePath: '/nonexistent/path/that/does/not/exist',
     });
-    expect(data.hookCommand as string).toContain('9999');
-    delete process.env['COCKPIT_HOOK_PORT'];
+    expect(status).toBe(422);
+    expect(data.error_code).toBe('INVALID_WORKSPACE');
+    expect(typeof data.error).toBe('string');
+  });
+
+  it('returns 422 with error_code INVALID_WORKSPACE for codex with non-existent workspacePath', async () => {
+    const { status, data } = await httpPost(port, '/api/sessions', {
+      provider: 'codex',
+      workspacePath: '/nonexistent/path/that/does/not/exist',
+    });
+    expect(status).toBe(422);
+    expect(data.error_code).toBe('INVALID_WORKSPACE');
+    expect(typeof data.error).toBe('string');
+  });
+});
+
+describe('ClaudeLauncher preflight', () => {
+  it('throws LaunchError with code MISSING_BINARY when claude binary is absent', async () => {
+    const { ClaudeLauncher, LaunchError } = await import('../adapters/claude/claudeLauncher.js');
+    const launcher = new ClaudeLauncher(3002);
+    // Mock execFileSync to throw (binary not found)
+    const cp = await import('node:child_process');
+    vi.spyOn(cp, 'execFileSync').mockImplementation(() => { throw new Error('not found'); });
+    await expect(launcher.preflight('/tmp')).rejects.toThrow(LaunchError);
+    await expect(launcher.preflight('/tmp')).rejects.toMatchObject({ code: 'MISSING_BINARY' });
   });
 });
 
