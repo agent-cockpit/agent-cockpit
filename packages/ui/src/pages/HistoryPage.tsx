@@ -1,5 +1,4 @@
 import { useEffect, useMemo, useState } from 'react'
-import { useNavigate } from 'react-router'
 import { useStore, type SessionSummary } from '../store/index.js'
 import { ComparePanel } from '../components/panels/ComparePanel.js'
 
@@ -8,9 +7,12 @@ type ProviderFilter = 'all' | string
 type StatusFilter = 'all' | 'active' | 'ended' | 'error'
 type DateFilter = 'all' | '7d' | '30d'
 
-export function HistoryPage() {
-  const navigate = useNavigate()
-  const { historySessions, bulkApplySessions, setHistoryMode, compareSelectionIds, toggleCompareSelection } = useStore()
+interface HistoryPageProps {
+  onSessionOpen?: () => void
+}
+
+export function HistoryPage({ onSessionOpen }: HistoryPageProps) {
+  const { historySessions, bulkApplySessions, setHistoryMode, compareSelectionIds, toggleCompareSelection, selectSession, setSessionDetailOpen } = useStore()
   const [providerFilter, setProviderFilter] = useState<ProviderFilter>('all')
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all')
   const [projectFilter, setProjectFilter] = useState<string>('all')
@@ -49,19 +51,24 @@ export function HistoryPage() {
 
   function openSession(sessionId: string) {
     setHistoryMode(true)
-    navigate(`/session/${sessionId}/timeline`)
+    selectSession(sessionId)
+    setSessionDetailOpen(true)
+    onSessionOpen?.()
   }
+
+  const selectClass =
+    'rounded-none border border-[var(--color-cockpit-cyan)]/30 bg-[var(--color-panel-surface)] px-2 py-1 text-[10px] [font-family:var(--font-mono-data)] uppercase tracking-wide text-foreground focus:outline-none focus:border-[var(--color-cockpit-cyan)]/60'
 
   return (
     <div className="flex flex-col h-full" data-testid="history-page">
-      <header className="flex flex-wrap items-center gap-3 border-b border-border px-4 py-2">
-        <h2 className="text-sm font-semibold">Session History</h2>
+      <header className="flex flex-wrap items-center gap-3 border-b border-border px-4 py-2 bg-[var(--color-panel-surface)]">
+        <h2 className="cockpit-label">Session Archive</h2>
 
         {/* Provider filter */}
         <select
           value={providerFilter}
           onChange={(e) => setProviderFilter(e.target.value)}
-          className="rounded border border-border bg-background px-2 py-1 text-xs"
+          className={selectClass}
           data-testid="provider-filter"
         >
           <option value="all">All providers</option>
@@ -73,7 +80,7 @@ export function HistoryPage() {
         <select
           value={statusFilter}
           onChange={(e) => setStatusFilter(e.target.value as StatusFilter)}
-          className="rounded border border-border bg-background px-2 py-1 text-xs"
+          className={selectClass}
           data-testid="status-filter"
         >
           <option value="all">All statuses</option>
@@ -82,11 +89,11 @@ export function HistoryPage() {
           <option value="error">Error</option>
         </select>
 
-        {/* Project filter — derived from unique workspacePaths in loaded sessions */}
+        {/* Project filter */}
         <select
           value={projectFilter}
           onChange={(e) => setProjectFilter(e.target.value)}
-          className="rounded border border-border bg-background px-2 py-1 text-xs"
+          className={selectClass}
           data-testid="project-filter"
         >
           <option value="all">All projects</option>
@@ -101,7 +108,7 @@ export function HistoryPage() {
         <select
           value={dateFilter}
           onChange={(e) => setDateFilter(e.target.value as DateFilter)}
-          className="rounded border border-border bg-background px-2 py-1 text-xs"
+          className={selectClass}
           data-testid="date-filter"
         >
           <option value="all">All time</option>
@@ -115,10 +122,10 @@ export function HistoryPage() {
               toggleCompareSelection(compareSelectionIds[0]!)
               toggleCompareSelection(compareSelectionIds[1]!)
             }}
-            className="ml-auto text-xs underline"
+            className="ml-auto cockpit-btn"
             data-testid="clear-comparison"
           >
-            Clear comparison
+            Clear compare
           </button>
         )}
       </header>
@@ -130,35 +137,50 @@ export function HistoryPage() {
       )}
 
       <ul className="flex-1 overflow-auto" data-testid="history-session-list">
-        {filtered.map((s) => (
-          <li
-            key={s.sessionId}
-            className="flex items-center gap-3 border-b border-border px-4 py-2 hover:bg-muted/50 cursor-pointer"
-            data-testid={`session-row-${s.sessionId}`}
-          >
-            <input
-              type="checkbox"
-              checked={compareSelectionIds.includes(s.sessionId)}
-              onChange={() => toggleCompareSelection(s.sessionId)}
-              onClick={(e) => e.stopPropagation()}
-              aria-label={`Select ${s.sessionId} for comparison`}
-              data-testid={`compare-checkbox-${s.sessionId}`}
-            />
-            <button
-              className="flex flex-1 items-center gap-3 text-left text-sm"
-              onClick={() => openSession(s.sessionId)}
+        {filtered.map((s) => {
+          const statusColor =
+            s.finalStatus === 'active' ? 'var(--color-cockpit-green)' :
+            s.finalStatus === 'error' ? 'var(--color-cockpit-red)' :
+            'var(--color-cockpit-dim)'
+          return (
+            <li
+              key={s.sessionId}
+              className="flex items-center gap-3 border-b border-border/50 px-4 py-2 hover:bg-[var(--color-panel-surface)] cursor-pointer group"
+              data-testid={`session-row-${s.sessionId}`}
             >
-              <span className="font-mono text-xs text-muted-foreground">{s.sessionId.slice(0, 8)}</span>
-              <span className="rounded bg-muted px-1 text-xs">{s.provider}</span>
-              <span className="flex-1 truncate text-xs text-muted-foreground">{s.workspacePath}</span>
-              <span className="text-xs">{s.finalStatus}</span>
-              <span className="text-xs text-muted-foreground">{new Date(s.startedAt).toLocaleDateString()}</span>
-            </button>
-          </li>
-        ))}
+              <input
+                type="checkbox"
+                checked={compareSelectionIds.includes(s.sessionId)}
+                onChange={() => toggleCompareSelection(s.sessionId)}
+                onClick={(e) => e.stopPropagation()}
+                aria-label={`Select ${s.sessionId} for comparison`}
+                data-testid={`compare-checkbox-${s.sessionId}`}
+                className="accent-[var(--color-cockpit-cyan)]"
+              />
+              <button
+                className="flex flex-1 items-center gap-3 text-left"
+                onClick={() => openSession(s.sessionId)}
+              >
+                <span className="data-readout text-[10px] tabular-nums w-16 shrink-0">{s.sessionId.slice(0, 8)}</span>
+                <span className={`shrink-0 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wide ${s.provider === 'claude' ? 'badge-provider-claude' : 'badge-provider-codex'}`}>
+                  {s.provider}
+                </span>
+                <span className="flex-1 truncate [font-family:var(--font-mono-data)] text-[10px] text-muted-foreground group-hover:text-foreground transition-colors">
+                  {s.workspacePath}
+                </span>
+                <span className="[font-family:var(--font-mono-data)] text-[10px] uppercase tracking-wide shrink-0" style={{ color: statusColor }}>
+                  {s.finalStatus}
+                </span>
+                <span className="data-readout-dim text-[10px] tabular-nums shrink-0">
+                  {new Date(s.startedAt).toLocaleDateString()}
+                </span>
+              </button>
+            </li>
+          )
+        })}
         {filtered.length === 0 && (
-          <li className="px-4 py-8 text-center text-sm text-muted-foreground" data-testid="history-empty">
-            No sessions found
+          <li className="px-4 py-8 text-center cockpit-label" style={{ color: 'var(--color-cockpit-dim)' }} data-testid="history-empty">
+            -- NO SESSIONS FOUND --
           </li>
         )}
       </ul>

@@ -21,11 +21,12 @@ const EVENT_TYPE_LABELS: Record<string, string> = {
 type EventWithSeq = NormalizedEvent & { sequenceNumber?: number }
 
 function InlineDetail({ event }: { event: NormalizedEvent }) {
+  const base = 'px-4 py-2 bg-[var(--color-panel-surface)] text-xs border-b border-border/50'
   if (event.type === 'tool_call') {
     return (
-      <div className="px-4 py-2 bg-muted/30 text-xs border-b border-border">
-        <div className="font-mono font-medium">{event.toolName}</div>
-        <pre className="mt-1 whitespace-pre-wrap text-muted-foreground">
+      <div className={base}>
+        <div className="[font-family:var(--font-mono-data)] font-medium text-[var(--color-cockpit-cyan)]">{event.toolName}</div>
+        <pre className="mt-1 whitespace-pre-wrap text-muted-foreground [font-family:var(--font-mono-data)]">
           {JSON.stringify(event.input, null, 2)}
         </pre>
       </div>
@@ -33,37 +34,37 @@ function InlineDetail({ event }: { event: NormalizedEvent }) {
   }
   if (event.type === 'file_change') {
     return (
-      <div className="px-4 py-2 bg-muted/30 text-xs border-b border-border">
-        <div className="font-mono">
+      <div className={base}>
+        <div className="[font-family:var(--font-mono-data)] text-[var(--color-cockpit-cyan)]">
           {event.filePath}{' '}
           <span className="text-muted-foreground">({event.changeType})</span>
         </div>
         {event.diff && (
-          <pre className="mt-1 whitespace-pre text-muted-foreground overflow-x-auto">{event.diff}</pre>
+          <pre className="mt-1 whitespace-pre text-muted-foreground overflow-x-auto [font-family:var(--font-mono-data)]">{event.diff}</pre>
         )}
       </div>
     )
   }
   if (event.type === 'approval_request') {
     return (
-      <div className="px-4 py-2 bg-muted/30 text-xs border-b border-border">
-        <div>
-          <span className="font-medium">Action:</span> {event.proposedAction}
+      <div className={base}>
+        <div className="[font-family:var(--font-mono-data)]">
+          <span className="cockpit-label">Action:&nbsp;</span>{event.proposedAction}
         </div>
-        <div>
-          <span className="font-medium">Risk:</span> {event.riskLevel}
+        <div className="[font-family:var(--font-mono-data)]">
+          <span className="cockpit-label">Risk:&nbsp;</span>{event.riskLevel}
         </div>
         {event.whyRisky && (
-          <div>
-            <span className="font-medium">Why risky:</span> {event.whyRisky}
+          <div className="[font-family:var(--font-mono-data)]">
+            <span className="cockpit-label">Why risky:&nbsp;</span>{event.whyRisky}
           </div>
         )}
       </div>
     )
   }
   return (
-    <div className="px-4 py-2 bg-muted/30 text-xs border-b border-border">
-      <pre className="whitespace-pre-wrap">{JSON.stringify(event, null, 2)}</pre>
+    <div className={base}>
+      <pre className="whitespace-pre-wrap [font-family:var(--font-mono-data)]">{JSON.stringify(event, null, 2)}</pre>
     </div>
   )
 }
@@ -131,10 +132,14 @@ export function TimelinePanel() {
   return (
     <div className="flex flex-col h-full overflow-hidden">
       {/* Filter bar */}
-      <div className="flex flex-wrap gap-1 p-2 border-b border-border">
+      <div className="flex flex-wrap gap-1 p-2 border-b border-border bg-[var(--color-panel-surface)]">
         <button
           onClick={() => setFilterType(null)}
-          className={`px-2 py-0.5 rounded text-xs ${filterType === null ? 'bg-primary text-primary-foreground' : 'bg-muted'}`}
+          className={`px-2 py-0.5 text-[10px] [font-family:var(--font-mono-data)] uppercase tracking-wide transition-colors ${
+            filterType === null
+              ? 'border border-[var(--color-cockpit-cyan)]/60 text-[var(--color-cockpit-cyan)] bg-[var(--color-cockpit-cyan)]/10'
+              : 'border border-border/60 text-muted-foreground hover:text-foreground hover:border-border'
+          }`}
         >
           All
         </button>
@@ -142,7 +147,11 @@ export function TimelinePanel() {
           <button
             key={t}
             onClick={() => setFilterType(filterType === t ? null : t)}
-            className={`px-2 py-0.5 rounded text-xs ${filterType === t ? 'bg-primary text-primary-foreground' : 'bg-muted'}`}
+            className={`px-2 py-0.5 text-[10px] [font-family:var(--font-mono-data)] uppercase tracking-wide transition-colors ${
+              filterType === t
+                ? 'border border-[var(--color-cockpit-cyan)]/60 text-[var(--color-cockpit-cyan)] bg-[var(--color-cockpit-cyan)]/10'
+                : 'border border-border/60 text-muted-foreground hover:text-foreground hover:border-border'
+            }`}
           >
             {EVENT_TYPE_LABELS[t] ?? t}
           </button>
@@ -150,16 +159,18 @@ export function TimelinePanel() {
       </div>
 
       {/* Jump-to controls */}
-      <div className="flex gap-2 px-2 py-1 border-b border-border text-xs">
+      <div className="flex gap-2 px-2 py-1.5 border-b border-border bg-[var(--color-panel-surface)]">
         <button
           onClick={() => jumpNext('approval_request')}
           disabled={!jumpTargets.some(({ e }) => e.type === 'approval_request')}
+          className="cockpit-btn text-[9px] py-0.5 disabled:opacity-30"
         >
           Next Approval
         </button>
         <button
           onClick={() => jumpNext('file_change')}
           disabled={!jumpTargets.some(({ e }) => e.type === 'file_change')}
+          className="cockpit-btn text-[9px] py-0.5 disabled:opacity-30"
         >
           Next File Change
         </button>
@@ -182,8 +193,8 @@ export function TimelinePanel() {
       {/* Timeline list */}
       <div className="flex-1 overflow-y-auto" data-testid="timeline-list">
         {filteredEvents.length === 0 && (
-          <div className="flex items-center justify-center h-full text-sm text-muted-foreground">
-            No events
+          <div className="flex items-center justify-center h-full cockpit-label" style={{ color: 'var(--color-cockpit-dim)' }}>
+            -- NO EVENTS --
           </div>
         )}
         {filteredEvents.map((event, idx) => {
@@ -200,12 +211,14 @@ export function TimelinePanel() {
                   if (el) rowRefs.current.set(idx, el)
                 }}
                 onClick={() => setSelectedSeq(isSelected ? null : rowKey)}
-                className="flex items-start gap-2 px-3 py-2 cursor-pointer hover:bg-muted/50 border-b border-border/50"
+                className={`flex items-start gap-2 px-3 py-2 cursor-pointer border-b border-border/40 transition-colors ${
+                  isSelected ? 'bg-[var(--color-panel-surface)] border-l-2 border-l-[var(--color-cockpit-cyan)]/50' : 'hover:bg-[var(--color-panel-surface)]/60'
+                }`}
               >
-                <span className="text-xs text-muted-foreground w-16 shrink-0 font-mono">
+                <span className="data-readout-dim text-[10px] w-16 shrink-0 tabular-nums">
                   {new Date(event.timestamp).toLocaleTimeString()}
                 </span>
-                <span className="text-xs font-medium">
+                <span className="[font-family:var(--font-mono-data)] text-[10px] uppercase tracking-wide text-foreground">
                   {EVENT_TYPE_LABELS[event.type] ?? event.type}
                 </span>
               </div>

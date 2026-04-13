@@ -40,9 +40,11 @@ interface UiSlice {
   selectedSessionId: string | null
   activePanel: PanelId
   filters: { provider: string | null; status: string | null; search: string }
+  sessionDetailOpen: boolean
   selectSession: (id: string) => void
   setActivePanel: (panel: PanelId) => void
   setFilter: (key: string, value: string | null) => void
+  setSessionDetailOpen: (open: boolean) => void
 }
 
 interface WsSlice {
@@ -91,10 +93,12 @@ export const useStore = create<AppStore>()(
     selectedSessionId: null,
     activePanel: 'approvals',
     filters: { provider: null, status: null, search: '' },
+    sessionDetailOpen: false,
     selectSession: (id) => set({ selectedSessionId: id }),
     setActivePanel: (panel) => set({ activePanel: panel }),
     setFilter: (key, value) =>
       set((s) => ({ filters: { ...s.filters, [key]: value } })),
+    setSessionDetailOpen: (open) => set({ sessionDetailOpen: open }),
 
     // wsSlice
     wsStatus: 'disconnected',

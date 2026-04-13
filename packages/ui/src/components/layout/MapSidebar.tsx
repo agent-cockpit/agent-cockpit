@@ -31,6 +31,7 @@ export function MapSidebar({ onFocusSession }: Props) {
   const sessions = useActiveSessions()
   const selectedSessionId = useStore((s) => s.selectedSessionId)
   const selectSession = useStore((s) => s.selectSession)
+  const setSessionDetailOpen = useStore((s) => s.setSessionDetailOpen)
   const rows = [...sessions].sort((a, b) => b.lastEventAt.localeCompare(a.lastEventAt))
 
   return (
@@ -63,6 +64,7 @@ export function MapSidebar({ onFocusSession }: Props) {
             onClick={() => {
               selectSession(session.sessionId)
               onFocusSession(session.sessionId)
+              setSessionDetailOpen(true)
             }}
             className={`cockpit-frame-full group w-full rounded-none border px-3 py-2.5 text-left transition-all duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400/80 focus-visible:ring-offset-2 focus-visible:ring-offset-sidebar ${
               isSelected

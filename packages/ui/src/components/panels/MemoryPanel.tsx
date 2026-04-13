@@ -167,27 +167,30 @@ export function MemoryPanel() {
   return (
     <div className="flex flex-col gap-0 p-4 overflow-y-auto h-full">
       {historyMode && (
-        <div className="text-xs text-blue-700 bg-blue-50 border border-blue-200 rounded px-3 py-2 mb-2" data-testid="history-mode-banner">
-          Read-only — viewing a past session
+        <div
+          className="[font-family:var(--font-mono-data)] text-xs text-[var(--color-cockpit-cyan)] bg-[var(--color-cockpit-cyan)]/10 border border-[var(--color-cockpit-cyan)]/30 px-3 py-2 mb-3"
+          data-testid="history-mode-banner"
+        >
+          READ-ONLY — viewing a past session
         </div>
       )}
       {/* Section 1: CLAUDE.md Editor */}
       <section>
-        <h2 className="text-sm font-semibold mb-2">CLAUDE.md</h2>
+        <h2 className="cockpit-label mb-2">CLAUDE.md</h2>
         {showActiveWarning && (
-          <div className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded px-3 py-2 mb-2">
+          <div className="[font-family:var(--font-mono-data)] text-xs text-amber-200 bg-amber-500/15 border border-amber-400/40 px-3 py-2 mb-2">
             Changes take effect on the next session — a session is currently running.
           </div>
         )}
         {!claudeMdLoaded ? (
-          <p className="text-xs text-gray-400">Loading…</p>
+          <p className="data-readout-dim text-xs">Loading…</p>
         ) : claudeMd === null ? (
-          <div className="text-xs text-gray-500">
+          <div className="data-readout-dim text-xs">
             No CLAUDE.md found.{' '}
             {!historyMode && (
               <button
                 onClick={createClaudeMd}
-                className="text-blue-600 underline"
+                className="text-[var(--color-cockpit-cyan)] underline underline-offset-2"
               >
                 Create one
               </button>
@@ -199,18 +202,18 @@ export function MemoryPanel() {
               <textarea
                 value={editContent}
                 onChange={(e) => setEditContent(e.target.value)}
-                className="w-full h-64 font-mono text-xs border rounded p-2 resize-y"
+                className="w-full h-64 [font-family:var(--font-mono-data)] text-xs border border-border/80 bg-background/50 text-foreground rounded-none p-2 resize-y focus:border-[var(--color-cockpit-cyan)]/60 focus:outline-none"
                 aria-label="CLAUDE.md content"
               />
             )}
             {historyMode && (
-              <pre className="text-xs font-mono whitespace-pre-wrap bg-gray-50 border rounded p-2">{editContent}</pre>
+              <pre className="text-xs [font-family:var(--font-mono-data)] whitespace-pre-wrap bg-[var(--color-panel-surface)] border border-border/60 p-3 text-muted-foreground">{editContent}</pre>
             )}
             {!historyMode && (
               <button
                 onClick={handleSave}
                 disabled={saving}
-                className="mt-2 px-3 py-1 text-sm bg-blue-600 text-white rounded disabled:opacity-50"
+                className="mt-2 cockpit-btn disabled:opacity-40"
               >
                 {saving ? 'Saving…' : 'Save'}
               </button>
@@ -221,11 +224,11 @@ export function MemoryPanel() {
 
       {/* Section 2: Auto Memory (read-only) */}
       <section className="mt-6">
-        <h2 className="text-sm font-semibold mb-2">Auto Memory</h2>
+        <h2 className="cockpit-label mb-2">Auto Memory</h2>
         {autoMemory === null ? (
-          <p className="text-xs text-gray-500">No auto memory found.</p>
+          <p className="data-readout-dim text-xs">No auto memory found.</p>
         ) : (
-          <pre className="text-xs font-mono whitespace-pre-wrap bg-gray-50 border rounded p-3">
+          <pre className="text-xs [font-family:var(--font-mono-data)] whitespace-pre-wrap bg-[var(--color-panel-surface)] border border-border/60 p-3 text-muted-foreground">
             {autoMemory}
           </pre>
         )}
@@ -233,17 +236,17 @@ export function MemoryPanel() {
 
       {/* Section 3: Pinned Notes */}
       <section className="mt-6">
-        <h2 className="text-sm font-semibold mb-2">Pinned Notes</h2>
+        <h2 className="cockpit-label mb-2">Pinned Notes</h2>
         {notes.map((note) => (
           <div
             key={note.note_id}
-            className="flex items-start gap-2 mb-2 p-2 border rounded"
+            className="flex items-start gap-2 mb-2 p-2 border border-border/60 bg-[var(--color-panel-surface)]"
           >
-            <p className="flex-1 text-xs whitespace-pre-wrap">{note.content}</p>
+            <p className="flex-1 text-xs [font-family:var(--font-mono-data)] whitespace-pre-wrap text-foreground">{note.content}</p>
             {!historyMode && (
               <button
                 onClick={() => handleDeleteNote(note.note_id)}
-                className="text-xs text-red-600"
+                className="[font-family:var(--font-mono-data)] text-[10px] text-[var(--color-cockpit-red)]/80 hover:text-[var(--color-cockpit-red)] transition-colors shrink-0"
               >
                 Delete
               </button>
@@ -257,12 +260,13 @@ export function MemoryPanel() {
                 value={newNoteText}
                 onChange={(e) => setNewNoteText(e.target.value)}
                 placeholder="Note content…"
-                className="w-full h-24 text-xs border rounded p-2"
+                className="w-full h-24 text-xs [font-family:var(--font-mono-data)] border border-border/80 bg-background/50 text-foreground rounded-none p-2 focus:border-[var(--color-cockpit-cyan)]/60 focus:outline-none"
                 aria-label="New note content"
               />
               <button
                 onClick={handleCreateNote}
-                className="mt-1 px-3 py-1 text-sm bg-green-600 text-white rounded"
+                className="mt-1 cockpit-btn"
+                style={{ color: 'var(--color-cockpit-green)', borderColor: 'var(--color-cockpit-green)/50' }}
               >
                 Save Note
               </button>
@@ -270,7 +274,7 @@ export function MemoryPanel() {
           ) : (
             <button
               onClick={() => setShowNewNoteForm(true)}
-              className="text-xs text-blue-600 mt-1"
+              className="[font-family:var(--font-mono-data)] text-[10px] text-[var(--color-cockpit-cyan)] mt-1 hover:underline underline-offset-2"
             >
               + New Note
             </button>
@@ -280,9 +284,9 @@ export function MemoryPanel() {
 
       {/* Section 4: Pending Suggestions */}
       <section className="mt-6">
-        <h2 className="text-sm font-semibold mb-2">Pending Suggestions</h2>
+        <h2 className="cockpit-label mb-2">Pending Suggestions</h2>
         {visibleSuggestions.length === 0 ? (
-          <p className="text-xs text-gray-500">No pending suggestions.</p>
+          <p className="data-readout-dim text-xs">No pending suggestions.</p>
         ) : (
           visibleSuggestions.map((e) => {
             const ev = e as NormalizedEvent & { memoryKey?: string; value?: string; id?: string }
@@ -290,21 +294,23 @@ export function MemoryPanel() {
             return (
               <div
                 key={e.sessionId + suggestionId}
-                className="p-3 border rounded mb-2"
+                className="cockpit-frame-full p-3 border border-border/60 bg-[var(--color-panel-surface)] mb-2"
               >
-                <p className="text-xs font-mono font-semibold">{ev.memoryKey}</p>
-                <p className="text-xs mt-1 whitespace-pre-wrap">{ev.value}</p>
+                <span className="cockpit-corner cockpit-corner-tl" aria-hidden />
+                <span className="cockpit-corner cockpit-corner-br" aria-hidden />
+                <p className="[font-family:var(--font-mono-data)] text-xs font-semibold text-[var(--color-cockpit-cyan)]">{ev.memoryKey}</p>
+                <p className="text-xs mt-1 whitespace-pre-wrap text-muted-foreground [font-family:var(--font-mono-data)]">{ev.value}</p>
                 {!historyMode && (
                   <div className="flex gap-2 mt-2">
                     <button
                       onClick={() => handleApprove(e)}
-                      className="text-xs px-2 py-1 bg-green-600 text-white rounded"
+                      className="text-[10px] px-2 py-1 [font-family:var(--font-mono-data)] uppercase tracking-wide bg-[var(--color-cockpit-green)]/20 border border-[var(--color-cockpit-green)]/50 text-[var(--color-cockpit-green)] hover:bg-[var(--color-cockpit-green)]/30 transition-colors"
                     >
                       Approve
                     </button>
                     <button
                       onClick={() => handleReject(e)}
-                      className="text-xs px-2 py-1 bg-red-600 text-white rounded"
+                      className="text-[10px] px-2 py-1 [font-family:var(--font-mono-data)] uppercase tracking-wide bg-[var(--color-cockpit-red)]/20 border border-[var(--color-cockpit-red)]/50 text-[var(--color-cockpit-red)] hover:bg-[var(--color-cockpit-red)]/30 transition-colors"
                     >
                       Reject
                     </button>

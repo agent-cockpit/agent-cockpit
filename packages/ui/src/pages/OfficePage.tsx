@@ -1,6 +1,6 @@
 // DnD removed in Phase 15-03. Positions are owned by gameState.npcs. Zone assignment in Phase 17.
 
-import { useState, useRef, useEffect } from 'react'
+import { useRef, useEffect } from 'react'
 import { useStore } from '../store/index.js'
 import { useActiveSessions } from '../store/selectors.js'
 import { InstancePopupHub } from '../components/office/InstancePopupHub.js'
@@ -185,7 +185,8 @@ function drawScreenOverlays(
 
 export function OfficePage() {
   const sessions = useActiveSessions()
-  const [popupOpen, setPopupOpen] = useState(false)
+  const sessionDetailOpen = useStore((s) => s.sessionDetailOpen)
+  const setSessionDetailOpen = useStore((s) => s.setSessionDetailOpen)
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const containerRef = useRef<HTMLDivElement>(null)
   const imageCacheRef = useRef<Map<string, HTMLImageElement>>(new Map())
@@ -398,7 +399,7 @@ export function OfficePage() {
           cam.y = cam.targetY
           useStore.getState().selectSession(sessionId)
           useStore.getState().setHistoryMode?.(false)
-          setPopupOpen(true)
+          setSessionDetailOpen(true)
           break
         }
       }
@@ -424,7 +425,7 @@ export function OfficePage() {
           {/* React UI overlays rendered here in future phases */}
         </div>
       </div>
-      <InstancePopupHub open={popupOpen} onClose={() => setPopupOpen(false)} />
+      <InstancePopupHub open={sessionDetailOpen} onClose={() => setSessionDetailOpen(false)} />
     </>
   )
 }

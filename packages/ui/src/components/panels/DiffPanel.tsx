@@ -38,14 +38,14 @@ function formatElapsed(ms: number): string {
 function DiffView({ diff }: { diff: string }) {
   const lines = diff.split('\n')
   return (
-    <pre className="text-xs font-mono overflow-x-auto p-3">
+    <pre className="text-xs [font-family:var(--font-mono-data)] overflow-x-auto p-3">
       {lines.map((line, i) => {
         if (line.startsWith('+') && !line.startsWith('+++')) {
           return (
             <div
               key={i}
               data-testid="diff-line-add"
-              className="text-green-600 bg-green-50"
+              className="text-emerald-400 bg-emerald-900/20"
             >
               {line}
             </div>
@@ -56,7 +56,7 @@ function DiffView({ diff }: { diff: string }) {
             <div
               key={i}
               data-testid="diff-line-del"
-              className="text-red-600 bg-red-50"
+              className="text-rose-400 bg-rose-900/20"
             >
               {line}
             </div>
@@ -64,12 +64,12 @@ function DiffView({ diff }: { diff: string }) {
         }
         if (line.startsWith('@')) {
           return (
-            <div key={i} className="text-blue-500">
+            <div key={i} style={{ color: 'var(--color-cockpit-cyan)', opacity: 0.7 }}>
               {line}
             </div>
           )
         }
-        return <div key={i}>{line}</div>
+        return <div key={i} className="text-muted-foreground">{line}</div>
       })}
     </pre>
   )
@@ -104,48 +104,64 @@ export function DiffPanel() {
   return (
     <div className="flex flex-col h-full">
       {/* Summary banner */}
-      <div className="flex items-center gap-4 px-4 py-2 border-b border-border text-sm">
-        <span>
-          {filesTouched} {filesTouched === 1 ? 'file' : 'files'} changed
+      <div className="flex items-center gap-4 px-4 py-2 border-b border-border bg-[var(--color-panel-surface)]">
+        <span className="data-readout text-[10px]">
+          <span className="data-readout-dim">FILES:&nbsp;</span>
+          <span className="tabular-nums">{String(filesTouched).padStart(2, '0')}</span>
         </span>
-        <span className="capitalize">{finalStatus}</span>
-        {elapsedMs !== null && <span>{formatElapsed(elapsedMs)}</span>}
+        <span className="[font-family:var(--font-mono-data)] text-[10px] uppercase tracking-wide"
+              style={{ color: finalStatus === 'active' ? 'var(--color-cockpit-green)' : finalStatus === 'error' ? 'var(--color-cockpit-red)' : 'var(--color-cockpit-dim)' }}>
+          {finalStatus}
+        </span>
+        {elapsedMs !== null && (
+          <span className="data-readout-dim text-[10px] tabular-nums">{formatElapsed(elapsedMs)}</span>
+        )}
       </div>
 
       {/* Body: file tree + diff view */}
       <div className="flex flex-1 overflow-hidden">
         {/* File tree */}
-        <div className="w-64 border-r border-border overflow-y-auto">
+        <div className="w-64 border-r border-border overflow-y-auto bg-[var(--color-panel-surface)]">
           {fileTree.length === 0 ? (
-            <div className="p-4 text-sm text-muted-foreground">No files changed</div>
+            <div className="p-4 cockpit-label" style={{ color: 'var(--color-cockpit-dim)' }}>No files changed</div>
           ) : (
-            fileTree.map((entry) => (
-              <div
-                key={entry.filePath}
-                data-testid="file-tree-row"
-                onClick={() => setSelectedFilePath(entry.filePath)}
-                className={`px-3 py-2 cursor-pointer text-xs font-mono hover:bg-muted/50 ${
-                  entry.filePath === selectedFilePath ? 'bg-muted font-semibold' : ''
-                }`}
-              >
-                <div>{entry.filePath.split('/').pop()}</div>
-                <div className="text-muted-foreground truncate">{entry.filePath}</div>
-                <span className="text-[10px] uppercase">{entry.changeType}</span>
-              </div>
-            ))
+            fileTree.map((entry) => {
+              const changeColor =
+                entry.changeType === 'created' ? 'var(--color-cockpit-green)' :
+                entry.changeType === 'deleted' ? 'var(--color-cockpit-red)' :
+                'var(--color-cockpit-amber)'
+              return (
+                <div
+                  key={entry.filePath}
+                  data-testid="file-tree-row"
+                  onClick={() => setSelectedFilePath(entry.filePath)}
+                  className={`px-3 py-2 cursor-pointer transition-colors ${
+                    entry.filePath === selectedFilePath
+                      ? 'bg-[var(--color-cockpit-cyan)]/10 border-l-2 border-l-[var(--color-cockpit-cyan)]'
+                      : 'hover:bg-muted/30 border-l-2 border-l-transparent'
+                  }`}
+                >
+                  <div className="[font-family:var(--font-mono-data)] text-[10px] text-foreground">{entry.filePath.split('/').pop()}</div>
+                  <div className="data-readout-dim text-[10px] truncate">{entry.filePath}</div>
+                  <span className="[font-family:var(--font-mono-data)] text-[9px] uppercase" style={{ color: changeColor }}>
+                    {entry.changeType}
+                  </span>
+                </div>
+              )
+            })
           )}
         </div>
 
         {/* Diff view */}
         <div className="flex-1 overflow-auto">
           {selectedEntry === null ? (
-            <div className="flex items-center justify-center h-full text-sm text-muted-foreground">
-              Select a file to view its diff
+            <div className="flex items-center justify-center h-full cockpit-label" style={{ color: 'var(--color-cockpit-dim)' }}>
+              -- SELECT FILE --
             </div>
           ) : selectedEntry.diff ? (
             <DiffView diff={selectedEntry.diff} />
           ) : (
-            <div className="p-4 text-sm text-muted-foreground">No diff available</div>
+            <div className="p-4 cockpit-label" style={{ color: 'var(--color-cockpit-dim)' }}>No diff available</div>
           )}
         </div>
       </div>

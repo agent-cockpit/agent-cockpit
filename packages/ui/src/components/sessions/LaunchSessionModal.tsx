@@ -74,32 +74,37 @@ export function LaunchSessionModal({ open, onClose }: LaunchSessionModalProps) {
       role="dialog"
       aria-modal="true"
       aria-label="Launch Session"
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/50"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60"
     >
-      <div className="w-full max-w-md rounded-lg bg-white p-6 shadow-xl">
-        <div className="mb-4 flex items-center justify-between">
-          <h2 className="text-lg font-semibold">Launch Session</h2>
+      <div className="cockpit-frame-full w-full max-w-md bg-background border border-border/80 p-6 shadow-[0_0_40px_rgba(34,211,238,0.08),0_20px_60px_rgba(0,0,0,0.6)]">
+        <span className="cockpit-corner cockpit-corner-tl" aria-hidden />
+        <span className="cockpit-corner cockpit-corner-tr" aria-hidden />
+        <span className="cockpit-corner cockpit-corner-bl" aria-hidden />
+        <span className="cockpit-corner cockpit-corner-br" aria-hidden />
+
+        <div className="mb-5 flex items-center justify-between">
+          <h2 className="cockpit-label">Launch Session</h2>
           <button
             type="button"
             onClick={handleClose}
             aria-label="Close"
-            className="text-gray-400 hover:text-gray-600"
+            className="cockpit-label hover:text-foreground transition-colors px-2 py-1"
           >
-            ×
+            [X]
           </button>
         </div>
 
         {state.type !== 'claude-success' && state.type !== 'codex-success' && (
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
-              <label htmlFor="launch-provider" className="block text-sm font-medium text-gray-700">
+              <label htmlFor="launch-provider" className="cockpit-label block mb-1.5">
                 Provider
               </label>
               <select
                 id="launch-provider"
                 value={provider}
                 onChange={(e) => setProvider(e.target.value as 'claude' | 'codex')}
-                className="mt-1 block w-full rounded border border-gray-300 px-3 py-2 text-sm"
+                className="block w-full rounded-none border border-border/80 bg-[var(--color-panel-surface)] px-3 py-2 [font-family:var(--font-mono-data)] text-xs text-foreground focus:outline-none focus:border-[var(--color-cockpit-cyan)]/60"
               >
                 <option value="claude">claude</option>
                 <option value="codex">codex</option>
@@ -107,7 +112,7 @@ export function LaunchSessionModal({ open, onClose }: LaunchSessionModalProps) {
             </div>
 
             <div>
-              <label htmlFor="launch-workspace" className="block text-sm font-medium text-gray-700">
+              <label htmlFor="launch-workspace" className="cockpit-label block mb-1.5">
                 Workspace Path
               </label>
               <input
@@ -117,28 +122,31 @@ export function LaunchSessionModal({ open, onClose }: LaunchSessionModalProps) {
                 onChange={(e) => setWorkspacePath(e.target.value)}
                 placeholder="/path/to/project"
                 required
-                className="mt-1 block w-full rounded border border-gray-300 px-3 py-2 text-sm"
+                className="block w-full rounded-none border border-border/80 bg-[var(--color-panel-surface)] px-3 py-2 [font-family:var(--font-mono-data)] text-xs text-foreground placeholder:text-[var(--color-cockpit-dim)] focus:outline-none focus:border-[var(--color-cockpit-cyan)]/60"
               />
             </div>
 
             {state.type === 'error' && (
-              <p className="text-sm text-red-600">{state.message}</p>
+              <p className="[font-family:var(--font-mono-data)] text-xs" style={{ color: 'var(--color-cockpit-red)' }}>
+                {state.message}
+              </p>
             )}
 
-            <div className="flex justify-end gap-2">
+            <div className="flex justify-end gap-2 pt-1">
               <button
                 type="button"
                 onClick={handleClose}
-                className="rounded border border-gray-300 px-4 py-2 text-sm hover:bg-gray-50"
+                className="cockpit-btn"
               >
                 Cancel
               </button>
               <button
                 type="submit"
                 disabled={state.type === 'loading'}
-                className="rounded bg-blue-600 px-4 py-2 text-sm text-white hover:bg-blue-700 disabled:opacity-50"
+                className="cockpit-btn disabled:opacity-40"
+                style={{ color: 'var(--color-cockpit-green)', borderColor: 'var(--color-cockpit-green)' }}
               >
-                {state.type === 'loading' ? 'Launching...' : 'Launch'}
+                {state.type === 'loading' ? 'Launching…' : 'Launch'}
               </button>
             </div>
           </form>
@@ -146,24 +154,25 @@ export function LaunchSessionModal({ open, onClose }: LaunchSessionModalProps) {
 
         {state.type === 'claude-success' && (
           <div className="space-y-4">
-            <p className="text-sm text-gray-700">
+            <p className="[font-family:var(--font-mono-data)] text-xs text-muted-foreground">
               Run this command in your terminal to start Claude with Cockpit hooks:
             </p>
-            <pre className="overflow-x-auto rounded bg-gray-100 p-3 text-xs">
+            <pre className="overflow-x-auto bg-[var(--color-panel-surface)] border border-border/60 p-3 [font-family:var(--font-mono-data)] text-xs text-[var(--color-cockpit-cyan)]">
               {state.hookCommand}
             </pre>
             <div className="flex justify-end gap-2">
               <button
                 type="button"
                 onClick={() => navigator.clipboard.writeText(state.type === 'claude-success' ? (state as { type: 'claude-success'; hookCommand: string }).hookCommand : '')}
-                className="rounded border border-gray-300 px-4 py-2 text-sm hover:bg-gray-50"
+                className="cockpit-btn"
               >
-                Copy to clipboard
+                Copy
               </button>
               <button
                 type="button"
                 onClick={handleClose}
-                className="rounded bg-blue-600 px-4 py-2 text-sm text-white hover:bg-blue-700"
+                className="cockpit-btn"
+                style={{ color: 'var(--color-cockpit-green)', borderColor: 'var(--color-cockpit-green)' }}
               >
                 Done
               </button>
@@ -173,12 +182,15 @@ export function LaunchSessionModal({ open, onClose }: LaunchSessionModalProps) {
 
         {state.type === 'codex-success' && (
           <div className="space-y-4">
-            <p className="text-sm text-green-600">Session started (ID: {state.sessionId})</p>
+            <p className="[font-family:var(--font-mono-data)] text-xs" style={{ color: 'var(--color-cockpit-green)' }}>
+              Session started (ID: {state.sessionId})
+            </p>
             <div className="flex justify-end">
               <button
                 type="button"
                 onClick={handleClose}
-                className="rounded bg-blue-600 px-4 py-2 text-sm text-white hover:bg-blue-700"
+                className="cockpit-btn"
+                style={{ color: 'var(--color-cockpit-green)', borderColor: 'var(--color-cockpit-green)' }}
               >
                 Done
               </button>
