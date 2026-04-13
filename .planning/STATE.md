@@ -4,13 +4,13 @@ milestone: v1.1
 milestone_name: — 2D Pixel Art Game Experience
 status: planning
 stopped_at: Completed 16.6-01-PLAN.md
-last_updated: "2026-04-13T02:46:06.983Z"
+last_updated: "2026-04-13T02:53:57.444Z"
 last_activity: 2026-04-10 — v1.1 roadmap written (7 phases, 16 plans)
 progress:
   total_phases: 21
-  completed_phases: 9
+  completed_phases: 10
   total_plans: 37
-  completed_plans: 34
+  completed_plans: 35
   percent: 0
 ---
 
