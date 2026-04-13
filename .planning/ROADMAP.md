@@ -227,10 +227,10 @@ Plans:
   3. No map is skipped or overwritten — both render every frame in correct layer order
   4. World bounds (`WORLD_W` / `WORLD_H`) expand to cover the union of all loaded map rectangles
   5. Collision and terrain data load correctly for all maps, not just the last
-**Plans:** 2 plans
+**Plans:** 1/2 plans executed
 
 Plans:
-- [ ] 16.9-01-PLAN.md — TDD: multi-map TilemapRenderer (manifest load, array blit, worldW/H union) + CollisionMap append/origin opts (multi-map-render)
+- [x] 16.9-01-PLAN.md — TDD: multi-map TilemapRenderer (manifest load, array blit, worldW/H union) + CollisionMap append/origin opts (multi-map-render)
 - [ ] 16.9-02-PLAN.md — Wire manifest + multi-map collision load in OfficePage, update GameState world bounds, visual QA checkpoint (multi-map-render)
 
 ### Phase 16.10: NPC Spawn Inside Map Fix (INSERTED)
