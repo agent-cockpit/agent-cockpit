@@ -66,14 +66,17 @@ export class ClaudeLauncher {
       setClaudeSessionId(this.db, sessionId, sessionId, workspacePath);
     }
 
-    // 4. Spawn the claude process (cwd=workspacePath, no --workspace flag exists in claude CLI)
+    // 4. Spawn the claude process via `script` to allocate a pseudo-TTY.
+    // Claude detects no TTY when stdin is ignored and refuses to start interactively.
+    // `script -q /dev/null claude ...` wraps the process in a PTY so claude sees a terminal.
     console.log(`[ClaudeLauncher] spawning claude --session-id ${sessionId} --settings ${settingsPath} in cwd=${workspacePath}`);
-    const args = ['--session-id', sessionId, '--settings', settingsPath];
+    const claudeArgs = ['--session-id', sessionId, '--settings', settingsPath];
+    const args = ['-q', '/dev/null', 'claude', ...claudeArgs];
     const spawnOpts = { cwd: workspacePath, stdio: ['ignore', 'pipe', 'pipe'] as ['ignore', 'pipe', 'pipe'], detached: true };
 
     const proc = this.procFactory
-      ? this.procFactory(args, spawnOpts)
-      : spawn('claude', args, spawnOpts);
+      ? this.procFactory(claudeArgs, spawnOpts)
+      : spawn('script', args, spawnOpts);
 
     proc.unref();
 
