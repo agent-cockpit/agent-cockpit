@@ -170,12 +170,14 @@ Which phases cover which requirements. Updated during roadmap creation.
 | NOTIF-02 | Phase 11 | Pending |
 | HIST-01 | Phase 12 | Pending |
 | HIST-02 | Phase 8 | Complete |
+| multi-map-render | Phase 16.9 | Complete |
 
 **Coverage:**
 - v1 requirements: 39 total
 - Mapped to phases: 39
 - Unmapped: 0 ✓
 - Pending (gap closure phases 10–12): 9
+- Phase-local roadmap requirements mapped: 1 (`multi-map-render`)
 
 ---
 *Requirements defined: 2026-04-04*

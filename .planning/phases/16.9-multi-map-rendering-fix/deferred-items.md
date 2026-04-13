@@ -14,3 +14,9 @@ Out-of-scope failures discovered while running `cd packages/ui && npx vitest run
 - `src/__tests__/eventsSlice.test.ts`: identity assertion mismatch (`toBe` object reference)
 
 These test failures are outside Plan `16.9-01` file scope and were not modified in this execution.
+
+Out-of-scope failure discovered while completing Plan `16.9-02`:
+
+- `src/components/layout/__tests__/MapSidebar.test.tsx`: unhandled exception `TypeError: setSessionDetailOpen is not a function` during full-suite run (`cd packages/ui && npx vitest run`)
+
+This failure is outside Plan `16.9-02` file scope and was not modified in this execution.

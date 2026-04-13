@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v1.1
 milestone_name: — 2D Pixel Art Game Experience
 status: executing
-stopped_at: Completed 16.9-01-PLAN.md
-last_updated: "2026-04-13T20:26:44.234Z"
-last_activity: 2026-04-13 — Completed 16.9-01 (multi-map renderer + collision append/origin options)
+stopped_at: Completed 16.9-02-PLAN.md
+last_updated: "2026-04-13T21:21:13.000Z"
+last_activity: 2026-04-13 — Completed 16.9-02 (manifest wiring + visual QA approval)
 progress:
   total_phases: 24
-  completed_phases: 12
+  completed_phases: 13
   total_plans: 78
-  completed_plans: 69
-  percent: 88
+  completed_plans: 70
+  percent: 90
 ---
 
 # Project State
@@ -25,12 +25,12 @@ See: .planning/PROJECT.md (updated 2026-04-10)
 
 ## Current Position
 
-Phase: 16.9 — Multi-Map Rendering Fix
-Plan: 02
-Status: Executing — 16.9-01 complete, 16.9-02 pending
-Last activity: 2026-04-13 — Completed 16.9-01 (multi-map renderer + collision append/origin options)
+Phase: 16.10 — NPC Spawn Inside Map Fix
+Plan: 01
+Status: Ready — 16.9 complete
+Last activity: 2026-04-13 — Completed 16.9-02 (manifest wiring + visual QA approval)
 
-Progress: [█████████░] 88%
+Progress: [█████████░] 90%
 
 ## v1.0 Completed
 
@@ -138,6 +138,8 @@ All v1.0 decisions remain active and respected.
 - [Phase 16.8]: Treat checkpoint Task 3 as complete from explicit user approval in resume context.
 - [Phase 16.9]: TilemapRenderer now loads map composites from /maps/maps-manifest.json and computes world bounds from manifest extents.
 - [Phase 16.9]: CollisionMap loadTerrain/loadObjects now accept optional tile/world origin and append flags with backward-compatible defaults.
+- [Phase 16.9]: Continuation resumed from checkpoint with explicit user approval for Task 2
+- [Phase 16.9]: Out-of-scope full-suite test failures were logged to deferred-items.md instead of being fixed in this plan
 
 ### Roadmap Evolution
 
@@ -164,8 +166,8 @@ None yet — requirements phase will surface tasks.
 
 ## Session Continuity
 
-Last session: 2026-04-13T20:26:44.231Z
-Stopped at: Completed 16.9-01-PLAN.md
+Last session: 2026-04-13T21:18:09.362Z
+Stopped at: Completed 16.9-02-PLAN.md
 Resume file: None
 
 *Updated after each plan completion*
