@@ -25,6 +25,20 @@ interface SceneFxPatterns {
   scanlines: CanvasPattern | null
 }
 
+/** Verified walkable spawn positions for NPC agents (world pixel coords).
+ * All slots confirmed non-solid via terrain-map.json: terrain IDs 1 and 4 (walkable).
+ * Player start tile (19,17)=px(2080,1920) is slot[4] — terrain ID 4, confirmed walkable.
+ */
+const SPAWN_SLOTS: ReadonlyArray<{ x: number; y: number }> = [
+  { x: 1952, y: 1792 }, { x: 2016, y: 1792 }, { x: 2112, y: 1792 }, { x: 2240, y: 1792 },
+  { x: 2080, y: 1920 }, { x: 2176, y: 1920 }, { x: 2272, y: 1920 },
+  { x: 1984, y: 2016 }, { x: 2112, y: 2016 }, { x: 2240, y: 2016 },
+  { x: 1952, y: 2144 }, { x: 2080, y: 2144 },
+] as const
+
+/** Pixel offset applied per cycle to prevent exact NPC stacking when sessions > 12. */
+const SPAWN_JITTER = 16
+
 function loadImage(src: string): Promise<HTMLImageElement> {
   return new Promise((resolve, reject) => {
     const img = new Image()
@@ -210,15 +224,15 @@ export function OfficePage() {
     return () => { _scrollToSession = null }
   }, [])
 
-  // Seed gameState.npcs from sessions
+  // Seed gameState.npcs from sessions — assign walkable spawn slot on first appearance only
   useEffect(() => {
-    const CELL = 96
-    const COLS = 5
     sessions.forEach((session, i) => {
       if (!gameState.npcs[session.sessionId]) {
+        const slot = SPAWN_SLOTS[i % SPAWN_SLOTS.length]
+        const cycle = Math.floor(i / SPAWN_SLOTS.length)
         gameState.npcs[session.sessionId] = {
-          x: (i % COLS) * CELL,
-          y: Math.floor(i / COLS) * CELL,
+          x: slot.x + (cycle > 0 ? (cycle % 3) * SPAWN_JITTER : 0),
+          y: slot.y + (cycle > 0 ? Math.floor(cycle / 3) * SPAWN_JITTER : 0),
         }
       }
     })
