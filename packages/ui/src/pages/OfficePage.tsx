@@ -26,14 +26,14 @@ interface SceneFxPatterns {
 }
 
 /** Verified walkable spawn positions for NPC agents (world pixel coords).
- * All slots confirmed non-solid via terrain-map.json: terrain IDs 1 and 4 (walkable).
- * Player start tile (19,17)=px(2080,1920) is slot[4] — terrain ID 4, confirmed walkable.
+ * Slots are validated against terrain + object collisions using PLAYER_HITBOX.
+ * Coordinates stay on open floor around map center to avoid wall/object edge spawns.
  */
 const SPAWN_SLOTS: ReadonlyArray<{ x: number; y: number }> = [
-  { x: 1952, y: 1792 }, { x: 2016, y: 1792 }, { x: 2112, y: 1792 }, { x: 2240, y: 1792 },
-  { x: 2080, y: 1920 }, { x: 2176, y: 1920 }, { x: 2272, y: 1920 },
-  { x: 1984, y: 2016 }, { x: 2112, y: 2016 }, { x: 2240, y: 2016 },
-  { x: 1952, y: 2144 }, { x: 2080, y: 2144 },
+  { x: 1984, y: 1888 }, { x: 2048, y: 1888 }, { x: 2112, y: 1888 }, { x: 2176, y: 1888 },
+  { x: 2016, y: 1920 }, { x: 2080, y: 1920 }, { x: 2144, y: 1920 },
+  { x: 1952, y: 1952 }, { x: 2016, y: 1952 },
+  { x: 1920, y: 2112 }, { x: 1984, y: 2112 }, { x: 2048, y: 2112 },
 ] as const
 
 /** Pixel offset applied per cycle to prevent exact NPC stacking when sessions > 12. */

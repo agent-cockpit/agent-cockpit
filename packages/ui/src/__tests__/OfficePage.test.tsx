@@ -126,13 +126,13 @@ describe('OfficePage', () => {
     expect(dndElements).toHaveLength(0)
   })
 
-  it('seeds gameState.npcs with grid positions for each session', () => {
+  it('seeds gameState.npcs with spawn-slot positions for each session', () => {
     mockUseActiveSessions.mockReturnValue([SESSION_1, SESSION_2])
     act(() => { render(<OfficePage />) })
     // Session at index 0: SPAWN_SLOTS[0]
-    expect(gameState.npcs['sess-1']).toEqual({ x: 1952, y: 1792 })
+    expect(gameState.npcs['sess-1']).toEqual({ x: 1984, y: 1888 })
     // Session at index 1: SPAWN_SLOTS[1]
-    expect(gameState.npcs['sess-2']).toEqual({ x: 2016, y: 1792 })
+    expect(gameState.npcs['sess-2']).toEqual({ x: 2048, y: 1888 })
   })
 
   it('cleans up gameState.npcs for sessions that ended', () => {
@@ -206,8 +206,8 @@ describe('NPC spawn slot seeding', () => {
     mockUseActiveSessions.mockReturnValue([SESSION_1, SESSION_2])
     act(() => { render(<OfficePage />) })
 
-    expect(gameState.npcs['sess-1']).toEqual({ x: 1952, y: 1792 })
-    expect(gameState.npcs['sess-2']).toEqual({ x: 2016, y: 1792 })
+    expect(gameState.npcs['sess-1']).toEqual({ x: 1984, y: 1888 })
+    expect(gameState.npcs['sess-2']).toEqual({ x: 2048, y: 1888 })
   })
 
   it('existing NPC position is not overwritten on re-seed', () => {
@@ -223,15 +223,15 @@ describe('NPC spawn slot seeding', () => {
 
     act(() => { render(<OfficePage />) })
 
-    expect(gameState.npcs['sess-12']).toEqual({ x: 1968, y: 1792 })
+    expect(gameState.npcs['sess-12']).toEqual({ x: 2000, y: 1888 })
   })
 
   it('all 12 SPAWN_SLOTS are within world bounds (1..3232)', () => {
     const slots = [
-      { x: 1952, y: 1792 }, { x: 2016, y: 1792 }, { x: 2112, y: 1792 }, { x: 2240, y: 1792 },
-      { x: 2080, y: 1920 }, { x: 2176, y: 1920 }, { x: 2272, y: 1920 },
-      { x: 1984, y: 2016 }, { x: 2112, y: 2016 }, { x: 2240, y: 2016 },
-      { x: 1952, y: 2144 }, { x: 2080, y: 2144 },
+      { x: 1984, y: 1888 }, { x: 2048, y: 1888 }, { x: 2112, y: 1888 }, { x: 2176, y: 1888 },
+      { x: 2016, y: 1920 }, { x: 2080, y: 1920 }, { x: 2144, y: 1920 },
+      { x: 1952, y: 1952 }, { x: 2016, y: 1952 },
+      { x: 1920, y: 2112 }, { x: 1984, y: 2112 }, { x: 2048, y: 2112 },
     ]
 
     const maxCoord = 3232 - 64
