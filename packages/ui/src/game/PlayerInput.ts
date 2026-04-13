@@ -1,5 +1,7 @@
 import { WORLD_W, WORLD_H } from './GameState.js'
 import type { Direction } from '../components/office/spriteStates.js'
+import type { CollisionMap } from './CollisionMap.js'
+import { PLAYER_HITBOX } from './CollisionMap.js'
 
 export const PLAYER_SPEED = 120 // pixels per second
 export const WALK_FRAME_DURATION_MS = 100  // 10fps walk cycle — natural humanoid gait (was 150)
@@ -70,6 +72,7 @@ export function movePlayer(
   player: { x: number; y: number; direction: string; animTime: number },
   keys: ReadonlySet<string>,
   deltaMs: number,
+  collisionMap?: CollisionMap,
 ): void {
   const dt = deltaMs / 1000
   const dist = PLAYER_SPEED * dt
@@ -87,8 +90,17 @@ export function movePlayer(
     dy *= INV_SQRT2
   }
 
-  player.x = Math.max(0, Math.min(player.x + dx * dist, WORLD_W - 64))
-  player.y = Math.max(0, Math.min(player.y + dy * dist, WORLD_H - 64))
+  const newX = player.x + dx * dist
+  const newY = player.y + dy * dist
+  if (collisionMap) {
+    const xBlocked = collisionMap.overlaps(newX + PLAYER_HITBOX.offsetX, player.y + PLAYER_HITBOX.offsetY, PLAYER_HITBOX.w, PLAYER_HITBOX.h)
+    const yBlocked = collisionMap.overlaps(player.x + PLAYER_HITBOX.offsetX, newY + PLAYER_HITBOX.offsetY, PLAYER_HITBOX.w, PLAYER_HITBOX.h)
+    player.x = xBlocked ? player.x : Math.max(0, Math.min(newX, WORLD_W - 64))
+    player.y = yBlocked ? player.y : Math.max(0, Math.min(newY, WORLD_H - 64))
+  } else {
+    player.x = Math.max(0, Math.min(newX, WORLD_W - 64))
+    player.y = Math.max(0, Math.min(newY, WORLD_H - 64))
+  }
 
   const direction = deriveDirection(dx, dy)
   if (direction !== null) {

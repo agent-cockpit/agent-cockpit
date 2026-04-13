@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { PLAYER_SPEED, WALK_FRAME_DURATION_MS, WALK_FRAME_COUNT, attachInput, detachInput, getKeysDown, movePlayer } from '../PlayerInput.js'
 import { WORLD_W, WORLD_H } from '../GameState.js'
+import { CollisionMap } from '../CollisionMap.js'
 
 // Helper to make a player object
 function makePlayer(x = 0, y = 0, direction = 'south', animTime = 0) {
@@ -337,5 +338,93 @@ describe('movePlayer — animTime', () => {
   it('full 8-frame walk cycle completes in 800ms', () => {
     const cycleMs = WALK_FRAME_DURATION_MS * WALK_FRAME_COUNT
     expect(cycleMs).toBe(800)
+  })
+})
+
+// Helper: build a CollisionMap with one synthetic solid object at pixel coords (objectX, objectY, 32x32)
+function makeCollisionMapWithObject(objectX: number, objectY: number): CollisionMap {
+  const map = new CollisionMap()
+  map.loadObjects([{
+    description: 'Test Wall',
+    visible: true,
+    boundingBox: { x: objectX, y: objectY, width: 32, height: 32 }
+  }])
+  return map
+}
+
+describe('movePlayer — collision map', () => {
+  // PLAYER_HITBOX = { offsetX: 16, offsetY: 32, w: 32, h: 32 }
+  // PLAYER_SPEED = 120 px/s → 1000ms = 120px movement
+  //
+  // X-blocked test: Player at x=600, moving right (KeyD) 1000ms → newX=720
+  //   Hitbox overlaps check: overlaps(720+16, 500+32, 32, 32) = overlaps(736, 532, 32, 32)
+  //   Need object that overlaps [736..768] on X and [532..564] on Y.
+  //   Object at (740, 530) 32x32 → X=[740..772], Y=[530..562] → overlaps ✓
+  it('X-blocked: player.x stays unchanged, player.y also unchanged (pure X move)', () => {
+    const map = makeCollisionMapWithObject(740, 530)
+    const player = makePlayer(600, 500)
+    movePlayer(player, keys('KeyD'), 1000, map)
+    expect(player.x).toBe(600)
+    expect(player.y).toBe(500)
+  })
+
+  // Y-blocked: Player at y=600, moving down (KeyS) 1000ms → newY=720
+  //   Hitbox overlaps check: overlaps(500+16, 720+32, 32, 32) = overlaps(516, 752, 32, 32)
+  //   Need object at (510, 750) 32x32 → Y=[750..782], X=[510..542] → overlaps ✓
+  it('Y-blocked: player.y stays unchanged, player.x also unchanged (pure Y move)', () => {
+    const map = makeCollisionMapWithObject(510, 750)
+    const player = makePlayer(500, 600)
+    movePlayer(player, keys('KeyS'), 1000, map)
+    expect(player.y).toBe(600)
+    expect(player.x).toBe(500)
+  })
+
+  // Both axes blocked (corner) — player at (600,600), moving down-right diagonal
+  // dist = 120 * INV_SQRT2 ≈ 84.85 per axis
+  // newX ≈ 684.85 → hitbox X check: overlaps(684.85+16, 600+32, 32, 32) = overlaps(700.85, 632, 32, 32)
+  // newY ≈ 684.85 → hitbox Y check: overlaps(600+16, 684.85+32, 32, 32) = overlaps(616, 716.85, 32, 32)
+  // Block X: object at (700, 630) → overlaps ✓. Block Y: object at (616, 716) → overlaps ✓
+  it('corner-blocked: neither x nor y advances when both axes are blocked', () => {
+    const map = new CollisionMap()
+    map.loadObjects([
+      { description: 'Wall X', visible: true, boundingBox: { x: 700, y: 630, width: 32, height: 32 } },
+      { description: 'Wall Y', visible: true, boundingBox: { x: 616, y: 716, width: 32, height: 32 } },
+    ])
+    const player = makePlayer(600, 600)
+    movePlayer(player, keys('KeyD', 'KeyS'), 1000, map)
+    expect(player.x).toBe(600)
+    expect(player.y).toBe(600)
+  })
+
+  // CollisionMap that blocks nothing — movement proceeds normally
+  it('no collision: movement proceeds normally when CollisionMap blocks nothing', () => {
+    const map = new CollisionMap()  // empty — no solid tiles or objects
+    const player = makePlayer(SAFE_X, SAFE_Y)
+    movePlayer(player, keys('KeyD'), 1000, map)
+    expect(player.x).toBeCloseTo(SAFE_X + PLAYER_SPEED)
+    expect(player.y).toBe(SAFE_Y)
+  })
+
+  // Diagonal slide: solid in X path only, Y is free.
+  // Player at (600, 500), moving down-right. dist ≈ 84.85 per axis.
+  // newX ≈ 684.85 → X check: overlaps(700.85, 532, 32, 32)
+  //   Object at (700, 530) 32x32 → X=[700..732], Y=[530..562]. Overlaps ✓
+  // newY ≈ 584.85 → Y check: overlaps(616, 616.85, 32, 32)
+  //   Object Y=[530..562]. 616.85 < 562? No → no Y overlap → Y slides freely ✓
+  it('diagonal slide: X blocked but Y free — player.y increases, player.x stays', () => {
+    const map = makeCollisionMapWithObject(700, 530)
+    const player = makePlayer(600, 500)
+    const initialX = player.x
+    movePlayer(player, keys('KeyD', 'KeyS'), 1000, map)
+    expect(player.x).toBe(initialX)   // X blocked
+    expect(player.y).toBeGreaterThan(500)  // Y slides
+  })
+
+  // Backward compat: existing tests still pass without 4th arg
+  it('no map arg: movePlayer without CollisionMap behaves identically to before', () => {
+    const player = makePlayer(SAFE_X, SAFE_Y)
+    movePlayer(player, keys('KeyD'), 1000)  // no 4th arg
+    expect(player.x).toBeCloseTo(SAFE_X + PLAYER_SPEED)
+    expect(player.y).toBe(SAFE_Y)
   })
 })
