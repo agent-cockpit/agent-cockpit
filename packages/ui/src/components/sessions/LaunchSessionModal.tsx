@@ -14,10 +14,38 @@ type SubmitState =
   | { type: 'waiting_for_session_start'; sessionId: string }
   | { type: 'error'; message: string }
 
+interface BrowseEntry { name: string; fullPath: string }
+interface BrowseResult { path: string; parent: string | null; entries: BrowseEntry[] }
+
 export function LaunchSessionModal({ open, onClose }: LaunchSessionModalProps) {
   const [provider, setProvider] = useState<'claude' | 'codex'>('claude')
   const [workspacePath, setWorkspacePath] = useState('')
   const [state, setState] = useState<SubmitState>({ type: 'idle' })
+  const [browseOpen, setBrowseOpen] = useState(false)
+  const [browse, setBrowse] = useState<BrowseResult | null>(null)
+
+  async function openBrowse() {
+    const startPath = workspacePath.trim() || '~'
+    const res = await fetch(`${DAEMON_URL}/api/browse?path=${encodeURIComponent(startPath)}`)
+    if (res.ok) {
+      const data = await res.json() as BrowseResult
+      setBrowse(data)
+      setBrowseOpen(true)
+    }
+  }
+
+  async function browseInto(path: string) {
+    const res = await fetch(`${DAEMON_URL}/api/browse?path=${encodeURIComponent(path)}`)
+    if (res.ok) {
+      setBrowse(await res.json() as BrowseResult)
+    }
+  }
+
+  function selectPath(path: string) {
+    setWorkspacePath(path)
+    setBrowseOpen(false)
+    setBrowse(null)
+  }
 
   // Watch Zustand store for the launched session to appear (set by session_start WebSocket event)
   useEffect(() => {
@@ -133,15 +161,70 @@ export function LaunchSessionModal({ open, onClose }: LaunchSessionModalProps) {
               <label htmlFor="launch-workspace" className="cockpit-label block mb-1.5">
                 Workspace Path
               </label>
-              <input
-                id="launch-workspace"
-                type="text"
-                value={workspacePath}
-                onChange={(e) => setWorkspacePath(e.target.value)}
-                placeholder="/path/to/project"
-                required
-                className="block w-full rounded-none border border-border/80 bg-[var(--color-panel-surface)] px-3 py-2 [font-family:var(--font-mono-data)] text-xs text-foreground placeholder:text-[var(--color-cockpit-dim)] focus:outline-none focus:border-[var(--color-cockpit-cyan)]/60"
-              />
+              <div className="flex gap-1.5">
+                <input
+                  id="launch-workspace"
+                  type="text"
+                  value={workspacePath}
+                  onChange={(e) => { setWorkspacePath(e.target.value); setBrowseOpen(false) }}
+                  placeholder="/path/to/project"
+                  required
+                  className="block min-w-0 flex-1 rounded-none border border-border/80 bg-[var(--color-panel-surface)] px-3 py-2 [font-family:var(--font-mono-data)] text-xs text-foreground placeholder:text-[var(--color-cockpit-dim)] focus:outline-none focus:border-[var(--color-cockpit-cyan)]/60"
+                />
+                <button
+                  type="button"
+                  onClick={() => browseOpen ? setBrowseOpen(false) : openBrowse()}
+                  className="cockpit-btn shrink-0 px-2"
+                  title="Browse folders"
+                >
+                  …
+                </button>
+              </div>
+
+              {browseOpen && browse && (
+                <div className="mt-1 border border-[var(--color-cockpit-cyan)]/30 bg-[var(--color-panel-surface)] max-h-48 overflow-y-auto">
+                  {/* current path breadcrumb */}
+                  <div className="flex items-center gap-1 border-b border-border/40 px-2 py-1">
+                    {browse.parent !== null && (
+                      <button
+                        type="button"
+                        onClick={() => browseInto(browse.parent!)}
+                        className="cockpit-label hover:text-foreground transition-colors pr-1"
+                        title="Go up"
+                      >
+                        ↑
+                      </button>
+                    )}
+                    <span className="[font-family:var(--font-mono-data)] text-[10px] text-[var(--color-cockpit-dim)] truncate">{browse.path}</span>
+                  </div>
+
+                  {browse.entries.length === 0 && (
+                    <p className="px-3 py-2 [font-family:var(--font-mono-data)] text-[10px] text-[var(--color-cockpit-dim)]">
+                      No subdirectories
+                    </p>
+                  )}
+
+                  {browse.entries.map((entry) => (
+                    <div key={entry.fullPath} className="flex items-center group">
+                      <button
+                        type="button"
+                        onClick={() => browseInto(entry.fullPath)}
+                        className="flex-1 px-3 py-1.5 text-left [font-family:var(--font-mono-data)] text-xs text-foreground hover:bg-[var(--color-cockpit-cyan)]/10 truncate"
+                      >
+                        📁 {entry.name}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => selectPath(entry.fullPath)}
+                        className="shrink-0 px-2 py-1.5 cockpit-label text-[9px] opacity-0 group-hover:opacity-100 hover:text-foreground transition-opacity"
+                        title="Select this folder"
+                      >
+                        SELECT
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
 
             {state.type === 'error' && (

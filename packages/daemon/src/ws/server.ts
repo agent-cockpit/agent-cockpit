@@ -188,6 +188,30 @@ export function createWsServer(
       return;
     }
 
+    // GET /api/browse?path=<dir>  — returns immediate subdirectories for folder picker
+    const browseMatch = req.method === 'GET' && req.url?.startsWith('/api/browse');
+    if (browseMatch) {
+      const url = new URL(req.url!, 'http://localhost');
+      const rawPath = url.searchParams.get('path') ?? process.env['HOME'] ?? '/';
+      const dirPath = rawPath.startsWith('~')
+        ? rawPath.replace('~', process.env['HOME'] ?? '/')
+        : rawPath;
+      try {
+        const entries = fs.readdirSync(dirPath, { withFileTypes: true });
+        const dirs = entries
+          .filter((e) => e.isDirectory() && !e.name.startsWith('.'))
+          .map((e) => ({ name: e.name, fullPath: `${dirPath.replace(/\/$/, '')}/${e.name}` }))
+          .sort((a, b) => a.name.localeCompare(b.name));
+        const parent = dirPath !== '/' ? dirPath.split('/').slice(0, -1).join('/') || '/' : null;
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ path: dirPath, parent, entries: dirs }));
+      } catch {
+        res.writeHead(422, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: `Cannot read directory: ${dirPath}` }));
+      }
+      return;
+    }
+
     // POST /api/memory/suggestions/:id/approve
     const suggestApproveMatch = req.method === 'POST' && req.url?.match(/^\/api\/memory\/suggestions\/([^/]+)\/approve$/);
     if (suggestApproveMatch) {
