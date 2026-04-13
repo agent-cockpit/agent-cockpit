@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v1.1
 milestone_name: — 2D Pixel Art Game Experience
 status: executing
-stopped_at: Completed 16.8-01-PLAN.md
-last_updated: "2026-04-13T16:03:49Z"
-last_activity: 2026-04-13 — Completed 16.8-01 (sidebar shell tokens + resizable OpsLayout + regression pass)
+stopped_at: Completed 16.8-03-PLAN.md
+last_updated: "2026-04-13T16:24:18Z"
+last_activity: 2026-04-13 — Completed 16.8-03 (sidebar focus behavior + QA checkpoint approval)
 progress:
   total_phases: 21
-  completed_phases: 11
+  completed_phases: 12
   total_plans: 70
-  completed_plans: 67
-  percent: 96
+  completed_plans: 68
+  percent: 97
 ---
 
 # Project State
@@ -25,12 +25,12 @@ See: .planning/PROJECT.md (updated 2026-04-10)
 
 ## Current Position
 
-Phase: 16.8 — Sidebar Design Overhaul
-Plan: 03
-Status: In progress — Plans 01 and 02 completed; ready for Plan 03
-Last activity: 2026-04-13 — Completed 16.8-01 (sidebar shell tokens + resizable OpsLayout + regression pass)
+Phase: 17 — NPC Agent Behavior
+Plan: 01
+Status: Ready to start — Phase 16.8 complete (plans 01-03)
+Last activity: 2026-04-13 — Completed 16.8-03 (sidebar focus behavior + QA checkpoint approval)
 
-Progress: [██████████] 96%
+Progress: [██████████] 97%
 
 ## v1.0 Completed
 
@@ -133,6 +133,9 @@ All v1.0 decisions remain active and respected.
 - [Phase 16.8-sidebar-design-overhaul]: Secondary metadata line is conditional: pending approvals or non-active status
 - [Phase 16.8-sidebar-design-overhaul]: Defined semantic Tailwind v4 tokens in index.css instead of local hardcoded utility colors.
 - [Phase 16.8-sidebar-design-overhaul]: Implemented desktop-only resize handle via matchMedia('(min-width: 1024px)') with width clamp [260, 460].
+- [Phase 16.8]: Set both camera target and current coordinates during sidebar focus to preserve immediate snap behavior.
+- [Phase 16.8]: Update player coordinates alongside camera so follow logic does not pull camera away on later frames.
+- [Phase 16.8]: Treat checkpoint Task 3 as complete from explicit user approval in resume context.
 
 ### Roadmap Evolution
 
@@ -156,8 +159,8 @@ None yet — requirements phase will surface tasks.
 
 ## Session Continuity
 
-Last session: 2026-04-13T16:03:49Z
-Stopped at: Completed 16.8-01-PLAN.md
+Last session: 2026-04-13T16:22:05.154Z
+Stopped at: Completed 16.8-03-PLAN.md
 Resume file: None
 
 *Updated after each plan completion*

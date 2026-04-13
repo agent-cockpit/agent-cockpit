@@ -211,10 +211,10 @@ Plans:
 **Goal:** The current sidebar is visually broken and ugly. Completely redesign the sidebar with clean, polished UI — proper layout, typography, spacing, visual hierarchy, and a coherent style that fits the space/pixel-art theme of the game.
 **Depends on:** Phase 16.7
 **Requirements**: sidebar-design
-**Plans:** 2/3 plans executed
+**Plans:** 3/3 plans complete
 
 Plans:
-- [ ] TBD (run /gsd:plan-phase 16.8 to break down)
+- [x] TBD (run /gsd:plan-phase 16.8 to break down) (completed 2026-04-13)
 
 ### Phase 17: NPC Agent Behavior
 **Goal:** Agent NPCs on the map walk smoothly to zone positions based on their session state — coding agents move to the workstation zone, agents waiting for approval move to the meeting room zone — using linear interpolation (no pathfinding).
