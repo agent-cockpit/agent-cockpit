@@ -116,9 +116,31 @@ export function parseCodexLine(
     }
 
     case 'turn/completed': {
-      // A turn completing is not a session ending. Session lifecycle should
-      // be driven by adapter process start/exit, not individual turns.
-      return null;
+      // Emit the final assistant message if the turn result carries text content.
+      // Session lifecycle is still driven by process start/exit — not this event.
+      const output = params['output'] ?? params['result'] ?? params['content'];
+      const text = extractText(output);
+      if (!text) return null;
+      return {
+        ...base,
+        type: 'session_chat_message',
+        provider: 'codex',
+        role: 'assistant',
+        content: text,
+      };
+    }
+
+    case 'thread/resumed': {
+      // A resumed thread should still surface a session_start if not already emitted
+      // (e.g. daemon restarted and reconnected to an existing Codex thread).
+      if (ctx.sessionStartEmitted) return null;
+      ctx.sessionStartEmitted = true;
+      return {
+        ...base,
+        type: 'session_start',
+        provider: 'codex',
+        workspacePath: ctx.workspacePath,
+      };
     }
 
     case 'item/started': {
