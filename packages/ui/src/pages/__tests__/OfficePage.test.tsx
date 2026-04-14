@@ -107,6 +107,12 @@ describe('OfficePage canvas mount', () => {
     expect(screen.getByTestId('game-canvas')).toBeInTheDocument()
   })
 
+  it('keeps interact button hidden until a nearby agent is detected', () => {
+    render(<OfficePage />)
+    const interactButton = screen.getByTestId('interact-button')
+    expect(interactButton.parentElement).toHaveStyle({ display: 'none' })
+  })
+
   it('canvas is inside the data-testid="office-canvas" container', () => {
     render(<OfficePage />)
     const container = screen.getByTestId('office-canvas')
@@ -228,6 +234,34 @@ describe('OfficePage canvas mount', () => {
 
     // Click at (200, 200) — well outside the 64px sprite at (10, 10)
     fireEvent.click(canvas, { clientX: 200, clientY: 200 })
+    expect(selectSessionMock).not.toHaveBeenCalled()
+  })
+
+  it('pressing E near an NPC opens chat popup for that session', () => {
+    render(<OfficePage />)
+    gameState.player.x = 0
+    gameState.player.y = 0
+    gameState.npcs['near-session'] = { x: 24, y: 24 }
+
+    act(() => {
+      window.dispatchEvent(new KeyboardEvent('keydown', { code: 'KeyE', bubbles: true }))
+    })
+
+    expect(selectSessionMock).toHaveBeenCalledWith('near-session')
+    expect(setPopupPreferredTabMock).toHaveBeenCalledWith('chat')
+    expect(setSessionDetailOpenMock).toHaveBeenCalledWith(true)
+  })
+
+  it('pressing E far from all NPCs does not open popup', () => {
+    render(<OfficePage />)
+    gameState.player.x = 0
+    gameState.player.y = 0
+    gameState.npcs['far-session'] = { x: 600, y: 600 }
+
+    act(() => {
+      window.dispatchEvent(new KeyboardEvent('keydown', { code: 'KeyE', bubbles: true }))
+    })
+
     expect(selectSessionMock).not.toHaveBeenCalled()
   })
 })

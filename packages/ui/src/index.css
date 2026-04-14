@@ -133,6 +133,17 @@
   cursor: not-allowed;
 }
 
+/* Dark-blue variant used for in-world overlay controls (Menu / Interact). */
+.office-overlay-btn {
+  background: oklch(0.34 0.09 245 / 0.92);
+  color: oklch(0.93 0.03 220);
+  border-color: oklch(0.70 0.14 210 / 0.72);
+  box-shadow: 0 0 0 1px oklch(0.65 0.12 210 / 0.45), 0 0 14px oklch(0.44 0.12 225 / 0.55);
+}
+.office-overlay-btn:hover {
+  background: oklch(0.38 0.10 240 / 0.95);
+}
+
 /* ─── Tab strip ───────────────────────────────────────────────────────────── */
 
 .cockpit-tab {

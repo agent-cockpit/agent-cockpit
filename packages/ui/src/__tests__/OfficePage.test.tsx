@@ -3,7 +3,7 @@
 // Canvas rendering, gameState.npcs seeding, and click handler are tested here.
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { render, screen, act } from '@testing-library/react'
+import { render, screen, act, fireEvent } from '@testing-library/react'
 
 // Mock GameEngine
 const startMock = vi.fn()
@@ -182,6 +182,47 @@ describe('OfficePage', () => {
     // sess-1 at x:0, y:0; click within 64px sprite
     canvas.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, clientX: 30, clientY: 30 }))
     expect(mockSelectSession).toHaveBeenCalledWith('sess-1')
+    expect(mockSetPopupPreferredTab).toHaveBeenCalledWith('chat')
+    expect(mockSetSessionDetailOpen).toHaveBeenCalledWith(true)
+  })
+
+  it('pressing E near an NPC opens chat popup for nearest session', () => {
+    render(<OfficePage />)
+    gameState.player.x = 0
+    gameState.player.y = 0
+    gameState.npcs['near-session'] = { x: 16, y: 16 }
+
+    act(() => {
+      window.dispatchEvent(new KeyboardEvent('keydown', { code: 'KeyE', bubbles: true }))
+    })
+
+    expect(mockSelectSession).toHaveBeenCalledWith('near-session')
+    expect(mockSetPopupPreferredTab).toHaveBeenCalledWith('chat')
+    expect(mockSetSessionDetailOpen).toHaveBeenCalledWith(true)
+  })
+
+  it('pressing E when no nearby NPC does not open popup', () => {
+    render(<OfficePage />)
+    gameState.player.x = 0
+    gameState.player.y = 0
+    gameState.npcs['far-session'] = { x: 500, y: 500 }
+
+    act(() => {
+      window.dispatchEvent(new KeyboardEvent('keydown', { code: 'KeyE', bubbles: true }))
+    })
+
+    expect(mockSelectSession).not.toHaveBeenCalled()
+  })
+
+  it('interact button opens chat popup for nearby NPC', () => {
+    render(<OfficePage />)
+    gameState.player.x = 0
+    gameState.player.y = 0
+    gameState.npcs['near-session'] = { x: 24, y: 24 }
+
+    fireEvent.click(screen.getByTestId('interact-button'))
+
+    expect(mockSelectSession).toHaveBeenCalledWith('near-session')
     expect(mockSetPopupPreferredTab).toHaveBeenCalledWith('chat')
     expect(mockSetSessionDetailOpen).toHaveBeenCalledWith(true)
   })
