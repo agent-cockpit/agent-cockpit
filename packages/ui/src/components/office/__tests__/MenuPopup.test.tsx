@@ -31,6 +31,7 @@ const mockRefs = vi.hoisted(() => ({
   setMusicVolume: vi.fn(),
   setSfxVolume: vi.fn(),
   playPopupToggle: vi.fn(),
+  setSelectedPlayerCharacter: vi.fn(),
 }))
 
 vi.mock('../../../audio/audioSystem.js', () => ({
@@ -47,6 +48,16 @@ vi.mock('../../../audio/audioSystem.js', () => ({
   },
 }))
 
+vi.mock('../../../store/index.js', () => ({
+  useStore: (selector: (state: {
+    selectedPlayerCharacter: 'astronaut'
+    setSelectedPlayerCharacter: typeof mockRefs.setSelectedPlayerCharacter
+  }) => unknown) => selector({
+    selectedPlayerCharacter: 'astronaut',
+    setSelectedPlayerCharacter: mockRefs.setSelectedPlayerCharacter,
+  }),
+}))
+
 import { MenuPopup } from '../MenuPopup.js'
 
 describe('MenuPopup', () => {
@@ -55,6 +66,7 @@ describe('MenuPopup', () => {
     mockRefs.setMusicVolume.mockReset()
     mockRefs.setSfxVolume.mockReset()
     mockRefs.playPopupToggle.mockReset()
+    mockRefs.setSelectedPlayerCharacter.mockReset()
   })
 
   it('renders nothing when closed', () => {
@@ -62,12 +74,15 @@ describe('MenuPopup', () => {
     expect(queryByTestId('menu-dialog-root')).toBeNull()
   })
 
-  it('renders audio controls when open', () => {
+  it('renders audio controls and character selection when open', () => {
     render(<MenuPopup open={true} onClose={vi.fn()} />)
     expect(screen.getByTestId('menu-dialog-content')).toBeInTheDocument()
     expect(screen.getByText('Game Menu')).toBeInTheDocument()
     expect(screen.getByLabelText('Music volume')).toBeInTheDocument()
     expect(screen.getByLabelText('SFX volume')).toBeInTheDocument()
+    expect(screen.getByText('Character Select')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /next character/i })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /confirm character/i })).toBeInTheDocument()
   })
 
   it('forwards audio control interactions', () => {
@@ -89,5 +104,14 @@ describe('MenuPopup', () => {
 
     fireEvent.click(screen.getByLabelText('Close menu'))
     expect(onClose).toHaveBeenCalled()
+  })
+
+  it('confirms the selected draft character through the store setter', () => {
+    render(<MenuPopup open={true} onClose={vi.fn()} />)
+
+    fireEvent.click(screen.getByRole('button', { name: /next character/i }))
+    fireEvent.click(screen.getByRole('button', { name: /confirm character/i }))
+
+    expect(mockRefs.setSelectedPlayerCharacter).toHaveBeenCalledWith('female')
   })
 })

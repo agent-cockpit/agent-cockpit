@@ -24,14 +24,18 @@ const { selectSessionMock, setHistoryModeMock } = vi.hoisted(() => ({
   setHistoryModeMock: vi.fn(),
 }))
 
+const storeState = {
+  events: {},
+  sessions: {},
+  selectedSessionId: null,
+  selectedPlayerCharacter: 'astronaut',
+  sessionDetailOpen: false,
+  selectSession: selectSessionMock,
+  setHistoryMode: setHistoryModeMock,
+  setSessionDetailOpen: vi.fn(),
+}
+
 vi.mock('../../store/index.js', () => {
-  const storeState = {
-    events: {},
-    sessions: {},
-    selectedSessionId: null,
-    selectSession: selectSessionMock,
-    setHistoryMode: setHistoryModeMock,
-  }
   const useStore = vi.fn((selector: (s: typeof storeState) => unknown) => selector(storeState))
   // Attach getState for canvas click handler usage
   ;(useStore as unknown as { getState: () => typeof storeState }).getState = () => storeState
@@ -56,6 +60,32 @@ const mockCtx = {
 }
 HTMLCanvasElement.prototype.getContext = vi.fn(() => mockCtx) as unknown as typeof HTMLCanvasElement.prototype.getContext
 
+const imageInstances: Array<{
+  _src: string
+  complete: boolean
+  naturalWidth: number
+  naturalHeight: number
+}> = []
+
+class MockImage {
+  _src = ''
+  complete = true
+  naturalWidth = 64
+  naturalHeight = 64
+
+  constructor() {
+    imageInstances.push(this)
+  }
+
+  set src(value: string) {
+    this._src = value
+  }
+
+  get src() {
+    return this._src
+  }
+}
+
 // Mock InstancePopupHub
 vi.mock('../../components/office/InstancePopupHub.js', () => ({
   InstancePopupHub: () => null,
@@ -77,7 +107,12 @@ describe('OfficePage canvas mount', () => {
     stopMock.mockClear()
     selectSessionMock.mockClear()
     setHistoryModeMock.mockClear()
+    storeState.selectedPlayerCharacter = 'astronaut'
+    storeState.sessionDetailOpen = false
+    storeState.setSessionDetailOpen.mockClear()
+    imageInstances.length = 0
     vi.stubGlobal('ResizeObserver', MockResizeObserver)
+    vi.stubGlobal('Image', MockImage)
     // Reset npcs and player between tests
     Object.keys(gameState.npcs).forEach(k => delete gameState.npcs[k])
     gameState.player.x = 2 * 96
@@ -215,6 +250,24 @@ describe('OfficePage canvas mount', () => {
     // Click at (200, 200) — well outside the 64px sprite at (10, 10)
     fireEvent.click(canvas, { clientX: 200, clientY: 200 })
     expect(selectSessionMock).not.toHaveBeenCalled()
+  })
+
+  it('loads the selected character sprite sheet on mount', () => {
+    storeState.selectedPlayerCharacter = 'ninja'
+
+    render(<OfficePage />)
+
+    expect(imageInstances.at(-1)?.src).toBe('/sprites/ninja-sheet.png')
+  })
+
+  it('updates the player sprite sheet when the selected character changes', () => {
+    const { rerender } = render(<OfficePage />)
+    expect(imageInstances.at(-1)?.src).toBe('/sprites/astronaut-sheet.png')
+
+    storeState.selectedPlayerCharacter = 'ninja'
+    rerender(<OfficePage />)
+
+    expect(imageInstances.at(-1)?.src).toBe('/sprites/ninja-sheet.png')
   })
 })
 
