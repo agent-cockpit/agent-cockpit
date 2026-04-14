@@ -322,6 +322,108 @@ describe('hookServer', () => {
     server = createHookServer(port, () => {}, () => {});
     expect(() => resolveApproval('nonexistent-id', 'allow')).not.toThrow();
   });
+
+  it('Test 16: PermissionRequest hook type returns correct PermissionRequest envelope on allow', async () => {
+    const decisions: Array<{ approvalId: string }> = [];
+    server = createHookServer(
+      port,
+      () => {},
+      (approvalId) => decisions.push({ approvalId }),
+    );
+    await new Promise<void>((resolve) => server.once('listening', resolve));
+
+    const addr = server.address() as { port: number };
+    let responseBody = '';
+    const responsePromise = new Promise<void>((resolve, reject) => {
+      const data = JSON.stringify({
+        hook_event_name: 'PermissionRequest',
+        session_id: 'test-sess-16',
+        tool_name: 'Bash',
+        tool_input: { command: 'rm -rf /tmp' },
+      });
+      const req = http.request(
+        {
+          hostname: '127.0.0.1',
+          port: addr.port,
+          path: '/hook',
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Content-Length': Buffer.byteLength(data),
+          },
+        },
+        (res) => {
+          res.on('data', (chunk: Buffer) => { responseBody += chunk.toString(); });
+          res.on('end', () => resolve());
+        },
+      );
+      req.on('error', reject);
+      req.write(data);
+      req.end();
+    });
+
+    await new Promise<void>((r) => setTimeout(r, 100));
+    expect(decisions).toHaveLength(1);
+    const { approvalId } = decisions[0]!;
+
+    resolveApproval(approvalId, 'allow');
+    await responsePromise;
+
+    const parsed = JSON.parse(responseBody) as {
+      hookSpecificOutput: { hookEventName: string; decision: { behavior: string } };
+    };
+    expect(parsed.hookSpecificOutput.hookEventName).toBe('PermissionRequest');
+    expect(parsed.hookSpecificOutput.decision.behavior).toBe('allow');
+  });
+
+  it('Test 17: double resolveApproval on same approvalId — second call is a no-op (no throw, response not double-ended)', async () => {
+    const decisions: Array<{ approvalId: string }> = [];
+    server = createHookServer(
+      port,
+      () => {},
+      (approvalId) => decisions.push({ approvalId }),
+    );
+    await new Promise<void>((resolve) => server.once('listening', resolve));
+
+    const addr = server.address() as { port: number };
+    const responsePromise = new Promise<void>((resolve, reject) => {
+      const data = JSON.stringify({
+        hook_event_name: 'PreToolUse',
+        session_id: 'test-sess-17',
+        tool_name: 'Bash',
+        tool_input: { command: 'rm -rf /tmp' },
+      });
+      const req = http.request(
+        {
+          hostname: '127.0.0.1',
+          port: addr.port,
+          path: '/hook',
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Content-Length': Buffer.byteLength(data),
+          },
+        },
+        (res) => {
+          res.resume();
+          res.on('end', () => resolve());
+        },
+      );
+      req.on('error', reject);
+      req.write(data);
+      req.end();
+    });
+
+    await new Promise<void>((r) => setTimeout(r, 100));
+    const { approvalId } = decisions[0]!;
+
+    // First resolve
+    resolveApproval(approvalId, 'allow');
+    await responsePromise;
+
+    // Second resolve on same id — must not throw
+    expect(() => resolveApproval(approvalId, 'deny')).not.toThrow();
+  });
 });
 
 // ─── Database schema tests ────────────────────────────────────────────────────

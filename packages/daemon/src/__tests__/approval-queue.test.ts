@@ -256,6 +256,70 @@ describe('ApprovalQueue', () => {
     const { approvalQueue } = await import('../approvals/approvalQueue.js');
     expect(() => approvalQueue.decide('nonexistent-id', 'approve', db)).not.toThrow();
   });
+
+  it('Test 12: decide is idempotent — second call on same approvalId is a no-op (no double updateApprovalDecision)', async () => {
+    const storeMod = await import('../approvals/approvalStore.js');
+    const hookServerMod = await import('../adapters/claude/hookServer.js');
+    const { approvalQueue } = await import('../approvals/approvalQueue.js');
+
+    const approvalId = '00000000-0000-0000-0000-000000000020';
+    const event = makeApprovalEvent(approvalId);
+    approvalQueue.register(approvalId, event, db);
+
+    const updateSpy = vi.spyOn(storeMod, 'updateApprovalDecision');
+    vi.spyOn(hookServerMod, 'resolveApproval').mockImplementation(() => {});
+
+    // First decide — should call updateApprovalDecision once
+    approvalQueue.decide(approvalId, 'approve', db);
+    expect(updateSpy).toHaveBeenCalledTimes(1);
+
+    // Second decide — same approvalId — should be a no-op
+    approvalQueue.decide(approvalId, 'deny', db);
+    expect(updateSpy).toHaveBeenCalledTimes(1);
+  });
+
+  it('Test 13: timeout then decide — second call after handleTimeout is a no-op', async () => {
+    const storeMod = await import('../approvals/approvalStore.js');
+    const hookServerMod = await import('../adapters/claude/hookServer.js');
+    const { approvalQueue } = await import('../approvals/approvalQueue.js');
+
+    const approvalId = '00000000-0000-0000-0000-000000000021';
+    const event = makeApprovalEvent(approvalId);
+    approvalQueue.register(approvalId, event, db);
+
+    const updateSpy = vi.spyOn(storeMod, 'updateApprovalDecision');
+    vi.spyOn(hookServerMod, 'resolveApproval').mockImplementation(() => {});
+
+    // Timeout fires first
+    approvalQueue.handleTimeout(approvalId, db);
+    expect(updateSpy).toHaveBeenCalledTimes(1);
+    expect(updateSpy).toHaveBeenCalledWith(db, approvalId, 'timeout', expect.any(String));
+
+    // Manual decide arrives after — must be no-op
+    approvalQueue.decide(approvalId, 'approve', db);
+    expect(updateSpy).toHaveBeenCalledTimes(1);
+  });
+
+  it('Test 14: decide then timeout — timeout after decide is a no-op', async () => {
+    const storeMod = await import('../approvals/approvalStore.js');
+    const hookServerMod = await import('../adapters/claude/hookServer.js');
+    const { approvalQueue } = await import('../approvals/approvalQueue.js');
+
+    const approvalId = '00000000-0000-0000-0000-000000000022';
+    const event = makeApprovalEvent(approvalId);
+    approvalQueue.register(approvalId, event, db);
+
+    const updateSpy = vi.spyOn(storeMod, 'updateApprovalDecision');
+    vi.spyOn(hookServerMod, 'resolveApproval').mockImplementation(() => {});
+
+    // Manual decide fires first
+    approvalQueue.decide(approvalId, 'approve', db);
+    expect(updateSpy).toHaveBeenCalledTimes(1);
+
+    // Timeout fires after — must be no-op
+    approvalQueue.handleTimeout(approvalId, db);
+    expect(updateSpy).toHaveBeenCalledTimes(1);
+  });
 });
 
 // ─── ws/handlers.ts tests ──────────────────────────────────────────────────────
