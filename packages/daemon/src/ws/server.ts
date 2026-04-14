@@ -4,11 +4,12 @@ import crypto from 'node:crypto';
 import fs from 'node:fs';
 import { WebSocketServer, WebSocket } from 'ws';
 import type Database from 'better-sqlite3';
+import type { NormalizedEvent } from '@cockpit/shared';
 import { handleConnection } from './handlers.js';
 import { CodexAdapter } from '../adapters/codex/codexAdapter.js';
 import { ClaudeLauncher, LaunchError } from '../adapters/claude/claudeLauncher.js';
 import { eventBus } from '../eventBus.js';
-import { getEventsBySession, searchAll, getAllSessions, getSessionSummary, type SessionSummary } from '../db/queries.js';
+import { getEventsBySession, searchAll, getAllSessions, getSessionSummary, persistEvent, type SessionSummary } from '../db/queries.js';
 import { resolveClaudeMdPath, resolveAutoMemoryPath, readFileSafe, writeFileSafe, getWorkspacePath } from '../memory/memoryReader.js';
 import { insertNote, listNotes, deleteNote } from '../memory/memoryNotes.js';
 
@@ -377,7 +378,15 @@ export function createWsServer(
   });
 
   wss.on('connection', (ws, req) => {
-    handleConnection(ws, req, db);
+    handleConnection(ws, req, db, {
+      runtimeRegistry: {
+        get: (sessionId) => runtimeRegistry.get(sessionId),
+      },
+      emitEvent: (event: NormalizedEvent) => {
+        const saved = persistEvent(db, event);
+        broadcast(wss, JSON.stringify(saved), db);
+      },
+    });
   });
 
   httpServer.on('error', (err: NodeJS.ErrnoException) => {

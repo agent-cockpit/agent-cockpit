@@ -12,6 +12,8 @@ export {
   MemoryReadEvent,
   MemoryWriteEvent,
   ProviderParseErrorEvent,
+  SessionChatMessageEvent,
+  SessionChatErrorEvent,
 } from './events.js';
 
 export type { NormalizedEvent } from './events.js';

@@ -1,13 +1,27 @@
 import { WebSocket } from 'ws';
 import type { IncomingMessage } from 'node:http';
 import type Database from 'better-sqlite3';
-import { getEventsSince } from '../db/queries.js';
+import type { NormalizedEvent } from '@cockpit/shared';
+import { getEventsSince, getSessionSummary } from '../db/queries.js';
 import { approvalQueue } from '../approvals/approvalQueue.js';
+
+interface ManagedRuntimeHandle {
+  provider: 'claude' | 'codex'
+  sendMessage: (message: string) => Promise<void>
+}
+
+interface ConnectionDeps {
+  runtimeRegistry?: {
+    get: (sessionId: string) => ManagedRuntimeHandle | undefined
+  }
+  emitEvent?: (event: NormalizedEvent) => void
+}
 
 export function handleConnection(
   ws: WebSocket,
   req: IncomingMessage,
   db: Database.Database,
+  deps?: ConnectionDeps,
 ): void {
   // Parse lastSeenSequence from URL query string
   // Protocol definition: lastSeenSequence is the sequence_number of the LAST event
@@ -25,6 +39,38 @@ export function handleConnection(
     if (ws.readyState === WebSocket.OPEN) {
       ws.send(JSON.stringify(event));
     }
+  }
+
+  function emit(event: NormalizedEvent): void {
+    if (deps?.emitEvent) {
+      deps.emitEvent(event);
+      return;
+    }
+    if (ws.readyState === WebSocket.OPEN) {
+      ws.send(JSON.stringify(event));
+    }
+  }
+
+  function resolveProvider(rawProvider: string | undefined, fallback?: 'claude' | 'codex'): 'claude' | 'codex' {
+    if (rawProvider === 'claude' || rawProvider === 'codex') return rawProvider
+    return fallback ?? 'claude'
+  }
+
+  function emitChatError(
+    sessionId: string,
+    provider: 'claude' | 'codex',
+    reasonCode: 'CHAT_INVALID_REQUEST' | 'CHAT_SEND_BLOCKED' | 'CHAT_RUNTIME_UNAVAILABLE' | 'CHAT_SEND_FAILED',
+    reason: string,
+  ): void {
+    emit({
+      schemaVersion: 1,
+      sessionId,
+      timestamp: new Date().toISOString(),
+      type: 'session_chat_error',
+      provider,
+      reasonCode,
+      reason,
+    });
   }
 
   ws.on('message', (data) => {
@@ -45,6 +91,69 @@ export function handleConnection(
       ) {
         approvalQueue.decide(approvalId, decision, db);
       }
+      return;
+    }
+
+    if (m['type'] === 'session_chat') {
+      const sessionId = m['sessionId'];
+      const content = m['content'];
+      if (typeof sessionId !== 'string' || typeof content !== 'string' || !content.trim()) {
+        emitChatError(
+          typeof sessionId === 'string' ? sessionId : 'unknown-session',
+          'claude',
+          'CHAT_INVALID_REQUEST',
+          'Invalid session_chat payload: sessionId and non-empty content are required.',
+        );
+        return;
+      }
+
+      const summary = getSessionSummary(db, sessionId);
+      if (!summary) {
+        emitChatError(sessionId, 'claude', 'CHAT_INVALID_REQUEST', 'Session not found.');
+        return;
+      }
+
+      const runtime = deps?.runtimeRegistry?.get(sessionId);
+      const provider = resolveProvider(summary.provider, runtime?.provider);
+
+      if (!summary.capabilities.canSendMessage) {
+        emitChatError(
+          sessionId,
+          provider,
+          'CHAT_SEND_BLOCKED',
+          summary.capabilities.reason ?? 'Chat send is not permitted for this session.',
+        );
+        return;
+      }
+
+      if (!runtime) {
+        emitChatError(
+          sessionId,
+          provider,
+          'CHAT_RUNTIME_UNAVAILABLE',
+          'Managed session runtime is not available for chat send.',
+        );
+        return;
+      }
+
+      emit({
+        schemaVersion: 1,
+        sessionId,
+        timestamp: new Date().toISOString(),
+        type: 'session_chat_message',
+        provider,
+        role: 'user',
+        content: content.trim(),
+      });
+
+      void runtime.sendMessage(content.trim()).catch((err: unknown) => {
+        emitChatError(
+          sessionId,
+          provider,
+          'CHAT_SEND_FAILED',
+          `Failed to send chat message: ${String(err)}`,
+        );
+      });
     }
   });
 
