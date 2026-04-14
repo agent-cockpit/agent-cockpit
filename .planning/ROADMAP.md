@@ -404,7 +404,7 @@ Plans:
   3. Selected session state stays consistent between map, sidebar, and popup while switching agents
   4. Missed-click and overlapping-hitbox edge cases are covered by tests
   5. No regression to existing approvals/timeline/diff/memory/artifacts tabs
-**Plans:** 1 plan
+**Plans:** 1/1 plans complete
 
 Plans:
 - [ ] 24-01-PLAN.md — Avatar hit-test to chat popup wiring + default tab behavior + regression tests

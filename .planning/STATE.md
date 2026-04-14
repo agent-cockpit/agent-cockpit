@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v1.1
 milestone_name: — 2D Pixel Art Game Experience
 status: Ready for execution
-stopped_at: Completed 23-01-PLAN.md
-last_updated: "2026-04-14T13:05:54.111Z"
-last_activity: 2026-04-14 — Completed phase 22 plan 22-01 (session chat capability split)
+stopped_at: Completed 24-01-PLAN.md
+last_updated: "2026-04-14T21:49:05.404Z"
+last_activity: 2026-04-14 — Completed phase 24 plan 24-01 (avatar chat popup interaction)
 progress:
   total_phases: 29
-  completed_phases: 17
+  completed_phases: 18
   total_plans: 60
-  completed_plans: 51
-  percent: 90
+  completed_plans: 52
+  percent: 91
 ---
 
 # Project State
@@ -25,12 +25,12 @@ See: .planning/PROJECT.md (updated 2026-04-10)
 
 ## Current Position
 
-Phase: 23 — Approval Hook Reliability Across Providers and Subagents
-Plan: 23-01 (pending)
+Phase: 25 — Session Termination Controls
+Plan: 25-01 (pending)
 Status: Ready for execution
-Last activity: 2026-04-14 — Completed phase 22 plan 22-01 (session chat capability split)
+Last activity: 2026-04-14 — Completed phase 24 plan 24-01 (avatar chat popup interaction)
 
-Progress: [█████████░] 90%
+Progress: [█████████░] 91%
 
 ## v1.0 Completed
 
@@ -158,6 +158,7 @@ All v1.0 decisions remain active and respected.
 - [Phase 22]: session_chat emits normalized session_chat_message/session_chat_error events for replay-safe UI behavior.
 - [Phase 22]: WebSocket handlers dispatch through runtime registry keyed by sessionId to keep provider routing server-side.
 - [Phase 23]: applyEventToApprovals must return same state reference on unrelated events — preserves Zustand selector memoization
+- [Phase 24]: Use one-shot popupPreferredTab in Zustand so avatar clicks open Chat without changing non-avatar default tab behavior
 
 ### Roadmap Evolution
 
@@ -191,7 +192,7 @@ None yet — requirements phase will surface tasks.
 ## Session Continuity
 
 Last session: 2026-04-14T13:02:52.352Z
-Stopped at: Completed 23-01-PLAN.md
+Stopped at: Completed 24-01-PLAN.md
 Resume file: None
 
 *Updated after each plan completion*
