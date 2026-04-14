@@ -17,6 +17,15 @@
   --color-cockpit-red:    oklch(0.60 0.22 25);
   --color-cockpit-dim:    oklch(0.35 0.04 220);
   --color-panel-surface:  oklch(0.185 0.025 250);
+  /* Phase 29 - Sidebar/Menu design tokens */
+  --color-cockpit-blue-claude-bg:    oklch(0.28 0.08 255 / 0.7);
+  --color-cockpit-blue-claude-text:  oklch(0.75 0.14 240);
+  --color-cockpit-purple-codex-bg:   oklch(0.28 0.08 295 / 0.7);
+  --color-cockpit-purple-codex-text: oklch(0.75 0.14 295);
+  --color-approval-bg:               oklch(0.75 0.16 75 / 0.2);
+  --color-approval-border:           oklch(0.75 0.16 75 / 0.5);
+  --color-approval-text:             oklch(0.92 0.04 75);
+  --color-menu-overlay:              rgba(0, 0, 0, 0.45);
 }
 
 :root {
@@ -99,13 +108,13 @@
 /* ─── Provider badges ─────────────────────────────────────────────────────── */
 
 .badge-provider-claude {
-  background: oklch(0.28 0.08 255 / 0.7);
-  color: oklch(0.75 0.14 240);
+  background: var(--color-cockpit-blue-claude-bg);
+  color: var(--color-cockpit-blue-claude-text);
   border: 1px solid oklch(0.45 0.10 240 / 0.5);
 }
 .badge-provider-codex {
-  background: oklch(0.28 0.08 295 / 0.7);
-  color: oklch(0.75 0.14 295);
+  background: var(--color-cockpit-purple-codex-bg);
+  color: var(--color-cockpit-purple-codex-text);
   border: 1px solid oklch(0.45 0.10 295 / 0.5);
 }
 

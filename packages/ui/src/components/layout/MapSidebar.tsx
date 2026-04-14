@@ -21,13 +21,13 @@ const STATUS_STYLES: Record<SessionStatus, { label: string; dotClass: string; to
     label: 'ENDED',
     dotClass: 'status-ping status-ping-ended h-2 w-2',
     toneClass: 'data-readout-dim',
-    detail: 'Session ended',
+    detail: 'SESSION ENDED',
   },
   error: {
     label: 'ERROR',
     dotClass: 'status-ping status-ping-error h-2 w-2',
     toneClass: '',
-    detail: 'Attention required',
+    detail: 'ATTN: REQUIRED',
   },
 }
 
@@ -74,7 +74,7 @@ export function MapSidebar({ onFocusSession }: Props) {
           onClick={() => setLaunchOpen(true)}
           className="cockpit-btn w-full"
         >
-          + Launch Session
+          + LAUNCH SESSION
         </button>
       </div>
       <div className="flex flex-1 flex-col gap-2 overflow-y-auto p-2">
@@ -95,7 +95,7 @@ export function MapSidebar({ onFocusSession }: Props) {
           secondaryPieces.push(statusStyle.detail)
         }
         if (session.pendingApprovals > 0) {
-          secondaryPieces.push(`${session.pendingApprovals} pending approval${session.pendingApprovals === 1 ? '' : 's'}`)
+          secondaryPieces.push(`${session.pendingApprovals} APPROVAL${session.pendingApprovals === 1 ? '' : 'S'} PENDING`)
         }
 
         return (
@@ -144,8 +144,14 @@ export function MapSidebar({ onFocusSession }: Props) {
               {session.pendingApprovals > 0 && (
                 <span
                   data-testid="pending-approvals-pill"
-                  className="inline-flex min-w-6 shrink-0 items-center justify-center rounded-none border border-amber-300/50 bg-amber-500/20 px-2 py-0.5 text-[11px] font-semibold text-amber-200 ring-1 ring-amber-300/30 [font-family:var(--font-mono-data)]"
-                  style={{ textShadow: '0 0 6px rgba(251,191,36,0.6)' }}
+                  className="inline-flex min-w-6 shrink-0 items-center justify-center rounded-none border px-2 py-0.5 text-[11px] font-semibold ring-1 [font-family:var(--font-mono-data)]"
+                  style={{
+                    borderColor: 'var(--color-approval-border)',
+                    backgroundColor: 'var(--color-approval-bg)',
+                    color: 'var(--color-approval-text)',
+                    boxShadow: '0 0 0 1px color-mix(in oklch, var(--color-approval-border) 60%, transparent)',
+                    textShadow: '0 0 6px rgba(251,191,36,0.6)',
+                  }}
                 >
                   {session.pendingApprovals}
                 </span>
