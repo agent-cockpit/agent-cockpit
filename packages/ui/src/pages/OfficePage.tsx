@@ -40,6 +40,21 @@ const SPAWN_SLOTS: ReadonlyArray<{ x: number; y: number }> = [
 
 /** Pixel offset applied per cycle to prevent exact NPC stacking when sessions > 12. */
 const SPAWN_JITTER = 16
+const PLAYER_SPRITE_HALF = 32
+
+function centerCameraOnSprite(pos: { x: number; y: number }) {
+  const cam = gameState.camera
+  cam.targetX = Math.max(
+    0,
+    Math.min(pos.x + PLAYER_SPRITE_HALF - cam.viewportW / 2, WORLD_W - cam.viewportW),
+  )
+  cam.targetY = Math.max(
+    0,
+    Math.min(pos.y + PLAYER_SPRITE_HALF - cam.viewportH / 2, WORLD_H - cam.viewportH),
+  )
+  cam.x = cam.targetX
+  cam.y = cam.targetY
+}
 
 function loadImage(src: string): Promise<HTMLImageElement> {
   return new Promise((resolve, reject) => {
@@ -220,10 +235,7 @@ export function OfficePage() {
       const cam = gameState.camera
       gameState.player.x = pos.x
       gameState.player.y = pos.y
-      cam.targetX = Math.max(0, Math.min(pos.x - cam.viewportW / 2, WORLD_W - cam.viewportW))
-      cam.targetY = Math.max(0, Math.min(pos.y - cam.viewportH / 2, WORLD_H - cam.viewportH))
-      cam.x = cam.targetX
-      cam.y = cam.targetY
+      centerCameraOnSprite(pos)
     }
     return () => { _scrollToSession = null }
   }, [])
@@ -473,11 +485,7 @@ export function OfficePage() {
           // the camera centred here on the next tick (otherwise update() overwrites targetX).
           gameState.player.x = pos.x
           gameState.player.y = pos.y
-          const cam = gameState.camera
-          cam.targetX = Math.max(0, Math.min(pos.x - cam.viewportW / 2, WORLD_W - cam.viewportW))
-          cam.targetY = Math.max(0, Math.min(pos.y - cam.viewportH / 2, WORLD_H - cam.viewportH))
-          cam.x = cam.targetX
-          cam.y = cam.targetY
+          centerCameraOnSprite(pos)
           useStore.getState().selectSession(sessionId)
           useStore.getState().setHistoryMode?.(false)
           setSessionDetailOpen?.(true)

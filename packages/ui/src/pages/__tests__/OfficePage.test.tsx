@@ -86,6 +86,19 @@ class MockImage {
   }
 }
 
+function stubMapManifestFetch() {
+  vi.stubGlobal('fetch', vi.fn(async (input: RequestInfo | URL) => {
+    if (String(input).endsWith('/maps/maps-manifest.json')) {
+      return {
+        ok: true,
+        json: async () => ({ maps: [] }),
+      } as Response
+    }
+
+    throw new Error(`Unexpected fetch in OfficePage test: ${String(input)}`)
+  }))
+}
+
 // Mock InstancePopupHub
 vi.mock('../../components/office/InstancePopupHub.js', () => ({
   InstancePopupHub: () => null,
@@ -113,6 +126,7 @@ describe('OfficePage canvas mount', () => {
     imageInstances.length = 0
     vi.stubGlobal('ResizeObserver', MockResizeObserver)
     vi.stubGlobal('Image', MockImage)
+    stubMapManifestFetch()
     // Reset npcs and player between tests
     Object.keys(gameState.npcs).forEach(k => delete gameState.npcs[k])
     gameState.player.x = 2 * 96
@@ -227,9 +241,9 @@ describe('OfficePage canvas mount', () => {
     // Camera must have snapped: cam.x === cam.targetX (instant, no lerp)
     expect(gameState.camera.x).toBe(gameState.camera.targetX)
     expect(gameState.camera.y).toBe(gameState.camera.targetY)
-    // targetX centred on NPC x=400: viewportW = canvas.width/zoom = 800/2 = 400
-    // targetX = clamp(400 - 200, 0, WORLD_W - 400) = 200
-    expect(gameState.camera.targetX).toBe(200)
+    // targetX centres on the sprite midpoint (x + 32): clamp(432 - 200, 0, WORLD_W - 400) = 232
+    expect(gameState.camera.targetX).toBe(232)
+    expect(gameState.camera.targetY).toBe(182)
     // Player must teleport to NPC position so update() preserves camera target on next tick
     expect(gameState.player.x).toBe(400)
     expect(gameState.player.y).toBe(300)
@@ -273,6 +287,7 @@ describe('OfficePage canvas mount', () => {
 
 describe('OfficePage scrollToSession', () => {
   beforeEach(() => {
+    stubMapManifestFetch()
     Object.keys(gameState.npcs).forEach(k => delete gameState.npcs[k])
     gameState.player.x = 2 * 96
     gameState.player.y = 5 * 96
@@ -290,6 +305,10 @@ describe('OfficePage scrollToSession', () => {
     ])
   })
 
+  afterEach(() => {
+    vi.unstubAllGlobals()
+  })
+
   it('focuses target session by snapping camera to centered coordinates', () => {
     render(<OfficePage />)
     gameState.npcs['test-session-1'] = { x: 400, y: 300 }
@@ -298,10 +317,10 @@ describe('OfficePage scrollToSession', () => {
       scrollToSession('test-session-1')
     })
 
-    expect(gameState.camera.targetX).toBe(200)
-    expect(gameState.camera.targetY).toBe(150)
-    expect(gameState.camera.x).toBe(200)
-    expect(gameState.camera.y).toBe(150)
+    expect(gameState.camera.targetX).toBe(232)
+    expect(gameState.camera.targetY).toBe(182)
+    expect(gameState.camera.x).toBe(232)
+    expect(gameState.camera.y).toBe(182)
   })
 
   it('keeps player position synchronized with focused NPC position', () => {
