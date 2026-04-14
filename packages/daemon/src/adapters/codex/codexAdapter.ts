@@ -370,6 +370,9 @@ export class CodexAdapter {
       provider: 'codex',
       workspacePath: this.workspacePath,
       type: 'session_start',
+      managedByDaemon: true,
+      canSendMessage: true,
+      canTerminateSession: true,
       timestamp: new Date().toISOString(),
     });
   }

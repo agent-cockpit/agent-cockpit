@@ -7,6 +7,7 @@ const APPROVAL_TIMEOUT_MS = parseInt(
   process.env['COCKPIT_APPROVAL_TIMEOUT_MS'] ?? '60000',
   10,
 );
+const EXTERNAL_SESSION_REASON = 'External session is approval-only; chat send is disabled.';
 
 interface PendingApproval {
   res: ServerResponse;
@@ -134,6 +135,7 @@ function handleRequest(
       }
     } else if (!startedSessions.has(event.sessionId)) {
       startedSessions.add(event.sessionId);
+      const managedByDaemon = payload.session_id === event.sessionId
       onEvent({
         schemaVersion: 1,
         sessionId: event.sessionId,
@@ -141,6 +143,10 @@ function handleRequest(
         provider: 'claude',
         timestamp: event.timestamp,
         workspacePath: payload.cwd ?? '',
+        managedByDaemon,
+        canSendMessage: managedByDaemon,
+        canTerminateSession: managedByDaemon,
+        ...(managedByDaemon ? {} : { reason: EXTERNAL_SESSION_REASON }),
       } as NormalizedEvent);
     }
 

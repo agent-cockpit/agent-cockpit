@@ -16,6 +16,12 @@ export interface SessionSummary {
   endedAt: string | null
   approvalCount: number
   filesChanged: number
+  capabilities?: {
+    managedByDaemon: boolean
+    canSendMessage: boolean
+    canTerminateSession: boolean
+    reason?: string
+  }
   finalStatus: 'active' | 'ended' | 'error'
 }
 
@@ -27,6 +33,10 @@ export interface SessionRecord {
   status: SessionStatus
   lastEventAt: string
   pendingApprovals: number
+  managedByDaemon?: boolean
+  canSendMessage?: boolean
+  canTerminateSession?: boolean
+  reason?: string
 }
 
 export type PanelId = 'approvals' | 'timeline' | 'diff' | 'memory' | 'artifacts'

@@ -94,7 +94,7 @@ describe('ChatPanel', () => {
 
     render(<ChatPanel />)
 
-    expect(screen.getByText(/approval-only/i)).toBeInTheDocument()
+    expect(screen.getByText('This session is approval-only and does not support chat sends.')).toBeInTheDocument()
     expect(screen.getByText('External session is approval-only; chat send is disabled.')).toBeInTheDocument()
     expect(screen.queryByPlaceholderText(/send a message/i)).not.toBeInTheDocument()
   })

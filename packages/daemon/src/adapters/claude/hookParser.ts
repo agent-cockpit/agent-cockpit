@@ -23,6 +23,8 @@ let claudeSessionCache = new Map<string, string>();
 // Module-level DB reference — set by daemon entrypoint at startup
 let claudeSessionDb: Database.Database | null = null;
 
+const EXTERNAL_SESSION_REASON = 'External session is approval-only; chat send is disabled.';
+
 /** Called by daemon entrypoint to inject the pre-populated cache from claude_sessions table. */
 export function setClaudeSessionCache(newCache: Map<string, string>): void {
   claudeSessionCache = newCache;
@@ -83,6 +85,28 @@ function baseFields(payload: HookPayload): {
   };
 }
 
+function resolveSessionCapabilities(claudeSessionId: string, mappedSessionId: string): {
+  managedByDaemon: boolean
+  canSendMessage: boolean
+  canTerminateSession: boolean
+  reason?: string
+} {
+  const managedByDaemon = claudeSessionId === mappedSessionId
+  if (managedByDaemon) {
+    return {
+      managedByDaemon: true,
+      canSendMessage: true,
+      canTerminateSession: true,
+    }
+  }
+  return {
+    managedByDaemon: false,
+    canSendMessage: false,
+    canTerminateSession: false,
+    reason: EXTERNAL_SESSION_REASON,
+  }
+}
+
 export function parseHookPayload(payload: HookPayload): {
   event: NormalizedEvent;
   requiresApproval: boolean;
@@ -91,11 +115,13 @@ export function parseHookPayload(payload: HookPayload): {
 
   switch (payload.hook_event_name) {
     case 'SessionStart': {
+      const capabilities = resolveSessionCapabilities(payload.session_id, base.sessionId)
       return {
         event: {
           ...base,
           type: 'session_start',
           workspacePath: payload.cwd ?? '',
+          ...capabilities,
         },
         requiresApproval: false,
       };

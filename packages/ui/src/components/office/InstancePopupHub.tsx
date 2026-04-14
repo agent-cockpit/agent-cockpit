@@ -2,6 +2,7 @@ import * as Dialog from '@radix-ui/react-dialog'
 import * as Tabs from '@radix-ui/react-tabs'
 import { useStore } from '../../store/index.js'
 import { ApprovalInbox } from '../panels/ApprovalInbox.js'
+import { ChatPanel } from '../panels/ChatPanel.js'
 import { TimelinePanel } from '../panels/TimelinePanel.js'
 import { DiffPanel } from '../panels/DiffPanel.js'
 import { MemoryPanel } from '../panels/MemoryPanel.js'
@@ -12,11 +13,12 @@ interface Props {
   onClose: () => void
 }
 
-const TAB_IDS = ['approvals', 'timeline', 'diff', 'memory', 'artifacts'] as const
+const TAB_IDS = ['approvals', 'chat', 'timeline', 'diff', 'memory', 'artifacts'] as const
 type TabId = typeof TAB_IDS[number]
 
 const TAB_LABELS: Record<TabId, string> = {
   approvals: 'Approvals',
+  chat: 'Chat',
   timeline: 'Timeline',
   diff: 'Diff',
   memory: 'Memory',
@@ -78,6 +80,9 @@ export function InstancePopupHub({ open, onClose }: Props) {
             <div className="flex-1 overflow-auto">
               <Tabs.Content value="approvals" className="h-full">
                 <ApprovalInbox />
+              </Tabs.Content>
+              <Tabs.Content value="chat" className="h-full">
+                <ChatPanel />
               </Tabs.Content>
               <Tabs.Content value="timeline" className="h-full">
                 <TimelinePanel />

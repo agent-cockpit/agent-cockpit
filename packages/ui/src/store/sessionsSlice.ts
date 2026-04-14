@@ -27,6 +27,10 @@ export function applyEventToSessions(
         status: 'active',
         lastEventAt: now,
         pendingApprovals: 0,
+        managedByDaemon: event.managedByDaemon ?? (event.provider === 'codex'),
+        canSendMessage: event.canSendMessage ?? (event.provider === 'codex'),
+        canTerminateSession: event.canTerminateSession ?? (event.provider === 'codex'),
+        reason: event.reason,
       }
       break
 
@@ -57,6 +61,16 @@ export function applyEventToSessions(
         sessions[event.sessionId] = {
           ...prev,
           pendingApprovals: Math.max(0, prev.pendingApprovals - 1),
+          lastEventAt: now,
+        }
+      }
+      break
+
+    case 'session_chat_error':
+      if (sessions[event.sessionId]) {
+        sessions[event.sessionId] = {
+          ...sessions[event.sessionId]!,
+          reason: event.reason,
           lastEventAt: now,
         }
       }
