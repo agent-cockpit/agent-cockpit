@@ -308,8 +308,11 @@ Plans:
 **Plans:** 2 plans
 
 Plans:
-- [ ] 18-01-PLAN.md — Web Audio API setup, ambient music loop, mute/volume controls
-- [ ] 18-02-PLAN.md — SFX system: event → sound wiring for key game events
+- [x] 18-01-PLAN.md — Web Audio API setup, ambient music loop, mute/volume controls
+- [x] 18-02-PLAN.md — SFX system: event → sound wiring for key game events
+
+Execution note:
+- Implemented on 2026-04-13 ahead of Phase 17 by explicit request. NPC zone behavior work in Phase 17 remains pending.
 
 ### Phase 19: Save/Load System
 **Goal:** The player can quick-save (F5) and quick-load (F9) game state, with auto-save on key transitions, and full JSON export/import for backup.

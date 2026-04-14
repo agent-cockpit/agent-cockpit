@@ -3,19 +3,27 @@ import { fireEvent, render, screen, within } from '@testing-library/react'
 import React from 'react'
 import type { SessionRecord } from '../../../store/index.js'
 
-let mockSessions: SessionRecord[] = []
-let selectedSessionId: string | null = null
-const selectSessionSpy = vi.fn()
+const mockRefs = vi.hoisted(() => ({
+  mockSessions: [] as SessionRecord[],
+  selectedSessionId: null as string | null,
+  selectSessionSpy: vi.fn(),
+  setSessionDetailOpenSpy: vi.fn(),
+}))
 
 vi.mock('../../../store/selectors.js', () => ({
-  useActiveSessions: () => mockSessions,
+  useActiveSessions: () => mockRefs.mockSessions,
 }))
 
 vi.mock('../../../store/index.js', () => ({
-  useStore: (selector: (state: { selectedSessionId: string | null; selectSession: (id: string) => void }) => unknown) =>
+  useStore: (selector: (state: {
+    selectedSessionId: string | null
+    selectSession: (id: string) => void
+    setSessionDetailOpen: (open: boolean) => void
+  }) => unknown) =>
     selector({
-      selectedSessionId,
-      selectSession: selectSessionSpy,
+      selectedSessionId: mockRefs.selectedSessionId,
+      selectSession: mockRefs.selectSessionSpy,
+      setSessionDetailOpen: mockRefs.setSessionDetailOpenSpy,
     }),
 }))
 
@@ -36,13 +44,14 @@ function makeSession(overrides: Partial<SessionRecord> = {}): SessionRecord {
 
 describe('MapSidebar', () => {
   beforeEach(() => {
-    mockSessions = []
-    selectedSessionId = null
-    selectSessionSpy.mockReset()
+    mockRefs.mockSessions = []
+    mockRefs.selectedSessionId = null
+    mockRefs.selectSessionSpy.mockReset()
+    mockRefs.setSessionDetailOpenSpy.mockReset()
   })
 
   it('renders rows in lastEventAt descending order', () => {
-    mockSessions = [
+    mockRefs.mockSessions = [
       makeSession({
         sessionId: 'session-old',
         workspacePath: '/workspace/old',
@@ -62,14 +71,15 @@ describe('MapSidebar', () => {
 
     render(<MapSidebar onFocusSession={vi.fn()} />)
 
-    const rowButtons = screen.getAllByRole('button')
-    expect(within(rowButtons[0]!).getByText('new')).toBeInTheDocument()
-    expect(within(rowButtons[1]!).getByText('mid')).toBeInTheDocument()
-    expect(within(rowButtons[2]!).getByText('old')).toBeInTheDocument()
+    const newRow = screen.getByRole('button', { name: /new/i })
+    const midRow = screen.getByRole('button', { name: /mid/i })
+    const oldRow = screen.getByRole('button', { name: /old/i })
+    expect(newRow.compareDocumentPosition(midRow) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    expect(midRow.compareDocumentPosition(oldRow) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
   })
 
   it('renders provider badge, status text, and status dot semantics', () => {
-    mockSessions = [
+    mockRefs.mockSessions = [
       makeSession({ sessionId: 'session-active', workspacePath: '/workspace/alpha', status: 'active', provider: 'claude' }),
       makeSession({ sessionId: 'session-ended', workspacePath: '/workspace/beta', status: 'ended', provider: 'codex' }),
       makeSession({ sessionId: 'session-error', workspacePath: '/workspace/gamma', status: 'error', provider: 'claude' }),
@@ -79,25 +89,25 @@ describe('MapSidebar', () => {
 
     const activeRow = screen.getByRole('button', { name: /alpha/i })
     expect(within(activeRow).getByText('Claude')).toBeInTheDocument()
-    expect(within(activeRow).getByText('Active')).toBeInTheDocument()
+    expect(within(activeRow).getByText('ACTIVE')).toBeInTheDocument()
     expect(within(activeRow).getByTestId('status-dot')).toHaveAttribute('data-status', 'active')
     expect(within(activeRow).queryByTestId('secondary-metadata')).not.toBeInTheDocument()
 
     const endedRow = screen.getByRole('button', { name: /beta/i })
     expect(within(endedRow).getByText('Codex')).toBeInTheDocument()
-    expect(within(endedRow).getByText('Ended')).toBeInTheDocument()
+    expect(within(endedRow).getByText('ENDED')).toBeInTheDocument()
     expect(within(endedRow).getByTestId('status-dot')).toHaveAttribute('data-status', 'ended')
     expect(within(endedRow).getByTestId('secondary-metadata')).toBeInTheDocument()
 
     const errorRow = screen.getByRole('button', { name: /gamma/i })
     expect(within(errorRow).getByText('Claude')).toBeInTheDocument()
-    expect(within(errorRow).getByText('Error')).toBeInTheDocument()
+    expect(within(errorRow).getByText('ERROR')).toBeInTheDocument()
     expect(within(errorRow).getByTestId('status-dot')).toHaveAttribute('data-status', 'error')
     expect(within(errorRow).getByTestId('secondary-metadata')).toBeInTheDocument()
   })
 
   it('shows pending approvals numeric pill only when pendingApprovals is greater than zero', () => {
-    mockSessions = [
+    mockRefs.mockSessions = [
       makeSession({
         sessionId: 'session-with-pending',
         workspacePath: '/workspace/with-pending',
@@ -120,7 +130,7 @@ describe('MapSidebar', () => {
   })
 
   it('clicking a row selects session and focuses it on the map', () => {
-    mockSessions = [
+    mockRefs.mockSessions = [
       makeSession({
         sessionId: 'session-click-target',
         workspacePath: '/workspace/click-target',
@@ -133,16 +143,16 @@ describe('MapSidebar', () => {
     const row = screen.getByRole('button', { name: /click-target/i })
     fireEvent.click(row)
 
-    expect(selectSessionSpy).toHaveBeenCalledWith('session-click-target')
+    expect(mockRefs.selectSessionSpy).toHaveBeenCalledWith('session-click-target')
     expect(onFocusSession).toHaveBeenCalledWith('session-click-target')
+    expect(mockRefs.setSessionDetailOpenSpy).toHaveBeenCalledWith(true)
   })
 
   it('renders empty state when there are no sessions', () => {
-    mockSessions = []
+    mockRefs.mockSessions = []
 
     render(<MapSidebar onFocusSession={vi.fn()} />)
 
-    expect(screen.queryAllByRole('button')).toHaveLength(0)
-    expect(screen.getByText('No active agents')).toBeInTheDocument()
+    expect(screen.getByText('-- NO ACTIVE AGENTS --')).toBeInTheDocument()
   })
 })

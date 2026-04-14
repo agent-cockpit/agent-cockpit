@@ -1,9 +1,11 @@
 // DnD removed in Phase 15-03. Positions are owned by gameState.npcs. Zone assignment in Phase 17.
 
-import { useRef, useEffect } from 'react'
+import { useRef, useEffect, useState } from 'react'
 import { useStore } from '../store/index.js'
 import { useActiveSessions } from '../store/selectors.js'
+import { audioSystem } from '../audio/audioSystem.js'
 import { InstancePopupHub } from '../components/office/InstancePopupHub.js'
+import { MenuPopup } from '../components/office/MenuPopup.js'
 import { drawAgentSprite } from '../components/office/AgentSprite.js'
 import { DIRECTION_ROWS, STATE_ROW_OFFSET } from '../components/office/spriteStates.js'
 import type { Direction } from '../components/office/spriteStates.js'
@@ -201,6 +203,7 @@ export function OfficePage() {
   const sessions = useActiveSessions()
   const sessionDetailOpen = useStore((s) => s.sessionDetailOpen)
   const setSessionDetailOpen = useStore((s) => s.setSessionDetailOpen)
+  const [menuOpen, setMenuOpen] = useState(false)
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const containerRef = useRef<HTMLDivElement>(null)
   const imageCacheRef = useRef<Map<string, HTMLImageElement>>(new Map())
@@ -268,6 +271,8 @@ export function OfficePage() {
     const engine = new class extends GameEngine {
       update(deltaMs: number) {
         gameState.tick += 1
+        const prevX = gameState.player.x
+        const prevY = gameState.player.y
         const npcHitboxes = Object.values(gameState.npcs).map((pos) => ({
           x: pos.x + PLAYER_HITBOX.offsetX,
           y: pos.y + PLAYER_HITBOX.offsetY,
@@ -275,6 +280,10 @@ export function OfficePage() {
           h: PLAYER_HITBOX.h,
         }))
         movePlayer(gameState.player, getKeysDown(), deltaMs, collisionMap, npcHitboxes)
+        const moved = Math.abs(gameState.player.x - prevX) > 0.1 || Math.abs(gameState.player.y - prevY) > 0.1
+        if (moved) {
+          audioSystem.playFootstep()
+        }
         const cam = gameState.camera
         const zoom = cam.zoom  // = 2
         // Set viewportW each frame in case zoom changes (future-proof)
@@ -491,10 +500,24 @@ export function OfficePage() {
           data-testid="game-canvas"
         />
         <div style={{ position: 'relative', zIndex: 1, width: '100%', height: '100%' }}>
-          {/* React UI overlays rendered here in future phases */}
+          <div className="absolute top-3 right-3">
+            <button
+              type="button"
+              className="cockpit-btn px-3 py-1.5 text-[11px] font-semibold
+                         bg-[oklch(0.34_0.09_245_/_0.92)] text-[oklch(0.93_0.03_220)]
+                         border-[oklch(0.70_0.14_210_/_0.72)]
+                         shadow-[0_0_0_1px_oklch(0.65_0.12_210_/_0.45),0_0_14px_oklch(0.44_0.12_225_/_0.55)]
+                         hover:bg-[oklch(0.38_0.10_240_/_0.95)]"
+              onClick={() => setMenuOpen(true)}
+              aria-label="Open menu"
+            >
+              Menu
+            </button>
+          </div>
         </div>
       </div>
       <InstancePopupHub open={sessionDetailOpen} onClose={() => setSessionDetailOpen?.(false)} />
+      <MenuPopup open={menuOpen} onClose={() => setMenuOpen(false)} />
     </>
   )
 }

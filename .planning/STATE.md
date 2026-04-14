@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v1.1
 milestone_name: — 2D Pixel Art Game Experience
 status: planning
-stopped_at: Completed 16.12-03-PLAN.md
-last_updated: "2026-04-14T00:21:18.340Z"
-last_activity: 2026-04-13 — Completed phase 16.12-03 execution + user verification (provider-native session launch)
+stopped_at: Completed 18-02-PLAN.md (executed ahead of phase 17 by request)
+last_updated: "2026-04-13T22:36:00.000Z"
+last_activity: 2026-04-13 — Completed phase 18 audio system execution (ambient loop + SFX + audio controls)
 progress:
   total_phases: 25
-  completed_phases: 15
+  completed_phases: 16
   total_plans: 81
-  completed_plans: 75
-  percent: 93
+  completed_plans: 77
+  percent: 95
 ---
 
 # Project State
@@ -25,12 +25,12 @@ See: .planning/PROJECT.md (updated 2026-04-10)
 
 ## Current Position
 
-Phase: 16.11 — Agent Modal — Terminal UX Redesign
-Plan: TBD
-Status: Ready — run planning for 16.11
-Last activity: 2026-04-13 — Completed phase 16.10 execution + verification
+Phase: 17 — NPC Agent Behavior
+Plan: 17-01, 17-02 (pending)
+Status: Ready for execution (Phase 18 was completed out of order on request)
+Last activity: 2026-04-13 — Completed phase 18 execution + verification
 
-Progress: [█████████░] 93%
+Progress: [█████████▌] 95%
 
 ## v1.0 Completed
 
@@ -167,6 +167,7 @@ All v1.0 decisions remain active and respected.
 - Phase 16.10 inserted after Phase 16.9: NPC Spawn Inside Map Fix — new session agents spawn at (0,0) which is deep-space void; define safe spawn slots on walkable floor
 - Phase 16.11 inserted after Phase 16.10: Agent Modal Terminal UX Redesign — black text on dark bg, timeline order wrong, raw JSON messages; full redesign with terminal input (uses /frontend-design)
 - Phase 16.12 inserted after Phase 16.11: Provider-Native Session Launch (Claude + Codex) (URGENT)
+- Phase 18 implemented ahead of dependency order by explicit request: ambient soundtrack + SFX system + persisted audio controls
 
 ### Pending Todos
 
