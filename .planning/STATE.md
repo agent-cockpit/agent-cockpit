@@ -2,9 +2,9 @@
 gsd_state_version: 1.0
 milestone: v1.1
 milestone_name: — 2D Pixel Art Game Experience
-status: completed
-stopped_at: Completed 26-01-PLAN.md
-last_updated: "2026-04-14T15:02:34.996Z"
+status: executing
+stopped_at: Phase 29 UI-SPEC approved
+last_updated: "2026-04-14T21:30:04.764Z"
 last_activity: 2026-04-14
 progress:
   total_phases: 27
@@ -21,14 +21,14 @@ progress:
 See: .planning/PROJECT.md (updated 2026-04-10)
 
 **Core value:** One unified approval, memory and replay layer across Claude Code and Codex — so developers can run agents productively, not just watch them.
-**Current focus:** Phase 27 complete — player-character-selection
+**Current focus:** Phase 28 complete — walking-sprites-all-characters
 
 ## Current Position
 
-Phase: 27
-Plan: Complete
-Status: Phase 27 complete
-Last activity: 2026-04-14 — Approved human verification and completed phase 27
+Phase: 28
+Plan: 3 of 3 complete
+Status: Phase 28 complete
+Last activity: 2026-04-14 -- Phase 28 completed
 
 Progress: [█████████▌] 95%
 
@@ -189,8 +189,8 @@ None yet — requirements phase will surface tasks.
 
 ## Session Continuity
 
-Last session: 2026-04-14T13:42:01.266Z
-Stopped at: Completed 26-01-PLAN.md
-Resume file: None
+Last session: 2026-04-14T21:13:04.937Z
+Stopped at: Phase 29 UI-SPEC approved
+Resume file: .planning/phases/29-sidebar-menu-design-overhaul/29-UI-SPEC.md
 
 *Updated after each plan completion*
