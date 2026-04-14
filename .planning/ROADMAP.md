@@ -374,10 +374,10 @@ Plans:
   3. Externally attached sessions expose `canSendMessage=false` and UI shows explicit "approval-only" state
   4. Attempted sends to non-chat-capable sessions fail safely with user-visible reason (no silent drop)
   5. Capability state is available to both OPS panel and map popup flows
-**Plans:** 1 plan
+**Plans:** 1/1 plans complete
 
 Plans:
-- [ ] 22-01-PLAN.md — Session chat transport + capability model (daemon vs external) across daemon and UI
+- [x] 22-01-PLAN.md — Session chat transport + capability model (daemon vs external) across daemon and UI
 
 ### Phase 23: Approval Hook Reliability Across Providers and Subagents
 **Goal:** Fix approval flows that are currently failing by hardening hook/event handling so approvals and related events resolve reliably for Claude and Codex, including subagent scenarios.

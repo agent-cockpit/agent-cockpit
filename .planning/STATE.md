@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v1.1
 milestone_name: — 2D Pixel Art Game Experience
-status: planning
-stopped_at: Completed 18-02-PLAN.md (executed ahead of phase 17 by request)
-last_updated: "2026-04-14T10:33:25.000Z"
-last_activity: 2026-04-14 — Added planning phases 22–25 (chat, approvals reliability, avatar popup chat, session termination)
+status: completed
+stopped_at: Completed 22-01-PLAN.md
+last_updated: "2026-04-14T11:29:00.337Z"
+last_activity: 2026-04-14 — Completed phase 22 plan 22-01 (session chat capability split)
 progress:
   total_phases: 29
-  completed_phases: 16
-  total_plans: 87
-  completed_plans: 77
-  percent: 89
+  completed_phases: 17
+  total_plans: 59
+  completed_plans: 50
+  percent: 95
 ---
 
 # Project State
@@ -25,12 +25,12 @@ See: .planning/PROJECT.md (updated 2026-04-10)
 
 ## Current Position
 
-Phase: 17 — NPC Agent Behavior
-Plan: 17-01, 17-02 (pending)
-Status: Ready for execution (Phase 18 was completed out of order on request)
-Last activity: 2026-04-13 — Completed phase 18 execution + verification
+Phase: 23 — Approval Hook Reliability Across Providers and Subagents
+Plan: 23-01 (pending)
+Status: Ready for execution
+Last activity: 2026-04-14 — Completed phase 22 plan 22-01 (session chat capability split)
 
-Progress: [█████████▌] 95%
+Progress: [█████████░] 90%
 
 ## v1.0 Completed
 
@@ -49,7 +49,7 @@ All 14 phases complete:
 - Phase 10.2: Pixel Art Asset Production
 - Phase 14: Office Map View — Full Navigation Paradigm Shift
 
-**Key deliverable**: Popup-based navigation, MapSidebar, InstancePopupHub with 5 tabs, HistoryPopup modal
+**Key deliverable**: Popup-based navigation, MapSidebar, InstancePopupHub with 6 tabs (including Chat), HistoryPopup modal
 
 ## v1.1 Goals
 
@@ -154,6 +154,9 @@ All v1.0 decisions remain active and respected.
 - [Phase 16.12-03]: CodexAdapter needs clientInfo in initialize + protocol version 2026-01-01 to avoid silent error hangs
 - [Phase 16.12-03]: GET /api/browse endpoint added for folder picker UX in LaunchSessionModal — avoids manual path typing
 - [Phase 16.12-03]: Phase 16.12 COMPLETE — full provider-native launch flow verified end-to-end by user for both Claude and Codex
+- [Phase 22]: Session capabilities are explicit and flow through daemon summaries plus live session_start events.
+- [Phase 22]: session_chat emits normalized session_chat_message/session_chat_error events for replay-safe UI behavior.
+- [Phase 22]: WebSocket handlers dispatch through runtime registry keyed by sessionId to keep provider routing server-side.
 
 ### Roadmap Evolution
 
@@ -186,8 +189,8 @@ None yet — requirements phase will surface tasks.
 
 ## Session Continuity
 
-Last session: 2026-04-13T23:30:00Z
-Stopped at: Completed 16.12-03-PLAN.md (Phase 16.12 COMPLETE — provider-native session launch verified)
+Last session: 2026-04-14T11:29:00.332Z
+Stopped at: Completed 22-01-PLAN.md
 Resume file: None
 
 *Updated after each plan completion*
