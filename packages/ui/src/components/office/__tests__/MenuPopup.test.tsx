@@ -77,7 +77,7 @@ describe('MenuPopup', () => {
   it('renders audio controls and character selection when open', () => {
     render(<MenuPopup open={true} onClose={vi.fn()} />)
     expect(screen.getByTestId('menu-dialog-content')).toBeInTheDocument()
-    expect(screen.getByText('Game Menu')).toBeInTheDocument()
+    expect(screen.getByText('GAME MENU')).toBeInTheDocument()
     expect(screen.getByLabelText('Music volume')).toBeInTheDocument()
     expect(screen.getByLabelText('SFX volume')).toBeInTheDocument()
     expect(screen.getByText('Character Select')).toBeInTheDocument()
@@ -113,5 +113,15 @@ describe('MenuPopup', () => {
     fireEvent.click(screen.getByRole('button', { name: /confirm character/i }))
 
     expect(mockRefs.setSelectedPlayerCharacter).toHaveBeenCalledWith('robot')
+  })
+
+  it('closes the modal when confirming the selected character', () => {
+    const onClose = vi.fn()
+    render(<MenuPopup open={true} onClose={onClose} />)
+
+    fireEvent.click(screen.getByRole('button', { name: /confirm character/i }))
+
+    expect(mockRefs.setSelectedPlayerCharacter).toHaveBeenCalledWith('astronaut')
+    expect(onClose).toHaveBeenCalledTimes(1)
   })
 })

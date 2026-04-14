@@ -59,7 +59,10 @@ export function MenuPopup({ open, onClose }: Props) {
             <CharacterPicker
               value={draftCharacter}
               onChange={setDraftCharacter}
-              onConfirm={() => setSelectedPlayerCharacter(draftCharacter)}
+              onConfirm={() => {
+                setSelectedPlayerCharacter(draftCharacter)
+                onClose()
+              }}
             />
 
             <section className="cockpit-frame-full rounded-none border border-border/70 bg-[var(--color-panel-surface)] px-3 py-3">
