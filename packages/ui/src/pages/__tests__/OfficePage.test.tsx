@@ -61,6 +61,7 @@ const mockCtx = {
 HTMLCanvasElement.prototype.getContext = vi.fn(() => mockCtx) as unknown as typeof HTMLCanvasElement.prototype.getContext
 
 const imageInstances: Array<{
+  src: string
   _src: string
   complete: boolean
   naturalWidth: number
