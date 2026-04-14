@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
-import { render, screen, fireEvent } from '@testing-library/react'
+import { render, screen, fireEvent, waitFor, act } from '@testing-library/react'
 import { ChatPanel } from '../components/panels/ChatPanel.js'
 import { useStore } from '../store/index.js'
 
@@ -119,5 +119,42 @@ describe('ChatPanel', () => {
     render(<ChatPanel />)
 
     expect(screen.getByText('Managed session runtime is not available for chat send.')).toBeInTheDocument()
+  })
+
+  it('locks composer and shows typing status until assistant reply arrives', async () => {
+    render(<ChatPanel />)
+
+    const input = screen.getByPlaceholderText(/send a message/i) as HTMLInputElement
+    fireEvent.change(input, { target: { value: 'Ping provider' } })
+    fireEvent.click(screen.getByRole('button', { name: /send/i }))
+
+    expect(screen.getByText('Codex is typing...')).toBeInTheDocument()
+    expect(input).toBeDisabled()
+    expect(screen.getByRole('button', { name: /send/i })).toBeDisabled()
+
+    act(() => {
+      useStore.setState((state) => ({
+        events: {
+          ...state.events,
+          [SESSION_ID]: [
+            ...(state.events[SESSION_ID] ?? []),
+            {
+              schemaVersion: 1,
+              sessionId: SESSION_ID,
+              timestamp: new Date(Date.now() + 1000).toISOString(),
+              type: 'session_chat_message',
+              provider: 'codex',
+              role: 'assistant',
+              content: 'Reply from provider',
+            },
+          ],
+        },
+      }))
+    })
+
+    await waitFor(() => {
+      expect(screen.queryByText('Codex is typing...')).not.toBeInTheDocument()
+      expect(input).not.toBeDisabled()
+    })
   })
 })

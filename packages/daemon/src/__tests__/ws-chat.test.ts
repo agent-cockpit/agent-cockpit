@@ -121,4 +121,53 @@ describe('session_chat websocket dispatch', () => {
 
     db.close();
   });
+
+  it('emits assistant session_chat_message when runtime returns direct response text', async () => {
+    const db = openDatabase(':memory:');
+    const sessionId = 'cccccccc-0000-0000-0000-000000000333';
+
+    persistEvent(db, makeSessionStart(sessionId, 'claude', {
+      managedByDaemon: true,
+      canSendMessage: true,
+      canTerminateSession: true,
+    }));
+
+    const ws = new FakeWs() as unknown as WebSocket;
+    const runtimeSend = vi.fn().mockResolvedValue('Hello from Claude runtime');
+    const emitEvent = vi.fn();
+
+    handleConnection(ws, makeRequest(), db, {
+      runtimeRegistry: {
+        get: () => ({ provider: 'claude', sendMessage: runtimeSend }),
+      },
+      emitEvent,
+    });
+
+    ws.emit('message', Buffer.from(JSON.stringify({
+      type: 'session_chat',
+      sessionId,
+      content: 'Hi Claude',
+    })));
+
+    await Promise.resolve();
+
+    expect(runtimeSend).toHaveBeenCalledWith('Hi Claude');
+    expect(emitEvent).toHaveBeenCalledTimes(2);
+    expect(emitEvent.mock.calls[0]?.[0]).toMatchObject({
+      type: 'session_chat_message',
+      sessionId,
+      role: 'user',
+      content: 'Hi Claude',
+      provider: 'claude',
+    });
+    expect(emitEvent.mock.calls[1]?.[0]).toMatchObject({
+      type: 'session_chat_message',
+      sessionId,
+      role: 'assistant',
+      content: 'Hello from Claude runtime',
+      provider: 'claude',
+    });
+
+    db.close();
+  });
 });

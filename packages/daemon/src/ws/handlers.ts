@@ -7,7 +7,7 @@ import { approvalQueue } from '../approvals/approvalQueue.js';
 
 interface ManagedRuntimeHandle {
   provider: 'claude' | 'codex'
-  sendMessage: (message: string) => Promise<void>
+  sendMessage: (message: string) => Promise<string | void>
 }
 
 interface ConnectionDeps {
@@ -115,6 +115,7 @@ export function handleConnection(
 
       const runtime = deps?.runtimeRegistry?.get(sessionId);
       const provider = resolveProvider(summary.provider, runtime?.provider);
+      console.log(`[ws/chat] incoming session_chat session=${sessionId} provider=${provider} canSend=${summary.capabilities.canSendMessage} runtime=${runtime ? 'yes' : 'no'}`);
 
       if (!summary.capabilities.canSendMessage) {
         emitChatError(
@@ -146,14 +147,30 @@ export function handleConnection(
         content: content.trim(),
       });
 
-      void runtime.sendMessage(content.trim()).catch((err: unknown) => {
-        emitChatError(
-          sessionId,
-          provider,
-          'CHAT_SEND_FAILED',
-          `Failed to send chat message: ${String(err)}`,
-        );
-      });
+      void runtime.sendMessage(content.trim())
+        .then((assistantMessage) => {
+          if (typeof assistantMessage === 'string' && assistantMessage.trim().length > 0) {
+            emit({
+              schemaVersion: 1,
+              sessionId,
+              timestamp: new Date().toISOString(),
+              type: 'session_chat_message',
+              provider,
+              role: 'assistant',
+              content: assistantMessage.trim(),
+            });
+            console.log(`[ws/chat] assistant response emitted session=${sessionId} provider=${provider} chars=${assistantMessage.trim().length}`);
+          }
+        })
+        .catch((err: unknown) => {
+          console.error(`[ws/chat] send failed session=${sessionId} provider=${provider}`, err);
+          emitChatError(
+            sessionId,
+            provider,
+            'CHAT_SEND_FAILED',
+            `Failed to send chat message: ${String(err)}`,
+          );
+        });
     }
   });
 

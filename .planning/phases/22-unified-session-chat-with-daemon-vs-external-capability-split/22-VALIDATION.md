@@ -19,18 +19,18 @@ created: 2026-04-14
 |----------|-------|
 | **Framework** | vitest |
 | **Config file** | `vitest.config.ts` |
-| **Quick run command** | `pnpm --filter @cockpit/daemon test --run ws && pnpm --filter @cockpit/ui test --run InstancePopupHub` |
+| **Quick smoke command** | `pnpm --filter @cockpit/daemon test --run ws && pnpm --filter @cockpit/ui test --run useSessionEvents` |
 | **Full suite command** | `pnpm --filter @cockpit/daemon test && pnpm --filter @cockpit/ui test` |
-| **Estimated runtime** | ~120 seconds |
+| **Estimated smoke runtime** | ~25 seconds |
 
 ---
 
 ## Sampling Rate
 
-- **After every task commit:** Run `pnpm --filter @cockpit/daemon test --run ws && pnpm --filter @cockpit/ui test --run InstancePopupHub`
+- **After every task commit:** Run fast smoke: `pnpm --filter @cockpit/daemon test --run ws && pnpm --filter @cockpit/ui test --run useSessionEvents`
 - **After every plan wave:** Run `pnpm --filter @cockpit/daemon test && pnpm --filter @cockpit/ui test`
 - **Before `$gsd-verify-work`:** Full suite must be green
-- **Max feedback latency:** 120 seconds
+- **Max feedback latency:** 30 seconds
 
 ---
 
@@ -67,7 +67,7 @@ created: 2026-04-14
 - [ ] Sampling continuity: no 3 consecutive tasks without automated verify
 - [ ] Wave 0 covers all MISSING references
 - [ ] No watch-mode flags
-- [ ] Feedback latency < 120s
+- [ ] Feedback latency <= 30s
 - [ ] `nyquist_compliant: true` set in frontmatter
 
 **Approval:** pending

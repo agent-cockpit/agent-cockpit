@@ -18,7 +18,7 @@ const pendingSuggestions = new Map<string, { workspace: string; value: string }>
 
 export interface ManagedSessionRuntime {
   provider: 'claude' | 'codex'
-  sendMessage: (message: string) => Promise<void>
+  sendMessage: (message: string) => Promise<string | void>
   terminateSession?: () => void
 }
 

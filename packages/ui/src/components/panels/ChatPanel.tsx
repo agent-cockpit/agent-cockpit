@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useParams } from 'react-router'
 import { useStore } from '../../store/index.js'
 import { sendWsMessage } from '../../hooks/useSessionEvents.js'
@@ -29,6 +29,9 @@ export function ChatPanel() {
   const wsStatus = useStore((s) => s.wsStatus)
 
   const [message, setMessage] = useState('')
+  const [awaitingReply, setAwaitingReply] = useState(false)
+  const [lastSendAt, setLastSendAt] = useState<string | null>(null)
+  const replyTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   const chatMessages = useMemo(
     () => events.filter(isChatMessage),
@@ -46,11 +49,55 @@ export function ChatPanel() {
   }, [events])
 
   const sendEnabledForSession = session?.canSendMessage === true
-  const canSend = sendEnabledForSession && wsStatus === 'connected'
+  const canSend = sendEnabledForSession && wsStatus === 'connected' && !awaitingReply
+
+  useEffect(() => {
+    return () => {
+      if (replyTimeoutRef.current) {
+        clearTimeout(replyTimeoutRef.current)
+        replyTimeoutRef.current = null
+      }
+    }
+  }, [])
+
+  useEffect(() => {
+    if (!awaitingReply || !lastSendAt) return
+    const resolved = events.some((event) => {
+      if (event.timestamp < lastSendAt) return false
+      if (isChatError(event)) return true
+      return isChatMessage(event) && event.role === 'assistant'
+    })
+    if (!resolved) return
+    setAwaitingReply(false)
+    if (replyTimeoutRef.current) {
+      clearTimeout(replyTimeoutRef.current)
+      replyTimeoutRef.current = null
+    }
+  }, [awaitingReply, events, lastSendAt])
+
+  useEffect(() => {
+    if (wsStatus === 'connected') return
+    setAwaitingReply(false)
+    if (replyTimeoutRef.current) {
+      clearTimeout(replyTimeoutRef.current)
+      replyTimeoutRef.current = null
+    }
+  }, [wsStatus])
 
   function onSend(): void {
     const content = message.trim()
     if (!sessionId || !content || !canSend) return
+    const sentAt = new Date().toISOString()
+    setLastSendAt(sentAt)
+    setAwaitingReply(true)
+    if (replyTimeoutRef.current) {
+      clearTimeout(replyTimeoutRef.current)
+      replyTimeoutRef.current = null
+    }
+    replyTimeoutRef.current = setTimeout(() => {
+      setAwaitingReply(false)
+      replyTimeoutRef.current = null
+    }, 45_000)
     sendWsMessage({ type: 'session_chat', sessionId, content })
     setMessage('')
   }
@@ -66,9 +113,14 @@ export function ChatPanel() {
   }
 
   return (
-    <div className="flex h-full flex-col">
+    <div className="flex h-full flex-col text-[var(--color-foreground)]">
       <div className="border-b border-border p-3">
         <h2 className="cockpit-label">Session Chat</h2>
+        {awaitingReply && (
+          <p className="mt-1 text-xs text-[var(--color-cockpit-cyan)] [font-family:var(--font-mono-data)]">
+            {session.provider === 'claude' ? 'Claude is typing...' : 'Codex is typing...'}
+          </p>
+        )}
         {latestError && (
           <p className="mt-1 text-xs text-[var(--color-cockpit-red)]">{latestError}</p>
         )}
@@ -83,12 +135,12 @@ export function ChatPanel() {
           chatMessages.map((chat, index) => (
             <div
               key={`${chat.timestamp}-${index}`}
-              className="border border-border/70 bg-[var(--color-panel-surface)] px-3 py-2"
+              className="border border-border/70 bg-[oklch(0.23_0.02_250)] px-3 py-2"
             >
-              <p className="text-[10px] uppercase tracking-wide text-muted-foreground [font-family:var(--font-mono-data)]">
+              <p className="text-[10px] uppercase tracking-wide text-[var(--color-cockpit-cyan)] [font-family:var(--font-mono-data)]">
                 {chat.role}
               </p>
-              <p className="text-sm mt-0.5 whitespace-pre-wrap">{chat.content}</p>
+              <p className="text-sm mt-0.5 whitespace-pre-wrap leading-relaxed text-[var(--color-foreground)]">{chat.content}</p>
             </div>
           ))
         )}
@@ -107,8 +159,8 @@ export function ChatPanel() {
               }
             }}
             placeholder="Send a message"
-            className="flex-1 bg-[var(--color-panel-surface)] border border-border px-3 py-2 text-sm [font-family:var(--font-mono-data)]"
-            disabled={wsStatus !== 'connected'}
+            className="flex-1 bg-[oklch(0.23_0.02_250)] border border-border px-3 py-2 text-sm text-[var(--color-foreground)] placeholder:text-[var(--color-cockpit-dim)] [font-family:var(--font-mono-data)]"
+            disabled={wsStatus !== 'connected' || awaitingReply}
           />
           <button
             className="cockpit-btn text-xs px-3 py-2 disabled:opacity-50 disabled:cursor-not-allowed"
@@ -120,11 +172,11 @@ export function ChatPanel() {
         </div>
       ) : (
         <div className="border-t border-border p-3">
-          <p className="text-xs text-muted-foreground">
+          <p className="text-xs text-[var(--color-muted-foreground)]">
             This session is approval-only and does not support chat sends.
           </p>
           {session.reason && (
-            <p className="text-xs mt-1 text-muted-foreground">{session.reason}</p>
+            <p className="text-xs mt-1 text-[var(--color-muted-foreground)]">{session.reason}</p>
           )}
         </div>
       )}

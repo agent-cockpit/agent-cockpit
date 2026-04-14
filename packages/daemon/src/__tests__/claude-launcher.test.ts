@@ -72,7 +72,7 @@ describe('ClaudeLauncher.launch()', () => {
     );
   });
 
-  it('written settings file contains all 8 hook event types pointing to daemon port', async () => {
+  it('written settings file contains all 8 hook event types with command hook payloads', async () => {
     const { ClaudeLauncher } = await import('../adapters/claude/claudeLauncher.js');
     const mockProc = makeMockProc({ emitSpawn: true });
     const procFactory = vi.fn(() => mockProc);
@@ -84,21 +84,21 @@ describe('ClaudeLauncher.launch()', () => {
     const writeCall = vi.mocked(fs.writeFileSync).mock.calls[0];
     expect(writeCall).toBeDefined();
     const written = JSON.parse(writeCall[1] as string) as {
-      hooks: Record<string, Array<{ url: string; timeout?: number }>>;
+      hooks: Record<string, Array<{ matcher?: string; hooks: Array<{ type: string; command: string }> }>>;
     };
 
-    const hookUrl = 'http://localhost:4444/hook';
+    const hookCmd = "curl -sf -X POST http://localhost:4444/hook -d @- -H 'Content-Type: application/json'";
     const hookEvents = [
       'SessionStart', 'SessionEnd', 'PreToolUse', 'PostToolUse',
       'PermissionRequest', 'SubagentStart', 'SubagentStop', 'Notification',
     ];
     for (const event of hookEvents) {
       expect(written.hooks[event]).toBeDefined();
-      expect(written.hooks[event][0].url).toBe(hookUrl);
+      expect(written.hooks[event][0]?.hooks[0]?.type).toBe('command');
+      expect(written.hooks[event][0]?.hooks[0]?.command).toBe(hookCmd);
     }
-    // PreToolUse and PermissionRequest have timeout: 60
-    expect(written.hooks['PreToolUse'][0].timeout).toBe(60);
-    expect(written.hooks['PermissionRequest'][0].timeout).toBe(60);
+    expect(written.hooks['PreToolUse'][0]?.matcher).toBe('');
+    expect(written.hooks['PermissionRequest'][0]?.matcher).toBe('');
   });
 
   it('calls spawn with --session-id and --settings args', async () => {
