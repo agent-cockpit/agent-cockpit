@@ -44,11 +44,12 @@ export function CharacterPicker({ value, onChange, onConfirm }: CharacterPickerP
           {'[<]'}
         </button>
 
-        <div className="flex min-w-0 flex-1 items-center gap-3 border border-border/60 bg-background/70 px-3 py-3">
+        <div className="flex min-w-0 flex-1 items-center gap-3 border border-border/60 bg-[var(--color-panel-surface)] px-3 py-3">
           <img
             src={characterFaceUrl(CHARACTER_TYPES[safeIndex])}
             alt={`${label} face portrait`}
-            className="h-16 w-16 shrink-0 border border-border/60 object-cover image-render-pixel"
+            className="h-16 w-16 shrink-0 border border-border/60 object-cover"
+            style={{ imageRendering: 'pixelated' }}
           />
 
           <div className="min-w-0">
@@ -75,7 +76,7 @@ export function CharacterPicker({ value, onChange, onConfirm }: CharacterPickerP
         className="cockpit-btn mt-4 w-full justify-center px-3 py-2 text-xs uppercase tracking-[0.2em]"
         aria-label="Confirm character"
       >
-        Confirm
+        [ CONFIRM ]
       </button>
     </section>
   )
