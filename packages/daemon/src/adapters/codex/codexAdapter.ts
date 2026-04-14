@@ -151,8 +151,11 @@ export class CodexAdapter {
 
     void lineSource; // suppress unused warning
 
-    // Send initialize request
-    await this.sendRequest('initialize', { protocolVersion: '2024-01-01' });
+    // Send initialize request (clientInfo is required by codex app-server)
+    await this.sendRequest('initialize', {
+      protocolVersion: '2026-01-01',
+      clientInfo: { name: 'agent-cockpit', version: '1.0.0' },
+    });
 
     // Determine whether to start or resume
     const existing = this.db
@@ -280,14 +283,18 @@ export class CodexAdapter {
     const hasId = 'id' in msg && msg['id'] !== undefined && msg['id'] !== null;
     const hasMethod = 'method' in msg && msg['method'] !== undefined;
     const hasResult = 'result' in msg;
+    const hasError = 'error' in msg;
 
-    if (hasId && hasResult && !hasMethod) {
-      // Response to our outgoing request
+    if (hasId && (hasResult || hasError) && !hasMethod) {
+      // Response to our outgoing request (success or error)
       const id = msg['id'] as number;
       const resolver = this.pendingRequests.get(id);
       if (resolver) {
         this.pendingRequests.delete(id);
-        resolver(msg['result']);
+        if (hasError) {
+          console.error(`[CodexAdapter] rpc error for id=${id}:`, JSON.stringify(msg['error']));
+        }
+        resolver(hasError ? { error: msg['error'] } : msg['result']);
       }
       return;
     }
