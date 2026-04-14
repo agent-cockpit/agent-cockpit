@@ -3,6 +3,8 @@ import { useActiveSessions } from '../../store/selectors.js'
 import { useStore } from '../../store/index.js'
 import type { SessionStatus } from '../../store/index.js'
 import { LaunchSessionModal } from '../sessions/LaunchSessionModal.js'
+import { sessionToCharacter, characterFaceUrl } from '../office/characterMapping.js'
+import type { CharacterType } from '../office/characterMapping.js'
 
 interface Props {
   onFocusSession: (sessionId: string) => void
@@ -27,6 +29,33 @@ const STATUS_STYLES: Record<SessionStatus, { label: string; dotClass: string; to
     toneClass: '',
     detail: 'Attention required',
   },
+}
+
+function FaceAvatar({ character }: { character: CharacterType }) {
+  const [imgFailed, setImgFailed] = useState(false)
+  if (imgFailed) {
+    return (
+      <span
+        data-testid="face-avatar-fallback"
+        aria-label={character}
+        className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-cyan-500/20 text-[11px] font-bold uppercase text-cyan-300"
+      >
+        {character[0].toUpperCase()}
+      </span>
+    )
+  }
+  return (
+    <img
+      data-testid="face-avatar"
+      src={characterFaceUrl(character)}
+      alt={character}
+      width={32}
+      height={32}
+      onError={() => setImgFailed(true)}
+      style={{ imageRendering: 'pixelated' }}
+      className="h-8 w-8 shrink-0 rounded-full object-cover"
+    />
+  )
 }
 
 export function MapSidebar({ onFocusSession }: Props) {
@@ -94,6 +123,7 @@ export function MapSidebar({ onFocusSession }: Props) {
               </>
             )}
             <div className="flex items-start justify-between gap-3">
+              <FaceAvatar character={sessionToCharacter(session.sessionId)} />
               <div className="min-w-0">
                 <div className="flex items-center gap-2">
                   <span className="truncate text-xs font-semibold text-foreground [font-family:var(--font-mono-data)] uppercase tracking-wide">{projectName}</span>
