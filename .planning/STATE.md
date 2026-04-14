@@ -4,14 +4,14 @@ milestone: v1.1
 milestone_name: — 2D Pixel Art Game Experience
 status: completed
 stopped_at: Completed 26-01-PLAN.md
-last_updated: "2026-04-14T13:42:01.269Z"
-last_activity: 2026-04-13 — Completed phase 18 execution + verification
+last_updated: "2026-04-14T15:02:34.996Z"
+last_activity: 2026-04-14
 progress:
-  total_phases: 26
-  completed_phases: 16
-  total_plans: 57
-  completed_plans: 50
-  percent: 95
+  total_phases: 27
+  completed_phases: 17
+  total_plans: 60
+  completed_plans: 53
+  percent: 88
 ---
 
 # Project State
@@ -21,20 +21,21 @@ progress:
 See: .planning/PROJECT.md (updated 2026-04-10)
 
 **Core value:** One unified approval, memory and replay layer across Claude Code and Codex — so developers can run agents productively, not just watch them.
-**Current focus:** Planning v1.1 — 2D Pixel Art Game Experience
+**Current focus:** Phase 27 complete — player-character-selection
 
 ## Current Position
 
-Phase: 17 — NPC Agent Behavior
-Plan: 17-01, 17-02 (pending)
-Status: Ready for execution (Phase 18 was completed out of order on request)
-Last activity: 2026-04-13 — Completed phase 18 execution + verification
+Phase: 27
+Plan: Complete
+Status: Phase 27 complete
+Last activity: 2026-04-14 — Approved human verification and completed phase 27
 
 Progress: [█████████▌] 95%
 
 ## v1.0 Completed
 
 All 14 phases complete:
+
 - Phase 1: Daemon Core
 - Phase 2: Claude Adapter (Approval Foundation)
 - Phase 3: Browser UI Shell (Session Management)
@@ -56,17 +57,20 @@ All 14 phases complete:
 Transform Office Mode from a static visualization into an engaging 2D pixel art game experience:
 
 **Core Mechanics:**
+
 - Player-controlled movement (WASD, arrow keys)
 - Click-to-teleport to agents
 - NPC agents that move to activity zones
 - 60 FPS game loop with smooth animations
 
 **Atmosphere:**
+
 - Ambient office background music
 - Sound effects for actions
 - Particle effects for visual feedback
 
 **Persistence:**
+
 - Quick save/load system
 - Auto-save on key actions
 - All game state preserved
@@ -77,6 +81,7 @@ Transform Office Mode from a static visualization into an engaging 2D pixel art 
 
 Decisions are logged in PROJECT.md Key Decisions table.
 Recent decisions affecting current work:
+
 - Roadmap: v1.1 adds game engine on top of existing React/Zustand architecture
 - v1.1: Canvas for game rendering, React for UI overlay (hybrid approach)
 - v1.1: NPC movement zones: coding → workstation, waiting for approval → meeting room
@@ -85,6 +90,7 @@ Recent decisions affecting current work:
 - v1.1: Save data: player position, game state, session data (not agent positions)
 
 All v1.0 decisions remain active and respected.
+
 - [Phase 15]: Added _loop stop-guard (rafId===null check) to prevent update() firing after stop() when a pending rAF callback exists
 - [Phase 15]: Global HTMLCanvasElement.getContext and ResizeObserver stubs added to setupTests.ts to prevent jsdom crashes in all canvas-using tests
 - [Phase 15]: GameEngine subclassed inline (anonymous class) inside OfficePage useEffect for clarity and co-location

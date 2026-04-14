@@ -1,7 +1,7 @@
 ---
 phase: 27-player-character-selection
 verified: 2026-04-14T14:57:22Z
-status: human_needed
+status: passed
 score: 6/6 must-haves verified
 overrides_applied: 0
 re_verification:
@@ -11,22 +11,16 @@ re_verification:
   gaps_remaining: []
   regressions: []
 human_verification:
-  - test: "Open the Office view, click the top-right Menu button, and inspect the character picker presentation"
-    expected: "The picker reads as a game-style menu panel with portrait, readable name, left/right arrows, confirm button, and intact audio controls"
-    why_human: "Visual styling and layout quality cannot be validated programmatically from source and unit tests alone"
-  - test: "Choose several characters through the live menu and confirm each one"
-    expected: "The on-map player sprite visibly swaps immediately after each confirm without requiring navigation or reload"
-    why_human: "The test suite verifies image source changes, but not the live rendered canvas experience"
-  - test: "Select a non-default character, reload the browser page, and reopen the Office view"
-    expected: "The previously confirmed character remains selected and the same player sprite is active after reload"
-    why_human: "Real browser persistence and boot-time restoration need an end-to-end runtime check"
+  status: approved
+  approved_at: 2026-04-14T15:02:34Z
+  source: 27-HUMAN-UAT.md
 ---
 
 # Phase 27: Player Character Selection UI Verification Report
 
 **Phase Goal:** The user can choose which character they play as. A character picker is accessible from the top-bar or settings menu, styled like a game screen with left/right arrows to cycle through all 10 characters. The selected character is persisted and the player sprite on the map updates immediately.
 **Verified:** 2026-04-14T14:57:22Z
-**Status:** human_needed
+**Status:** passed
 **Re-verification:** Yes - verification refreshed after the OfficePage test fetch-stubbing fix
 
 ## Goal Achievement
@@ -93,25 +87,9 @@ human_verification:
 | --- | --- | --- | --- | --- |
 | None | - | No blocking or notable anti-patterns detected in the verified phase files or focused evidence suite | - | The prior OfficePage jsdom fetch-noise note is no longer current because the test now stubs `/maps/maps-manifest.json` explicitly at [packages/ui/src/pages/__tests__/OfficePage.test.tsx](/Users/fabiomissiaggiabrugnara/Projects/Cockpit/agent-cockpit/packages/ui/src/pages/__tests__/OfficePage.test.tsx:89). |
 
-### Human Verification Required
+### Human Verification
 
-### 1. Picker Visual QA
-
-**Test:** Open Office view, click `Menu`, and inspect the character picker panel.
-**Expected:** The picker looks like an in-world game menu with portrait, readable character name, left/right arrows, and confirm button while audio controls remain intact.
-**Why human:** Styling quality and visual composition cannot be verified from source and unit tests alone.
-
-### 2. Live Sprite Swap
-
-**Test:** Confirm different characters through the live menu while watching the player on the Office map.
-**Expected:** The rendered player sprite changes immediately after each confirm.
-**Why human:** Tests prove image-source mutation, not the user-visible canvas presentation.
-
-### 3. Reload Persistence
-
-**Test:** Pick a non-default character, reload the page, and check the Office view again.
-**Expected:** The selected character remains active after reload and the corresponding player sprite is still used.
-**Why human:** End-to-end browser persistence at actual app boot is a runtime check outside this static verification pass.
+Approved on 2026-04-14 after confirming picker presentation, live sprite swap, and reload persistence in the running application.
 
 ---
 
