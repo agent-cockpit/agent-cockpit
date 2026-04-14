@@ -4,14 +4,14 @@ milestone: v1.1
 milestone_name: — 2D Pixel Art Game Experience
 status: planning
 stopped_at: Completed 16.12-03-PLAN.md
-last_updated: "2026-04-13T23:22:24.145Z"
-last_activity: 2026-04-13 — Completed phase 16.10 execution + verification
+last_updated: "2026-04-14T00:21:18.340Z"
+last_activity: 2026-04-13 — Completed phase 16.12-03 execution + user verification (provider-native session launch)
 progress:
   total_phases: 25
   completed_phases: 15
-  total_plans: 53
-  completed_plans: 47
-  percent: 92
+  total_plans: 81
+  completed_plans: 75
+  percent: 93
 ---
 
 # Project State
@@ -30,7 +30,7 @@ Plan: TBD
 Status: Ready — run planning for 16.11
 Last activity: 2026-04-13 — Completed phase 16.10 execution + verification
 
-Progress: [█████████░] 92%
+Progress: [█████████░] 93%
 
 ## v1.0 Completed
 
@@ -150,6 +150,10 @@ All v1.0 decisions remain active and respected.
 - [Phase 16.12-provider-native-session-launch-claude-codex]: hookParser.getOrCreateSessionId Tier 2 DB lookup handles pre-registered UUIDs correctly — no code change needed in hookParser.ts
 - [Phase 16.12-provider-native-session-launch-claude-codex]: proc.once('spawn') resolves launch() immediately when OS starts the process — does not wait for exit
 - [Phase 16.12-provider-native-session-launch-claude-codex]: waiting_for_session_start replaces claude-success/codex-success; useStore.subscribe selector detects session arrival; fake timer test pattern with manual promise resolution
+- [Phase 16.12-03]: ClaudeLauncher requires PTY via script command + correct curl hook settings format for hooks to fire during session
+- [Phase 16.12-03]: CodexAdapter needs clientInfo in initialize + protocol version 2026-01-01 to avoid silent error hangs
+- [Phase 16.12-03]: GET /api/browse endpoint added for folder picker UX in LaunchSessionModal — avoids manual path typing
+- [Phase 16.12-03]: Phase 16.12 COMPLETE — full provider-native launch flow verified end-to-end by user for both Claude and Codex
 
 ### Roadmap Evolution
 
@@ -177,8 +181,8 @@ None yet — requirements phase will surface tasks.
 
 ## Session Continuity
 
-Last session: 2026-04-13T23:22:24.140Z
-Stopped at: Completed 16.12-03-PLAN.md
+Last session: 2026-04-13T23:30:00Z
+Stopped at: Completed 16.12-03-PLAN.md (Phase 16.12 COMPLETE — provider-native session launch verified)
 Resume file: None
 
 *Updated after each plan completion*

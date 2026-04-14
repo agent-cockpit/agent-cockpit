@@ -272,12 +272,12 @@ Plans:
 **Goal:** Enable launching new Claude and Codex sessions directly from the app UI using provider-native runtimes (strict auto-launch, no manual copy-command fallback). Session becomes active only after real session_start lifecycle events arrive.
 **Requirements**: 16.12-R1, 16.12-R2, 16.12-R3, 16.12-R4, 16.12-R5 (SESS-02)
 **Depends on:** Phase 16.11
-**Plans:** 2/3 plans executed
+**Plans:** 3/3 plans complete
 
 Plans:
-- [ ] 16.12-01-PLAN.md — Daemon launch contract: strict-auto semantics, preflight checks, mode=initiated for both providers (TDD) (16.12-R1, 16.12-R2, 16.12-R4, 16.12-R5)
-- [ ] 16.12-02-PLAN.md — ClaudeLauncher full implementation: settings-file hooks, spawn, hookParser session-ID passthrough (16.12-R1, 16.12-R2, 16.12-R3, 16.12-R5)
-- [ ] 16.12-03-PLAN.md — UI modal state machine: waiting_for_session_start, event-driven close, 30s timeout (16.12-R1, 16.12-R2, 16.12-R3, 16.12-R4)
+- [x] 16.12-01-PLAN.md — Daemon launch contract: strict-auto semantics, preflight checks, mode=initiated for both providers (TDD) (16.12-R1, 16.12-R2, 16.12-R4, 16.12-R5)
+- [x] 16.12-02-PLAN.md — ClaudeLauncher full implementation: settings-file hooks, spawn, hookParser session-ID passthrough (16.12-R1, 16.12-R2, 16.12-R3, 16.12-R5)
+- [x] 16.12-03-PLAN.md — UI modal state machine: waiting_for_session_start, event-driven close, 30s timeout (16.12-R1, 16.12-R2, 16.12-R3, 16.12-R4)
 
 ### Phase 17: NPC Agent Behavior
 **Goal:** Agent NPCs on the map walk smoothly to zone positions based on their session state — coding agents move to the workstation zone, agents waiting for approval move to the meeting room zone — using linear interpolation (no pathfinding).
