@@ -154,10 +154,16 @@ describe('OfficePage canvas mount', () => {
       toJSON: () => ({}),
     })
 
-    // gameState.npcs['test-session-1'] is seeded by the component effect at index 0
-    // → x: 0, y: 0 (COLS=5, CELL=96 but session is at i=0)
-    // Sprite at (0,0), click at (30, 30) — within 64px sprite
-    const clickEvent = new MouseEvent('click', { bubbles: true, cancelable: true, clientX: 30, clientY: 30 })
+    const seededPos = gameState.npcs['test-session-1']
+    expect(seededPos).toBeDefined()
+    if (!seededPos) return
+
+    const clickEvent = new MouseEvent('click', {
+      bubbles: true,
+      cancelable: true,
+      clientX: (seededPos.x + 32) * gameState.camera.zoom,
+      clientY: (seededPos.y + 32) * gameState.camera.zoom,
+    })
     canvas.dispatchEvent(clickEvent)
 
     expect(selectSessionMock).toHaveBeenCalledWith('test-session-1')

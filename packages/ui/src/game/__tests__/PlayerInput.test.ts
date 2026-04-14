@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { PLAYER_SPEED, WALK_FRAME_DURATION_MS, WALK_FRAME_COUNT, attachInput, detachInput, getKeysDown, movePlayer } from '../PlayerInput.js'
+import { PLAYER_SPEED, PLAYER_SPRINT_MULTIPLIER, WALK_FRAME_DURATION_MS, WALK_FRAME_COUNT, attachInput, detachInput, getKeysDown, movePlayer } from '../PlayerInput.js'
 import { WORLD_W, WORLD_H } from '../GameState.js'
-import { CollisionMap } from '../CollisionMap.js'
+import { CollisionMap, PLAYER_HITBOX } from '../CollisionMap.js'
 
 // Helper to make a player object
 function makePlayer(x = 0, y = 0, direction = 'south', animTime = 0) {
@@ -98,6 +98,16 @@ describe('movePlayer — diagonal normalisation', () => {
     const dy = player.y - SAFE_Y
     const displacement = Math.sqrt(dx * dx + dy * dy)
     expect(displacement).toBeCloseTo(PLAYER_SPEED, 1)
+  })
+})
+
+describe('movePlayer — sprint', () => {
+  it('Shift held increases movement speed while preserving direction', () => {
+    const player = makePlayer(SAFE_X, SAFE_Y)
+    movePlayer(player, keys('KeyD', 'ShiftLeft'), 1000)
+    expect(player.x).toBeCloseTo(SAFE_X + PLAYER_SPEED * PLAYER_SPRINT_MULTIPLIER)
+    expect(player.y).toBe(SAFE_Y)
+    expect(player.direction).toBe('east')
   })
 })
 
@@ -444,5 +454,36 @@ describe('movePlayer — collision map', () => {
     movePlayer(player, keys('KeyD'), 1000)  // no 4th arg
     expect(player.x).toBeCloseTo(SAFE_X + PLAYER_SPEED)
     expect(player.y).toBe(SAFE_Y)
+  })
+})
+
+describe('movePlayer — dynamic blocking rects', () => {
+  it('blocks movement into a dynamic rect even without a CollisionMap', () => {
+    const blocker = {
+      x: 640,
+      y: 530,
+      w: PLAYER_HITBOX.w,
+      h: PLAYER_HITBOX.h,
+    }
+    const player = makePlayer(500, 500)
+
+    movePlayer(player, keys('KeyD'), 1000, undefined, [blocker])
+
+    expect(player.x).toBe(500)
+    expect(player.y).toBe(500)
+  })
+
+  it('allows movement that exits an existing dynamic-overlap state', () => {
+    const blocker = {
+      x: 520,
+      y: 530,
+      w: PLAYER_HITBOX.w,
+      h: PLAYER_HITBOX.h,
+    }
+    const player = makePlayer(500, 500)
+
+    movePlayer(player, keys('KeyA'), 16, undefined, [blocker])
+
+    expect(player.x).toBeLessThan(500)
   })
 })

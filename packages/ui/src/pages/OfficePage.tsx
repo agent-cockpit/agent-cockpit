@@ -268,7 +268,13 @@ export function OfficePage() {
     const engine = new class extends GameEngine {
       update(deltaMs: number) {
         gameState.tick += 1
-        movePlayer(gameState.player, getKeysDown(), deltaMs, collisionMap)
+        const npcHitboxes = Object.values(gameState.npcs).map((pos) => ({
+          x: pos.x + PLAYER_HITBOX.offsetX,
+          y: pos.y + PLAYER_HITBOX.offsetY,
+          w: PLAYER_HITBOX.w,
+          h: PLAYER_HITBOX.h,
+        }))
+        movePlayer(gameState.player, getKeysDown(), deltaMs, collisionMap, npcHitboxes)
         const cam = gameState.camera
         const zoom = cam.zoom  // = 2
         // Set viewportW each frame in case zoom changes (future-proof)
