@@ -1,6 +1,9 @@
 import * as Dialog from '@radix-ui/react-dialog'
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useAudioSettings, audioSystem } from '../../audio/audioSystem.js'
+import { CharacterPicker } from '../sessions/CharacterPicker.js'
+import { useStore } from '../../store/index.js'
+import type { CharacterType } from './characterMapping.js'
 
 interface Props {
   open: boolean
@@ -10,6 +13,9 @@ interface Props {
 export function MenuPopup({ open, onClose }: Props) {
   const audioSettings = useAudioSettings()
   const prevOpenRef = useRef(open)
+  const selectedPlayerCharacter = useStore((state) => state.selectedPlayerCharacter)
+  const setSelectedPlayerCharacter = useStore((state) => state.setSelectedPlayerCharacter)
+  const [draftCharacter, setDraftCharacter] = useState<CharacterType>(selectedPlayerCharacter)
 
   useEffect(() => {
     if (prevOpenRef.current !== open) {
@@ -17,6 +23,12 @@ export function MenuPopup({ open, onClose }: Props) {
       prevOpenRef.current = open
     }
   }, [open])
+
+  useEffect(() => {
+    if (open) {
+      setDraftCharacter(selectedPlayerCharacter)
+    }
+  }, [open, selectedPlayerCharacter])
 
   return (
     <Dialog.Root open={open} onOpenChange={(nextOpen) => { if (!nextOpen) onClose() }}>
@@ -42,6 +54,12 @@ export function MenuPopup({ open, onClose }: Props) {
           </div>
 
           <div className="p-4 space-y-4">
+            <CharacterPicker
+              value={draftCharacter}
+              onChange={setDraftCharacter}
+              onConfirm={() => setSelectedPlayerCharacter(draftCharacter)}
+            />
+
             <section className="cockpit-frame-full rounded-none border border-border/70 bg-[var(--color-panel-surface)] px-3 py-3">
               <p className="cockpit-label mb-3">Audio</p>
               <div className="mb-3 flex items-center justify-between gap-2">

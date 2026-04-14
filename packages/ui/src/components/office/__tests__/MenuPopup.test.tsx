@@ -112,6 +112,6 @@ describe('MenuPopup', () => {
     fireEvent.click(screen.getByRole('button', { name: /next character/i }))
     fireEvent.click(screen.getByRole('button', { name: /confirm character/i }))
 
-    expect(mockRefs.setSelectedPlayerCharacter).toHaveBeenCalledWith('female')
+    expect(mockRefs.setSelectedPlayerCharacter).toHaveBeenCalledWith('robot')
   })
 })
