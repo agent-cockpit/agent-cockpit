@@ -19,9 +19,16 @@ vi.mock('../../game/GameEngine.js', () => {
 })
 
 // Hoist selectSession/setHistoryMode mocks so they're available inside vi.mock factories
-const { selectSessionMock, setHistoryModeMock } = vi.hoisted(() => ({
+const {
+  selectSessionMock,
+  setHistoryModeMock,
+  setPopupPreferredTabMock,
+  setSessionDetailOpenMock,
+} = vi.hoisted(() => ({
   selectSessionMock: vi.fn(),
   setHistoryModeMock: vi.fn(),
+  setPopupPreferredTabMock: vi.fn(),
+  setSessionDetailOpenMock: vi.fn(),
 }))
 
 vi.mock('../../store/index.js', () => {
@@ -29,8 +36,11 @@ vi.mock('../../store/index.js', () => {
     events: {},
     sessions: {},
     selectedSessionId: null,
+    sessionDetailOpen: false,
     selectSession: selectSessionMock,
     setHistoryMode: setHistoryModeMock,
+    setPopupPreferredTab: setPopupPreferredTabMock,
+    setSessionDetailOpen: setSessionDetailOpenMock,
   }
   const useStore = vi.fn((selector: (s: typeof storeState) => unknown) => selector(storeState))
   // Attach getState for canvas click handler usage
@@ -77,6 +87,8 @@ describe('OfficePage canvas mount', () => {
     stopMock.mockClear()
     selectSessionMock.mockClear()
     setHistoryModeMock.mockClear()
+    setPopupPreferredTabMock.mockClear()
+    setSessionDetailOpenMock.mockClear()
     vi.stubGlobal('ResizeObserver', MockResizeObserver)
     // Reset npcs and player between tests
     Object.keys(gameState.npcs).forEach(k => delete gameState.npcs[k])
@@ -167,6 +179,8 @@ describe('OfficePage canvas mount', () => {
     canvas.dispatchEvent(clickEvent)
 
     expect(selectSessionMock).toHaveBeenCalledWith('test-session-1')
+    expect(setPopupPreferredTabMock).toHaveBeenCalledWith('chat')
+    expect(setSessionDetailOpenMock).toHaveBeenCalledWith(true)
   })
 
   it('canvas click on NPC teleports camera to centre on that NPC (cam.x === cam.targetX)', () => {

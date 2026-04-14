@@ -19,9 +19,16 @@ vi.mock('../game/GameEngine.js', () => ({
 }))
 
 // Hoisted store mocks
-const { mockSelectSession, mockSetHistoryMode } = vi.hoisted(() => ({
+const {
+  mockSelectSession,
+  mockSetHistoryMode,
+  mockSetPopupPreferredTab,
+  mockSetSessionDetailOpen,
+} = vi.hoisted(() => ({
   mockSelectSession: vi.fn(),
   mockSetHistoryMode: vi.fn(),
+  mockSetPopupPreferredTab: vi.fn(),
+  mockSetSessionDetailOpen: vi.fn(),
 }))
 
 vi.mock('../store/index.js', () => {
@@ -29,8 +36,11 @@ vi.mock('../store/index.js', () => {
     events: {} as Record<string, unknown[]>,
     sessions: {} as Record<string, unknown>,
     selectedSessionId: null,
+    sessionDetailOpen: false,
     selectSession: mockSelectSession,
     setHistoryMode: mockSetHistoryMode,
+    setPopupPreferredTab: mockSetPopupPreferredTab,
+    setSessionDetailOpen: mockSetSessionDetailOpen,
   }
   const useStore = Object.assign(
     vi.fn((selector: (s: typeof storeState) => unknown) => selector(storeState)),
@@ -172,6 +182,8 @@ describe('OfficePage', () => {
     // sess-1 at x:0, y:0; click within 64px sprite
     canvas.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, clientX: 30, clientY: 30 }))
     expect(mockSelectSession).toHaveBeenCalledWith('sess-1')
+    expect(mockSetPopupPreferredTab).toHaveBeenCalledWith('chat')
+    expect(mockSetSessionDetailOpen).toHaveBeenCalledWith(true)
   })
 
   it('passes lastToolUsed=undefined when no events for session', () => {

@@ -203,6 +203,7 @@ export function OfficePage() {
   const sessions = useActiveSessions()
   const sessionDetailOpen = useStore((s) => s.sessionDetailOpen)
   const setSessionDetailOpen = useStore((s) => s.setSessionDetailOpen)
+  const setPopupPreferredTab = useStore((s) => s.setPopupPreferredTab)
   const [menuOpen, setMenuOpen] = useState(false)
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const containerRef = useRef<HTMLDivElement>(null)
@@ -477,6 +478,7 @@ export function OfficePage() {
           cam.y = cam.targetY
           useStore.getState().selectSession(sessionId)
           useStore.getState().setHistoryMode?.(false)
+          setPopupPreferredTab('chat')
           setSessionDetailOpen?.(true)
           break
         }
