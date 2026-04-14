@@ -374,7 +374,7 @@ Plans:
   3. Face image renders as a fixed-size (32x32 px) rounded avatar at the left edge of each session row
   4. If an image fails to load, a graceful fallback (character initial) is shown — no broken-image box
   5. Existing sidebar layout (status dot, project name, provider badge, approvals pill) is preserved and not broken
-**Plans:** 2 plans
+**Plans:** 1/2 plans executed
 
 Plans:
 - [ ] 26-01-PLAN.md — Copy/export face PNGs to public/sprites/faces/, add characterFaceUrl() helper, TDD (sidebar-face-card)

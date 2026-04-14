@@ -2,15 +2,15 @@
 gsd_state_version: 1.0
 milestone: v1.1
 milestone_name: — 2D Pixel Art Game Experience
-status: planning
-stopped_at: Completed 18-02-PLAN.md (executed ahead of phase 17 by request)
-last_updated: "2026-04-13T22:36:00.000Z"
-last_activity: 2026-04-13 — Completed phase 18 audio system execution (ambient loop + SFX + audio controls)
+status: completed
+stopped_at: Completed 26-01-PLAN.md
+last_updated: "2026-04-14T13:42:01.269Z"
+last_activity: 2026-04-13 — Completed phase 18 execution + verification
 progress:
-  total_phases: 25
+  total_phases: 26
   completed_phases: 16
-  total_plans: 81
-  completed_plans: 77
+  total_plans: 57
+  completed_plans: 50
   percent: 95
 ---
 
@@ -154,6 +154,7 @@ All v1.0 decisions remain active and respected.
 - [Phase 16.12-03]: CodexAdapter needs clientInfo in initialize + protocol version 2026-01-01 to avoid silent error hangs
 - [Phase 16.12-03]: GET /api/browse endpoint added for folder picker UX in LaunchSessionModal — avoids manual path typing
 - [Phase 16.12-03]: Phase 16.12 COMPLETE — full provider-native launch flow verified end-to-end by user for both Claude and Codex
+- [Phase 26-agent-face-cards-sidebar]: copy-faces.ts run from packages/ui directory so pnpm resolves sharp from packages/ui devDependencies
 
 ### Roadmap Evolution
 
@@ -182,8 +183,8 @@ None yet — requirements phase will surface tasks.
 
 ## Session Continuity
 
-Last session: 2026-04-13T23:30:00Z
-Stopped at: Completed 16.12-03-PLAN.md (Phase 16.12 COMPLETE — provider-native session launch verified)
+Last session: 2026-04-14T13:42:01.266Z
+Stopped at: Completed 26-01-PLAN.md
 Resume file: None
 
 *Updated after each plan completion*
