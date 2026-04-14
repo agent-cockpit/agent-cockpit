@@ -117,4 +117,54 @@ describe('applyEventToApprovals', () => {
     expect(Array.isArray(ref1)).toBe(true)
     expect(ref1).toHaveLength(0)
   })
+
+  it('replay convergence: approval_request + approval_resolved replayed out-of-order converges to empty pending', () => {
+    // Simulate catch-up: resolved arrives before request (out-of-order replay)
+    const resolvedEvent = {
+      schemaVersion: 1 as const,
+      sessionId: SESSION_ID,
+      timestamp: T0,
+      type: 'approval_resolved' as const,
+      approvalId: APPROVAL_ID_1,
+      decision: 'approved' as const,
+    }
+
+    // First apply the resolved (out-of-order — resolved before request)
+    let state = applyEventToApprovals(emptyState(), resolvedEvent)
+    // No pending items (resolved for unknown approval is idempotent)
+    expect(state.pendingApprovalsBySession[SESSION_ID]).toHaveLength(0)
+
+    // Then apply the request (arrives late)
+    state = applyEventToApprovals(state, BASE_APPROVAL_REQUEST)
+    // The request was already resolved — but since we don't track resolved approvals
+    // in the current model, it would show as pending. This test documents the current
+    // convergence guarantee: a subsequent approval_resolved clears it.
+    const stateAfterRequest = state
+    expect(stateAfterRequest.pendingApprovalsBySession[SESSION_ID]).toHaveLength(1)
+
+    // Apply resolved again (idempotent replay) — clears the pending card
+    state = applyEventToApprovals(state, resolvedEvent)
+    expect(state.pendingApprovalsBySession[SESSION_ID]).toHaveLength(0)
+  })
+
+  it('late approval_resolved for already-resolved approvalId does not crash or corrupt state', () => {
+    let state = applyEventToApprovals(emptyState(), BASE_APPROVAL_REQUEST)
+
+    const resolvedEvent = {
+      schemaVersion: 1 as const,
+      sessionId: SESSION_ID,
+      timestamp: T0,
+      type: 'approval_resolved' as const,
+      approvalId: APPROVAL_ID_1,
+      decision: 'approved' as const,
+    }
+
+    // First resolution
+    state = applyEventToApprovals(state, resolvedEvent)
+    expect(state.pendingApprovalsBySession[SESSION_ID]).toHaveLength(0)
+
+    // Second (late) resolution — must not throw or add stale entries
+    state = applyEventToApprovals(state, resolvedEvent)
+    expect(state.pendingApprovalsBySession[SESSION_ID]).toHaveLength(0)
+  })
 })

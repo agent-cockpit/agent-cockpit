@@ -11,6 +11,8 @@ export type HookPayload = {
   tool_name?: string;
   tool_use_id?: string;
   tool_input?: Record<string, unknown>;
+  message?: string;
+  content?: string;
   agent_id?: string;
   transcript_path?: string;
   permission_mode?: string;
@@ -22,6 +24,8 @@ let claudeSessionCache = new Map<string, string>();
 
 // Module-level DB reference — set by daemon entrypoint at startup
 let claudeSessionDb: Database.Database | null = null;
+
+const EXTERNAL_SESSION_REASON = 'External session is approval-only; chat send is disabled.';
 
 /** Called by daemon entrypoint to inject the pre-populated cache from claude_sessions table. */
 export function setClaudeSessionCache(newCache: Map<string, string>): void {
@@ -83,6 +87,58 @@ function baseFields(payload: HookPayload): {
   };
 }
 
+function resolveSessionCapabilities(claudeSessionId: string, mappedSessionId: string): {
+  managedByDaemon: boolean
+  canSendMessage: boolean
+  canTerminateSession: boolean
+  reason?: string
+} {
+  const managedByDaemon = claudeSessionId === mappedSessionId
+  if (managedByDaemon) {
+    return {
+      managedByDaemon: true,
+      canSendMessage: true,
+      canTerminateSession: true,
+    }
+  }
+  return {
+    managedByDaemon: false,
+    canSendMessage: false,
+    canTerminateSession: false,
+    reason: EXTERNAL_SESSION_REASON,
+  }
+}
+
+function extractChatText(value: unknown): string | null {
+  if (typeof value === 'string') {
+    const text = value.trim();
+    return text.length > 0 ? text : null;
+  }
+  if (Array.isArray(value)) {
+    const parts = value
+      .map((entry) => extractChatText(entry))
+      .filter((entry): entry is string => Boolean(entry));
+    if (parts.length === 0) return null;
+    return parts.join('\n').trim() || null;
+  }
+  if (!value || typeof value !== 'object') return null;
+  const record = value as Record<string, unknown>;
+
+  if (typeof record['text'] === 'string') return extractChatText(record['text']);
+  if (typeof record['message'] === 'string') return extractChatText(record['message']);
+  if (typeof record['content'] === 'string') return extractChatText(record['content']);
+
+  if ('content' in record) {
+    const fromContent = extractChatText(record['content']);
+    if (fromContent) return fromContent;
+  }
+  if ('tool_input' in record) {
+    const fromToolInput = extractChatText(record['tool_input']);
+    if (fromToolInput) return fromToolInput;
+  }
+  return null;
+}
+
 export function parseHookPayload(payload: HookPayload): {
   event: NormalizedEvent;
   requiresApproval: boolean;
@@ -91,11 +147,13 @@ export function parseHookPayload(payload: HookPayload): {
 
   switch (payload.hook_event_name) {
     case 'SessionStart': {
+      const capabilities = resolveSessionCapabilities(payload.session_id, base.sessionId)
       return {
         event: {
           ...base,
           type: 'session_start',
           workspacePath: payload.cwd ?? '',
+          ...capabilities,
         },
         requiresApproval: false,
       };
@@ -209,6 +267,22 @@ export function parseHookPayload(payload: HookPayload): {
 
     case 'Notification':
     default: {
+      const chatText =
+        extractChatText(payload.message) ??
+        extractChatText(payload.content) ??
+        extractChatText(payload.tool_input);
+      if (chatText) {
+        return {
+          event: {
+            ...base,
+            type: 'session_chat_message',
+            provider: 'claude',
+            role: 'assistant',
+            content: chatText,
+          },
+          requiresApproval: false,
+        };
+      }
       // Informational — treat as tool_call
       return {
         event: {

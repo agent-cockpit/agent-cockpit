@@ -72,9 +72,11 @@ async function startAdapter(
       if (method === 'initialize') {
         emitLine(JSON.stringify({ id, result: { protocolVersion: '2024-01-01' } }));
       } else if (method === 'thread/start') {
-        emitLine(JSON.stringify({ id, result: { threadId: 'thr_auto' } }));
+        emitLine(JSON.stringify({ id, result: { thread: { id: 'thr_auto' } } }));
       } else if (method === 'thread/resume') {
-        emitLine(JSON.stringify({ id, result: { threadId: threadIdForResume ?? 'thr_auto' } }));
+        emitLine(JSON.stringify({ id, result: { thread: { id: threadIdForResume ?? 'thr_auto' } } }));
+      } else if (method === 'turn/start') {
+        emitLine(JSON.stringify({ id, result: { turn: { id: 'turn_auto', items: [], status: 'inProgress', error: null } } }));
       }
     }
   };
@@ -315,5 +317,75 @@ describe('CodexAdapter', () => {
       sessionId: 'session-exit-visible',
       exitCode: 0,
     });
+  });
+
+  it('approval double-resolve: external resolveApproval then internal timer fire — second is no-op (no double-write)', async () => {
+    const adapter = new CodexAdapter(
+      'session-double-resolve',
+      '/workspace',
+      mockDb as unknown as import('better-sqlite3').Database,
+      onEvent,
+      undefined,
+      () => mockProc as unknown as import('node:child_process').ChildProcess,
+    );
+
+    await startAdapter(adapter, mockProc, emitLine);
+    onEvent.mockClear();
+
+    const serverId = 55;
+    emitLine(JSON.stringify({
+      id: serverId,
+      method: 'item/commandExecution/requestApproval',
+      params: {
+        item: { type: 'commandExecution', command: ['ls', '-la'] },
+      },
+    }));
+
+    const emittedEvent = onEvent.mock.calls[0][0] as Record<string, unknown>;
+    const approvalId = emittedEvent['approvalId'] as string;
+
+    // External decision arrives first
+    adapter.resolveApproval(approvalId, 'approve');
+
+    const writesBefore = mockProc.stdin.calls.length;
+
+    // Second call (simulates timer firing after external decide) — must be no-op
+    expect(() => adapter.resolveApproval(approvalId, 'deny')).not.toThrow();
+
+    // No additional writes should have occurred
+    expect(mockProc.stdin.calls.length).toBe(writesBefore);
+  });
+
+  it('sendChatMessage uses turn/start with threadId and text input item', async () => {
+    const adapter = new CodexAdapter(
+      'session-chat-send',
+      '/workspace',
+      mockDb as unknown as import('better-sqlite3').Database,
+      onEvent,
+      undefined,
+      () => mockProc as unknown as import('node:child_process').ChildProcess,
+    );
+
+    await startAdapter(adapter, mockProc, emitLine);
+    const sendPromise = adapter.sendChatMessage('hello codex');
+
+    const turnStartCall = mockProc.stdin.calls
+      .map((s) => JSON.parse(s) as Record<string, unknown>)
+      .find((m) => m['method'] === 'turn/start');
+
+    expect(turnStartCall).toBeDefined();
+    expect(turnStartCall?.['params']).toMatchObject({
+      threadId: 'thr_auto',
+      input: [{ type: 'text', text: 'hello codex' }],
+    });
+
+    const requestId = turnStartCall?.['id'];
+    expect(typeof requestId).toBe('number');
+    emitLine(JSON.stringify({
+      id: requestId,
+      result: { turn: { id: 'turn_send', items: [], status: 'inProgress', error: null } },
+    }));
+
+    await sendPromise;
   });
 });

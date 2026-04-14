@@ -40,20 +40,16 @@ const SPAWN_SLOTS: ReadonlyArray<{ x: number; y: number }> = [
 
 /** Pixel offset applied per cycle to prevent exact NPC stacking when sessions > 12. */
 const SPAWN_JITTER = 16
-const PLAYER_SPRITE_HALF = 32
+const SPRITE_SIZE = 64
+const INTERACT_RADIUS_PX = 64
 
-function centerCameraOnSprite(pos: { x: number; y: number }) {
-  const cam = gameState.camera
-  cam.targetX = Math.max(
-    0,
-    Math.min(pos.x + PLAYER_SPRITE_HALF - cam.viewportW / 2, WORLD_W - cam.viewportW),
+function isTextInputFocused(active: Element | null): boolean {
+  return (
+    active instanceof HTMLInputElement ||
+    active instanceof HTMLTextAreaElement ||
+    active instanceof HTMLSelectElement ||
+    (active instanceof HTMLElement && active.isContentEditable)
   )
-  cam.targetY = Math.max(
-    0,
-    Math.min(pos.y + PLAYER_SPRITE_HALF - cam.viewportH / 2, WORLD_H - cam.viewportH),
-  )
-  cam.x = cam.targetX
-  cam.y = cam.targetY
 }
 
 function loadImage(src: string): Promise<HTMLImageElement> {
@@ -219,23 +215,99 @@ export function OfficePage() {
   const sessionDetailOpen = useStore((s) => s.sessionDetailOpen)
   const selectedPlayerCharacter = useStore((s) => s.selectedPlayerCharacter)
   const setSessionDetailOpen = useStore((s) => s.setSessionDetailOpen)
+  const setPopupPreferredTab = useStore((s) => s.setPopupPreferredTab)
   const [menuOpen, setMenuOpen] = useState(false)
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const containerRef = useRef<HTMLDivElement>(null)
   const imageCacheRef = useRef<Map<string, HTMLImageElement>>(new Map())
   const playerImgRef = useRef<HTMLImageElement | null>(null)
   const sceneFxPatternsRef = useRef<SceneFxPatterns>({ noise: null, scanlines: null })
+  const interactableSessionRef = useRef<string | null>(null)
+  const interactButtonAnchorRef = useRef<HTMLDivElement | null>(null)
+
+  function findNearestInteractableSessionId(): string | null {
+    const playerCenterX = gameState.player.x + SPRITE_SIZE / 2
+    const playerCenterY = gameState.player.y + SPRITE_SIZE / 2
+    const maxDistanceSq = INTERACT_RADIUS_PX * INTERACT_RADIUS_PX
+    let closestId: string | null = null
+    let closestDistanceSq = Number.POSITIVE_INFINITY
+
+    for (const [sessionId, pos] of Object.entries(gameState.npcs)) {
+      const npcCenterX = pos.x + SPRITE_SIZE / 2
+      const npcCenterY = pos.y + SPRITE_SIZE / 2
+      const dx = npcCenterX - playerCenterX
+      const dy = npcCenterY - playerCenterY
+      const distanceSq = dx * dx + dy * dy
+      if (distanceSq > maxDistanceSq || distanceSq >= closestDistanceSq) continue
+      closestDistanceSq = distanceSq
+      closestId = sessionId
+    }
+
+    return closestId
+  }
+
+  function focusSessionInWorld(sessionId: string): void {
+    const pos = gameState.npcs[sessionId]
+    if (!pos) return
+    // Teleport player AND camera to centre on clicked NPC (instant — no lerp)
+    // Player position must also move so update()'s cam.targetX = player.x - vw/2 keeps
+    // the camera centred here on the next tick (otherwise update() overwrites targetX).
+    gameState.player.x = pos.x
+    gameState.player.y = pos.y
+    const cam = gameState.camera
+    cam.targetX = Math.max(0, Math.min(pos.x - cam.viewportW / 2, WORLD_W - cam.viewportW))
+    cam.targetY = Math.max(0, Math.min(pos.y - cam.viewportH / 2, WORLD_H - cam.viewportH))
+    cam.x = cam.targetX
+    cam.y = cam.targetY
+  }
+
+  function openAgentChatPopup(sessionId: string): void {
+    useStore.getState().selectSession(sessionId)
+    useStore.getState().setHistoryMode?.(false)
+    setPopupPreferredTab('chat')
+    setSessionDetailOpen?.(true)
+  }
+
+  function positionInteractButton(sessionId: string | null): void {
+    const anchor = interactButtonAnchorRef.current
+    const canvas = canvasRef.current
+    if (!anchor || !canvas) return
+
+    if (!sessionId) {
+      anchor.style.display = 'none'
+      return
+    }
+
+    const pos = gameState.npcs[sessionId]
+    if (!pos) {
+      anchor.style.display = 'none'
+      return
+    }
+
+    const zoom = gameState.camera.zoom
+    const screenX = (pos.x - gameState.camera.x + SPRITE_SIZE) * zoom
+    const screenY = (pos.y - gameState.camera.y + 10) * zoom
+
+    // Hide prompt when the target is far outside current viewport.
+    if (
+      screenX < -80 ||
+      screenX > canvas.width + 80 ||
+      screenY < -120 ||
+      screenY > canvas.height + 80
+    ) {
+      anchor.style.display = 'none'
+      return
+    }
+
+    anchor.style.display = 'block'
+    anchor.style.left = `${screenX}px`
+    anchor.style.top = `${screenY}px`
+  }
 
   // Register sidebar focus callback for map/session synchronization.
   useEffect(() => {
     _scrollToSession = (id: string) => {
-      const pos = gameState.npcs[id]
-      if (!pos) return
-
-      const cam = gameState.camera
-      gameState.player.x = pos.x
-      gameState.player.y = pos.y
-      centerCameraOnSprite(pos)
+      focusSessionInWorld(id)
     }
     return () => { _scrollToSession = null }
   }, [])
@@ -307,6 +379,12 @@ export function OfficePage() {
         cam.targetX = gameState.player.x + 32 - cam.viewportW / 2
         cam.targetY = gameState.player.y + 32 - cam.viewportH / 2
         updateCamera(cam, { minX: 0, minY: 0, maxX: WORLD_W, maxY: WORLD_H }, deltaMs)
+
+        const nearestSessionId = findNearestInteractableSessionId()
+        if (nearestSessionId !== interactableSessionRef.current) {
+          interactableSessionRef.current = nearestSessionId
+        }
+        positionInteractButton(nearestSessionId)
       }
       render() {
         ctx.fillStyle = '#000000'
@@ -474,27 +552,33 @@ export function OfficePage() {
       const zoom = gameState.camera.zoom  // = 2
       const clickX = (e.clientX - rect.left) / zoom + gameState.camera.x
       const clickY = (e.clientY - rect.top) / zoom + gameState.camera.y
-      const SPRITE_SIZE = 64
       for (const [sessionId, pos] of Object.entries(gameState.npcs)) {
         if (
           clickX >= pos.x && clickX <= pos.x + SPRITE_SIZE &&
           clickY >= pos.y && clickY <= pos.y + SPRITE_SIZE
         ) {
-          // Teleport player AND camera to centre on clicked NPC (instant — no lerp)
-          // Player position must also move so update()'s cam.targetX = player.x - vw/2 keeps
-          // the camera centred here on the next tick (otherwise update() overwrites targetX).
-          gameState.player.x = pos.x
-          gameState.player.y = pos.y
-          centerCameraOnSprite(pos)
-          useStore.getState().selectSession(sessionId)
-          useStore.getState().setHistoryMode?.(false)
-          setSessionDetailOpen?.(true)
+          focusSessionInWorld(sessionId)
+          openAgentChatPopup(sessionId)
           break
         }
       }
     }
     canvas.addEventListener('click', handleClick)
     return () => canvas.removeEventListener('click', handleClick)
+  }, [])
+
+  // Keyboard interaction: press E near an agent to open chat popup.
+  useEffect(() => {
+    function handleInteractKey(e: KeyboardEvent) {
+      if (e.code !== 'KeyE' || e.repeat) return
+      if (isTextInputFocused(document.activeElement)) return
+      const sessionId = interactableSessionRef.current ?? findNearestInteractableSessionId()
+      if (!sessionId) return
+      e.preventDefault()
+      openAgentChatPopup(sessionId)
+    }
+    window.addEventListener('keydown', handleInteractKey)
+    return () => window.removeEventListener('keydown', handleInteractKey)
   }, [])
 
   return (
@@ -514,15 +598,32 @@ export function OfficePage() {
           <div className="absolute top-3 right-3">
             <button
               type="button"
-              className="cockpit-btn px-3 py-1.5 text-[11px] font-semibold
-                         bg-[oklch(0.34_0.09_245_/_0.92)] text-[oklch(0.93_0.03_220)]
-                         border-[oklch(0.70_0.14_210_/_0.72)]
-                         shadow-[0_0_0_1px_oklch(0.65_0.12_210_/_0.45),0_0_14px_oklch(0.44_0.12_225_/_0.55)]
-                         hover:bg-[oklch(0.38_0.10_240_/_0.95)]"
+              className="cockpit-btn office-overlay-btn px-3 py-1.5 text-[11px] font-semibold"
               onClick={() => setMenuOpen(true)}
               aria-label="Open menu"
             >
               Menu
+            </button>
+          </div>
+          <div
+            ref={interactButtonAnchorRef}
+            className="absolute"
+            style={{ display: 'none', transform: 'translate(4px, calc(-100% - 2px))' }}
+          >
+            <button
+              type="button"
+              className="cockpit-btn office-overlay-btn px-2.5 py-1 text-[10px] font-semibold inline-flex items-center gap-1.5"
+              onClick={() => {
+                const sessionId = interactableSessionRef.current ?? findNearestInteractableSessionId()
+                if (!sessionId) return
+                openAgentChatPopup(sessionId)
+              }}
+              aria-label="Interact with nearby agent"
+              title="Press E to talk"
+              data-testid="interact-button"
+            >
+              <span className="border border-border px-1 py-0.5 [font-family:var(--font-mono-data)] leading-none">E</span>
+              Talk
             </button>
           </div>
         </div>

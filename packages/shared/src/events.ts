@@ -15,6 +15,10 @@ export const SessionStartEvent = BaseEvent.extend({
   type: z.literal('session_start'),
   provider: z.enum(['claude', 'codex']),
   workspacePath: z.string(),
+  managedByDaemon: z.boolean().optional(),
+  canSendMessage: z.boolean().optional(),
+  canTerminateSession: z.boolean().optional(),
+  reason: z.string().optional(),
 });
 
 export const SessionEndEvent = BaseEvent.extend({
@@ -94,6 +98,27 @@ export const ProviderParseErrorEvent = BaseEvent.extend({
   errorMessage: z.string(),
 });
 
+// ─── Session chat events ─────────────────────────────────────────────────────
+
+export const SessionChatMessageEvent = BaseEvent.extend({
+  type: z.literal('session_chat_message'),
+  provider: z.enum(['claude', 'codex']),
+  role: z.enum(['user', 'assistant', 'system']),
+  content: z.string(),
+});
+
+export const SessionChatErrorEvent = BaseEvent.extend({
+  type: z.literal('session_chat_error'),
+  provider: z.enum(['claude', 'codex']),
+  reasonCode: z.enum([
+    'CHAT_INVALID_REQUEST',
+    'CHAT_SEND_BLOCKED',
+    'CHAT_RUNTIME_UNAVAILABLE',
+    'CHAT_SEND_FAILED',
+  ]),
+  reason: z.string(),
+});
+
 // ─── Union ────────────────────────────────────────────────────────────────────
 
 export const NormalizedEventSchema = z.discriminatedUnion('type', [
@@ -108,6 +133,8 @@ export const NormalizedEventSchema = z.discriminatedUnion('type', [
   MemoryReadEvent,
   MemoryWriteEvent,
   ProviderParseErrorEvent,
+  SessionChatMessageEvent,
+  SessionChatErrorEvent,
 ]);
 
 export type NormalizedEvent = z.infer<typeof NormalizedEventSchema>;

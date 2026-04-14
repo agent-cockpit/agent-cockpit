@@ -47,6 +47,7 @@ export class CodexAdapter {
 
   // proc is null after the process exits
   private proc: ChildProcess | null = null;
+  private currentThreadId: string | null = null;
 
   // Map from outgoing JSON-RPC request ID → resolver
   private readonly pendingRequests = new Map<number, (result: unknown) => void>();
@@ -165,16 +166,25 @@ export class CodexAdapter {
     if (existing?.thread_id) {
       // Resume existing thread
       try {
-        await this.sendRequest('thread/resume', { threadId: existing.thread_id });
+        const result = await this.sendRequest('thread/resume', { threadId: existing.thread_id });
+        this.currentThreadId = this.extractThreadId(result) ?? existing.thread_id;
       } catch {
         // Fall back to thread/start on resume failure
-        await this.sendRequest('thread/start', { workspacePath: this.workspacePath });
+        const result = await this.sendRequest('thread/start', { workspacePath: this.workspacePath });
+        const startedThreadId = this.extractThreadId(result);
+        if (startedThreadId) {
+          this.currentThreadId = startedThreadId;
+          this.db
+            .prepare('UPDATE codex_sessions SET thread_id = ?, workspace = ? WHERE session_id = ?')
+            .run(startedThreadId, this.workspacePath, this.sessionId);
+        }
       }
     } else {
       // Start new thread
-      const result = await this.sendRequest('thread/start', { workspacePath: this.workspacePath }) as { threadId?: string } | undefined;
-      const threadId = result?.threadId;
+      const result = await this.sendRequest('thread/start', { workspacePath: this.workspacePath });
+      const threadId = this.extractThreadId(result);
       if (threadId) {
+        this.currentThreadId = threadId;
         this.db
           .prepare('INSERT INTO codex_sessions (session_id, thread_id, workspace, created_at) VALUES (?, ?, ?, ?)')
           .run(this.sessionId, threadId, this.workspacePath, new Date().toISOString());
@@ -236,6 +246,23 @@ export class CodexAdapter {
       this.proc.kill();
     }
     this.proc = null;
+    this.currentThreadId = null;
+  }
+
+  async sendChatMessage(message: string): Promise<void> {
+    const content = message.trim();
+    if (!content) return;
+    if (!this.proc || this.proc.killed || !this.proc.stdin?.writable) {
+      throw new Error('Codex runtime is not available for chat send');
+    }
+    const threadId = this.currentThreadId ?? this.loadThreadIdFromDb();
+    if (!threadId) {
+      throw new Error('Codex thread is not available for chat send');
+    }
+    await this.sendRequest('turn/start', {
+      threadId,
+      input: [{ type: 'text', text: content }],
+    });
   }
 
   // -------------------------------------------------------------------------
@@ -317,6 +344,27 @@ export class CodexAdapter {
     // Unknown message shape — no-op
   }
 
+  private extractThreadId(result: unknown): string | undefined {
+    if (!result || typeof result !== 'object') return undefined;
+    const direct = (result as Record<string, unknown>)['threadId'];
+    if (typeof direct === 'string') return direct;
+    const thread = (result as Record<string, unknown>)['thread'];
+    if (!thread || typeof thread !== 'object') return undefined;
+    const nested = (thread as Record<string, unknown>)['id'];
+    return typeof nested === 'string' ? nested : undefined;
+  }
+
+  private loadThreadIdFromDb(): string | null {
+    const row = this.db
+      .prepare('SELECT thread_id FROM codex_sessions WHERE session_id = ?')
+      .get(this.sessionId) as { thread_id?: string } | undefined;
+    if (typeof row?.thread_id === 'string' && row.thread_id.length > 0) {
+      this.currentThreadId = row.thread_id;
+      return row.thread_id;
+    }
+    return null;
+  }
+
   private handleServerRequest(serverId: number, method: string, params: Record<string, unknown>): void {
     // Build a line that parseCodexLine can parse for approval classification
     const fakeLine = JSON.stringify({ method, params });
@@ -356,6 +404,9 @@ export class CodexAdapter {
       provider: 'codex',
       workspacePath: this.workspacePath,
       type: 'session_start',
+      managedByDaemon: true,
+      canSendMessage: true,
+      canTerminateSession: true,
       timestamp: new Date().toISOString(),
     });
   }

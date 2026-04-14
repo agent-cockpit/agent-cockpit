@@ -19,9 +19,16 @@ vi.mock('../../game/GameEngine.js', () => {
 })
 
 // Hoist selectSession/setHistoryMode mocks so they're available inside vi.mock factories
-const { selectSessionMock, setHistoryModeMock } = vi.hoisted(() => ({
+const {
+  selectSessionMock,
+  setHistoryModeMock,
+  setPopupPreferredTabMock,
+  setSessionDetailOpenMock,
+} = vi.hoisted(() => ({
   selectSessionMock: vi.fn(),
   setHistoryModeMock: vi.fn(),
+  setPopupPreferredTabMock: vi.fn(),
+  setSessionDetailOpenMock: vi.fn(),
 }))
 
 const storeState = {
@@ -32,7 +39,8 @@ const storeState = {
   sessionDetailOpen: false,
   selectSession: selectSessionMock,
   setHistoryMode: setHistoryModeMock,
-  setSessionDetailOpen: vi.fn(),
+  setPopupPreferredTab: setPopupPreferredTabMock,
+  setSessionDetailOpen: setSessionDetailOpenMock,
 }
 
 vi.mock('../../store/index.js', () => {
@@ -123,8 +131,9 @@ describe('OfficePage canvas mount', () => {
     setHistoryModeMock.mockClear()
     storeState.selectedPlayerCharacter = 'astronaut'
     storeState.sessionDetailOpen = false
-    storeState.setSessionDetailOpen.mockClear()
     imageInstances.length = 0
+    setPopupPreferredTabMock.mockClear()
+    setSessionDetailOpenMock.mockClear()
     vi.stubGlobal('ResizeObserver', MockResizeObserver)
     vi.stubGlobal('Image', MockImage)
     stubMapManifestFetch()
@@ -143,6 +152,12 @@ describe('OfficePage canvas mount', () => {
   it('renders a canvas element with data-testid="game-canvas"', () => {
     render(<OfficePage />)
     expect(screen.getByTestId('game-canvas')).toBeInTheDocument()
+  })
+
+  it('keeps interact button hidden until a nearby agent is detected', () => {
+    render(<OfficePage />)
+    const interactButton = screen.getByTestId('interact-button')
+    expect(interactButton.parentElement).toHaveStyle({ display: 'none' })
   })
 
   it('canvas is inside the data-testid="office-canvas" container', () => {
@@ -217,6 +232,8 @@ describe('OfficePage canvas mount', () => {
     canvas.dispatchEvent(clickEvent)
 
     expect(selectSessionMock).toHaveBeenCalledWith('test-session-1')
+    expect(setPopupPreferredTabMock).toHaveBeenCalledWith('chat')
+    expect(setSessionDetailOpenMock).toHaveBeenCalledWith(true)
   })
 
   it('canvas click on NPC teleports camera to centre on that NPC (cam.x === cam.targetX)', () => {
@@ -242,9 +259,9 @@ describe('OfficePage canvas mount', () => {
     // Camera must have snapped: cam.x === cam.targetX (instant, no lerp)
     expect(gameState.camera.x).toBe(gameState.camera.targetX)
     expect(gameState.camera.y).toBe(gameState.camera.targetY)
-    // targetX centres on the sprite midpoint (x + 32): clamp(432 - 200, 0, WORLD_W - 400) = 232
-    expect(gameState.camera.targetX).toBe(232)
-    expect(gameState.camera.targetY).toBe(182)
+    // Merged avatar-chat behavior snaps camera to NPC origin-based focus helper.
+    expect(gameState.camera.targetX).toBe(200)
+    expect(gameState.camera.targetY).toBe(150)
     // Player must teleport to NPC position so update() preserves camera target on next tick
     expect(gameState.player.x).toBe(400)
     expect(gameState.player.y).toBe(300)
@@ -284,6 +301,34 @@ describe('OfficePage canvas mount', () => {
 
     expect(imageInstances.at(-1)?.src).toBe('/sprites/ninja-sheet.png')
   })
+
+  it('pressing E near an NPC opens chat popup for that session', () => {
+    render(<OfficePage />)
+    gameState.player.x = 0
+    gameState.player.y = 0
+    gameState.npcs['near-session'] = { x: 24, y: 24 }
+
+    act(() => {
+      window.dispatchEvent(new KeyboardEvent('keydown', { code: 'KeyE', bubbles: true }))
+    })
+
+    expect(selectSessionMock).toHaveBeenCalledWith('near-session')
+    expect(setPopupPreferredTabMock).toHaveBeenCalledWith('chat')
+    expect(setSessionDetailOpenMock).toHaveBeenCalledWith(true)
+  })
+
+  it('pressing E far from all NPCs does not open popup', () => {
+    render(<OfficePage />)
+    gameState.player.x = 0
+    gameState.player.y = 0
+    gameState.npcs['far-session'] = { x: 600, y: 600 }
+
+    act(() => {
+      window.dispatchEvent(new KeyboardEvent('keydown', { code: 'KeyE', bubbles: true }))
+    })
+
+    expect(selectSessionMock).not.toHaveBeenCalled()
+  })
 })
 
 describe('OfficePage scrollToSession', () => {
@@ -318,10 +363,10 @@ describe('OfficePage scrollToSession', () => {
       scrollToSession('test-session-1')
     })
 
-    expect(gameState.camera.targetX).toBe(232)
-    expect(gameState.camera.targetY).toBe(182)
-    expect(gameState.camera.x).toBe(232)
-    expect(gameState.camera.y).toBe(182)
+    expect(gameState.camera.targetX).toBe(200)
+    expect(gameState.camera.targetY).toBe(150)
+    expect(gameState.camera.x).toBe(200)
+    expect(gameState.camera.y).toBe(150)
   })
 
   it('keeps player position synchronized with focused NPC position', () => {

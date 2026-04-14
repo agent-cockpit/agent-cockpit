@@ -364,6 +364,66 @@ Plans:
 - [ ] 21-01-PLAN.md — ParticleSystem class (emitter, update loop, Canvas rendering, cap)
 - [ ] 21-02-PLAN.md — Wire dust/sparkle/success/damage emitters to game events
 
+### Phase 22: Unified Session Chat with Daemon vs External Capability Split
+**Goal:** Add a first-class session chat channel in the popup and clearly expose capability differences: daemon-launched sessions can receive chat messages on macOS/Linux; externally started sessions remain approval-only (approve/deny/always-allow) with no message send.
+**Depends on:** Phase 16.11
+**Requirements:** CHAT-01, CHAT-02, CHAT-03
+**Success Criteria** (what must be TRUE):
+  1. Popup has a Chat tab with message history and input composer per session
+  2. Daemon-launched sessions expose `canSendMessage=true` and accept message send actions
+  3. Externally attached sessions expose `canSendMessage=false` and UI shows explicit "approval-only" state
+  4. Attempted sends to non-chat-capable sessions fail safely with user-visible reason (no silent drop)
+  5. Capability state is available to both OPS panel and map popup flows
+**Plans:** 1/1 plans complete
+
+Plans:
+- [x] 22-01-PLAN.md — Session chat transport + capability model (daemon vs external) across daemon and UI
+
+### Phase 23: Approval Hook Reliability Across Providers and Subagents
+**Goal:** Fix approval flows that are currently failing by hardening hook/event handling so approvals and related events resolve reliably for Claude and Codex, including subagent scenarios.
+**Depends on:** Phase 22
+**Requirements:** APPR-HOOK-01, APPR-HOOK-02, APPR-HOOK-03
+**Success Criteria** (what must be TRUE):
+  1. Every approval_request can be resolved exactly once (approve/deny/always_allow/timeout) in both providers
+  2. Hook timeout and manual decision paths emit consistent `approval_resolved` events
+  3. Subagent-related approval and lifecycle events are persisted and replayed correctly
+  4. No provider-specific regression: Claude hook approvals and Codex app-server approvals both remain green
+  5. Regression tests cover PreToolUse, PermissionRequest, and subagent flows end-to-end
+**Plans:** 1/1 plans complete
+
+Plans:
+- [ ] 23-01-PLAN.md — Approval reliability matrix + hook/parser/queue fixes for Claude and Codex (including subagents)
+
+### Phase 24: Agent Avatar Chat Popup Interaction
+**Goal:** Make agent avatar interaction deterministic and chat-centric: clicking an agent sprite always opens the popup for that session and lands the user in the Chat tab with the correct session context.
+**Depends on:** Phase 23
+**Requirements:** POPUP-CHAT-01, POPUP-CHAT-02
+**Success Criteria** (what must be TRUE):
+  1. Clicking any on-map agent opens `InstancePopupHub` for that exact session
+  2. Popup defaults to the Chat tab when opened from avatar interaction
+  3. Selected session state stays consistent between map, sidebar, and popup while switching agents
+  4. Missed-click and overlapping-hitbox edge cases are covered by tests
+  5. No regression to existing approvals/timeline/diff/memory/artifacts tabs
+**Plans:** 1/1 plans complete
+
+Plans:
+- [ ] 24-01-PLAN.md — Avatar hit-test to chat popup wiring + default tab behavior + regression tests
+
+### Phase 25: Session Termination Controls
+**Goal:** Add explicit kill-session controls with provider-aware behavior. Daemon-launched sessions can be terminated from UI; externally attached sessions show unsupported-state guidance and never report false success.
+**Depends on:** Phase 24
+**Requirements:** SESS-KILL-01, SESS-KILL-02, SESS-KILL-03
+**Success Criteria** (what must be TRUE):
+  1. UI exposes kill action from session list and popup with confirmation
+  2. Daemon can terminate managed Codex/Claude processes and emit `session_end` with reason
+  3. Externally attached sessions are marked non-killable and UI explains why
+  4. Kill failures surface actionable errors and do not corrupt session state
+  5. Termination behavior is covered by daemon + UI tests
+**Plans:** 1 plan
+
+Plans:
+- [ ] 25-01-PLAN.md — Managed-session registry + terminate API + UI controls and capability gating
+
 ### Phase 26: Agent Face Cards in Sidebar
 **Goal:** Each session row in the sidebar shows the agent's character face portrait — a small avatar image pulled from `assets/raw/{character}/face/` — giving the user an instant visual identity for every running agent at a glance.
 **Depends on:** Phase 25

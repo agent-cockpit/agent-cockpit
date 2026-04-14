@@ -42,6 +42,12 @@ export interface SessionSummary {
   endedAt: string | null
   approvalCount: number
   filesChanged: number
+  capabilities?: {
+    managedByDaemon: boolean
+    canSendMessage: boolean
+    canTerminateSession: boolean
+    reason?: string
+  }
   finalStatus: 'active' | 'ended' | 'error'
 }
 
@@ -53,9 +59,14 @@ export interface SessionRecord {
   status: SessionStatus
   lastEventAt: string
   pendingApprovals: number
+  managedByDaemon?: boolean
+  canSendMessage?: boolean
+  canTerminateSession?: boolean
+  reason?: string
 }
 
 export type PanelId = 'approvals' | 'timeline' | 'diff' | 'memory' | 'artifacts'
+export type PopupTabId = PanelId | 'chat'
 
 interface SessionsSlice {
   sessions: Record<string, SessionRecord>
@@ -66,11 +77,13 @@ interface UiSlice {
   selectedSessionId: string | null
   selectedPlayerCharacter: CharacterType
   activePanel: PanelId
+  popupPreferredTab: PopupTabId | null
   filters: { provider: string | null; status: string | null; search: string }
   sessionDetailOpen: boolean
   selectSession: (id: string) => void
   setSelectedPlayerCharacter: (character: CharacterType) => void
   setActivePanel: (panel: PanelId) => void
+  setPopupPreferredTab: (tab: PopupTabId | null) => void
   setFilter: (key: string, value: string | null) => void
   setSessionDetailOpen: (open: boolean) => void
 }
@@ -103,11 +116,12 @@ export const useStore = create<AppStore>()(
     // sessionsSlice
     sessions: {},
     applyEvent: (event) =>
-      set((state) => ({
-        ...applyEventToSessions(state, event),
-        ...applyEventToEvents(state, event),
-        ...applyEventToApprovals(state, event),
-      })),
+      set((state) => {
+        const sessionsPatch = applyEventToSessions(state, event)
+        const eventsPatch = applyEventToEvents(state, event)
+        const { pendingApprovalsBySession } = applyEventToApprovals(state, event)
+        return { ...sessionsPatch, ...eventsPatch, pendingApprovalsBySession }
+      }),
 
     // eventsSlice
     events: {},
@@ -121,6 +135,7 @@ export const useStore = create<AppStore>()(
     selectedSessionId: null,
     selectedPlayerCharacter: readStoredPlayerCharacter(),
     activePanel: 'approvals',
+    popupPreferredTab: null,
     filters: { provider: null, status: null, search: '' },
     sessionDetailOpen: false,
     selectSession: (id) => set({ selectedSessionId: id }),
@@ -134,6 +149,7 @@ export const useStore = create<AppStore>()(
       set({ selectedPlayerCharacter: character })
     },
     setActivePanel: (panel) => set({ activePanel: panel }),
+    setPopupPreferredTab: (tab) => set({ popupPreferredTab: tab }),
     setFilter: (key, value) =>
       set((s) => ({ filters: { ...s.filters, [key]: value } })),
     setSessionDetailOpen: (open) => set({ sessionDetailOpen: open }),

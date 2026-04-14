@@ -65,6 +65,36 @@ const turnCompletedFixture = JSON.stringify({
   params: { turn: { id: 'turn_1', status: 'completed' } },
 });
 
+const itemCompletedAssistantFixture = JSON.stringify({
+  method: 'item/completed',
+  params: {
+    item: {
+      type: 'assistantMessage',
+      id: 'item_assistant_1',
+      content: [{ type: 'text', text: 'Hello from Codex' }],
+    },
+  },
+});
+
+const codexStreamErrorFixture = JSON.stringify({
+  method: 'codex/event/stream_error',
+  params: {
+    msg: {
+      type: 'stream_error',
+      message: 'Reconnecting... 1/5',
+    },
+  },
+});
+
+const codexErrorFixture = JSON.stringify({
+  method: 'error',
+  params: {
+    error: {
+      message: 'stream disconnected before completion',
+    },
+  },
+});
+
 const malformedJsonFixture = '{ not valid json at all ~~~';
 
 // Helper to create a fresh context for each test
@@ -136,6 +166,29 @@ describe('parseCodexLine', () => {
   it('turn/completed with status completed → returns null (turn end is not session end)', () => {
     const event = parseCodexLine(turnCompletedFixture, ctx);
     expect(event).toBeNull();
+  });
+
+  it('item/completed assistantMessage → returns session_chat_message assistant event', () => {
+    const event = parseCodexLine(itemCompletedAssistantFixture, ctx);
+    expect(event).not.toBeNull();
+    expect(event!.type).toBe('session_chat_message');
+    expect((event as { role: string }).role).toBe('assistant');
+    expect((event as { content: string }).content).toBe('Hello from Codex');
+  });
+
+  it('codex/event/stream_error → returns session_chat_error with reason', () => {
+    const event = parseCodexLine(codexStreamErrorFixture, ctx);
+    expect(event).not.toBeNull();
+    expect(event!.type).toBe('session_chat_error');
+    expect((event as { reasonCode: string }).reasonCode).toBe('CHAT_SEND_FAILED');
+    expect((event as { reason: string }).reason).toBe('Reconnecting... 1/5');
+  });
+
+  it('error notification → returns session_chat_error with provider reason', () => {
+    const event = parseCodexLine(codexErrorFixture, ctx);
+    expect(event).not.toBeNull();
+    expect(event!.type).toBe('session_chat_error');
+    expect((event as { reason: string }).reason).toBe('stream disconnected before completion');
   });
 
   it('malformed JSON string → returns provider_parse_error event (not thrown)', () => {

@@ -7,11 +7,11 @@ stopped_at: Phase 29 UI-SPEC approved
 last_updated: "2026-04-14T21:30:04.764Z"
 last_activity: 2026-04-14
 progress:
-  total_phases: 27
-  completed_phases: 17
+  total_phases: 29
+  completed_phases: 18
   total_plans: 60
   completed_plans: 53
-  percent: 88
+  percent: 91
 ---
 
 # Project State
@@ -30,7 +30,7 @@ Plan: 3 of 3 complete
 Status: Phase 28 complete
 Last activity: 2026-04-14 -- Phase 28 completed
 
-Progress: [█████████▌] 95%
+Progress: [█████████░] 91%
 
 ## v1.0 Completed
 
@@ -50,7 +50,7 @@ All 14 phases complete:
 - Phase 10.2: Pixel Art Asset Production
 - Phase 14: Office Map View — Full Navigation Paradigm Shift
 
-**Key deliverable**: Popup-based navigation, MapSidebar, InstancePopupHub with 5 tabs, HistoryPopup modal
+**Key deliverable**: Popup-based navigation, MapSidebar, InstancePopupHub with 6 tabs (including Chat), HistoryPopup modal
 
 ## v1.1 Goals
 
@@ -161,6 +161,11 @@ All v1.0 decisions remain active and respected.
 - [Phase 16.12-03]: GET /api/browse endpoint added for folder picker UX in LaunchSessionModal — avoids manual path typing
 - [Phase 16.12-03]: Phase 16.12 COMPLETE — full provider-native launch flow verified end-to-end by user for both Claude and Codex
 - [Phase 26-agent-face-cards-sidebar]: copy-faces.ts run from packages/ui directory so pnpm resolves sharp from packages/ui devDependencies
+- [Phase 22]: Session capabilities are explicit and flow through daemon summaries plus live session_start events.
+- [Phase 22]: session_chat emits normalized session_chat_message/session_chat_error events for replay-safe UI behavior.
+- [Phase 22]: WebSocket handlers dispatch through runtime registry keyed by sessionId to keep provider routing server-side.
+- [Phase 23]: applyEventToApprovals must return same state reference on unrelated events — preserves Zustand selector memoization
+- [Phase 24]: Use one-shot popupPreferredTab in Zustand so avatar clicks open Chat without changing non-avatar default tab behavior
 
 ### Roadmap Evolution
 
@@ -175,6 +180,10 @@ All v1.0 decisions remain active and respected.
 - Phase 16.11 inserted after Phase 16.10: Agent Modal Terminal UX Redesign — black text on dark bg, timeline order wrong, raw JSON messages; full redesign with terminal input (uses /frontend-design)
 - Phase 16.12 inserted after Phase 16.11: Provider-Native Session Launch (Claude + Codex) (URGENT)
 - Phase 18 implemented ahead of dependency order by explicit request: ambient soundtrack + SFX system + persisted audio controls
+- Phase 22 added: Unified Session Chat with Daemon vs External Capability Split
+- Phase 23 added: Approval Hook Reliability Across Providers and Subagents
+- Phase 24 added: Agent Avatar Chat Popup Interaction
+- Phase 25 added: Session Termination Controls
 
 ### Pending Todos
 

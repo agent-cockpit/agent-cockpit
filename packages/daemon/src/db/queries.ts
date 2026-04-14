@@ -16,7 +16,41 @@ export interface SessionSummary {
   endedAt: string | null
   approvalCount: number
   filesChanged: number
+  capabilities: SessionCapabilities
   finalStatus: 'active' | 'ended' | 'error'
+}
+
+export interface SessionCapabilities {
+  managedByDaemon: boolean
+  canSendMessage: boolean
+  canTerminateSession: boolean
+  reason?: string
+}
+
+export const EXTERNAL_SESSION_REASON = 'External session is approval-only; chat send is disabled.'
+
+function toBoolean(value: unknown): boolean | null {
+  if (value === true || value === 1 || value === '1') return true
+  if (value === false || value === 0 || value === '0') return false
+  return null
+}
+
+function inferManagedByDaemon(db: Database.Database, sessionId: string, provider: string): boolean {
+  if (provider === 'codex') {
+    const row = db
+      .prepare('SELECT 1 AS found FROM codex_sessions WHERE session_id = ? LIMIT 1')
+      .get(sessionId) as { found: number } | undefined
+    return !!row?.found
+  }
+
+  if (provider === 'claude') {
+    const row = db
+      .prepare('SELECT 1 AS found FROM claude_sessions WHERE session_id = ? AND claude_id = ? LIMIT 1')
+      .get(sessionId, sessionId) as { found: number } | undefined
+    return !!row?.found
+  }
+
+  return false
 }
 
 export function indexForSearch(
@@ -51,6 +85,10 @@ export function getAllSessions(db: Database.Database): SessionSummary[] {
       e.session_id AS sessionId,
       COALESCE(JSON_EXTRACT(e.payload, '$.provider'), 'unknown') AS provider,
       COALESCE(JSON_EXTRACT(e.payload, '$.workspacePath'), '') AS workspacePath,
+      JSON_EXTRACT(e.payload, '$.managedByDaemon') AS managedByDaemon,
+      JSON_EXTRACT(e.payload, '$.canSendMessage') AS canSendMessage,
+      JSON_EXTRACT(e.payload, '$.canTerminateSession') AS canTerminateSession,
+      JSON_EXTRACT(e.payload, '$.reason') AS capabilityReason,
       e.timestamp AS startedAt,
       (SELECT timestamp FROM events WHERE session_id = e.session_id AND type = 'session_end'
        ORDER BY sequence_number DESC LIMIT 1) AS endedAt,
@@ -63,11 +101,36 @@ export function getAllSessions(db: Database.Database): SessionSummary[] {
   `).all() as Array<{
     sessionId: string; provider: string; workspacePath: string; startedAt: string;
     endedAt: string | null; approvalCount: number; filesChanged: number;
+    managedByDaemon: unknown; canSendMessage: unknown; canTerminateSession: unknown; capabilityReason: unknown;
   }>;
-  return rows.map(r => ({
-    ...r,
-    finalStatus: r.endedAt ? 'ended' : 'active',
-  } as SessionSummary));
+  return rows.map((r) => {
+    const managedFromPayload = toBoolean(r.managedByDaemon)
+    const canSendFromPayload = toBoolean(r.canSendMessage)
+    const canTerminateFromPayload = toBoolean(r.canTerminateSession)
+    const inferredManaged = inferManagedByDaemon(db, r.sessionId, r.provider)
+    const managedByDaemon = managedFromPayload ?? inferredManaged
+    const canSendMessage = canSendFromPayload ?? managedByDaemon
+    const canTerminateSession = canTerminateFromPayload ?? managedByDaemon
+    const reasonFromPayload = typeof r.capabilityReason === 'string' ? r.capabilityReason : undefined
+    const reason = reasonFromPayload ?? (!managedByDaemon ? EXTERNAL_SESSION_REASON : undefined)
+
+    return {
+      sessionId: r.sessionId,
+      provider: r.provider,
+      workspacePath: r.workspacePath,
+      startedAt: r.startedAt,
+      endedAt: r.endedAt,
+      approvalCount: r.approvalCount,
+      filesChanged: r.filesChanged,
+      capabilities: {
+        managedByDaemon,
+        canSendMessage,
+        canTerminateSession,
+        ...(reason ? { reason } : {}),
+      },
+      finalStatus: r.endedAt ? 'ended' : 'active',
+    } as SessionSummary
+  })
 }
 
 export function getSessionSummary(db: Database.Database, sessionId: string): SessionSummary | null {

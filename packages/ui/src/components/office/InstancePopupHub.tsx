@@ -1,7 +1,9 @@
+import { useEffect, useState } from 'react'
 import * as Dialog from '@radix-ui/react-dialog'
 import * as Tabs from '@radix-ui/react-tabs'
 import { useStore } from '../../store/index.js'
 import { ApprovalInbox } from '../panels/ApprovalInbox.js'
+import { ChatPanel } from '../panels/ChatPanel.js'
 import { TimelinePanel } from '../panels/TimelinePanel.js'
 import { DiffPanel } from '../panels/DiffPanel.js'
 import { MemoryPanel } from '../panels/MemoryPanel.js'
@@ -12,11 +14,12 @@ interface Props {
   onClose: () => void
 }
 
-const TAB_IDS = ['approvals', 'timeline', 'diff', 'memory', 'artifacts'] as const
+const TAB_IDS = ['approvals', 'chat', 'timeline', 'diff', 'memory', 'artifacts'] as const
 type TabId = typeof TAB_IDS[number]
 
 const TAB_LABELS: Record<TabId, string> = {
   approvals: 'Approvals',
+  chat: 'Chat',
   timeline: 'Timeline',
   diff: 'Diff',
   memory: 'Memory',
@@ -25,11 +28,24 @@ const TAB_LABELS: Record<TabId, string> = {
 
 export function InstancePopupHub({ open, onClose }: Props) {
   const selectedSessionId = useStore((s) => s.selectedSessionId)
+  const popupPreferredTab = useStore((s) => s.popupPreferredTab)
+  const setPopupPreferredTab = useStore((s) => s.setPopupPreferredTab)
   const session = useStore((s) =>
     selectedSessionId ? s.sessions[selectedSessionId] : undefined
   )
+  const [activeTab, setActiveTab] = useState<TabId>('approvals')
 
   const projectName = session?.workspacePath.split('/').at(-1) ?? 'Session'
+
+  useEffect(() => {
+    if (!open) return
+    if (popupPreferredTab && TAB_IDS.includes(popupPreferredTab as TabId)) {
+      setActiveTab(popupPreferredTab as TabId)
+      setPopupPreferredTab(null)
+      return
+    }
+    setActiveTab('approvals')
+  }, [open, popupPreferredTab, setPopupPreferredTab])
 
   return (
     <Dialog.Root open={open} onOpenChange={(o) => { if (!o) onClose() }}>
@@ -63,7 +79,11 @@ export function InstancePopupHub({ open, onClose }: Props) {
           </div>
 
           {/* Tabs */}
-          <Tabs.Root defaultValue="approvals" className="flex flex-col flex-1 overflow-hidden">
+          <Tabs.Root
+            value={activeTab}
+            onValueChange={(value) => setActiveTab(value as TabId)}
+            className="flex flex-col flex-1 overflow-hidden"
+          >
             <Tabs.List className="flex border-b border-border shrink-0 px-4 gap-1">
               {TAB_IDS.map((id) => (
                 <Tabs.Trigger
@@ -78,6 +98,9 @@ export function InstancePopupHub({ open, onClose }: Props) {
             <div className="flex-1 overflow-auto">
               <Tabs.Content value="approvals" className="h-full">
                 <ApprovalInbox />
+              </Tabs.Content>
+              <Tabs.Content value="chat" className="h-full">
+                <ChatPanel />
               </Tabs.Content>
               <Tabs.Content value="timeline" className="h-full">
                 <TimelinePanel />

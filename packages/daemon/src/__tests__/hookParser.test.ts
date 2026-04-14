@@ -105,6 +105,39 @@ describe('parseHookPayload session mapping persistence', () => {
   });
 });
 
+describe('parseHookPayload notification chat mapping', () => {
+  let db: BetterSqlite3.Database;
+
+  beforeEach(() => {
+    db = openDatabase(':memory:');
+    setClaudeSessionDb(db);
+    setClaudeSessionCache(new Map());
+  });
+
+  afterEach(() => {
+    setClaudeSessionDb(null);
+    setClaudeSessionCache(new Map());
+    db.close();
+  });
+
+  it('maps Notification payload with text content to session_chat_message assistant event', () => {
+    const payload: HookPayload = {
+      session_id: 'notify-chat-1',
+      hook_event_name: 'Notification',
+      cwd: '/workspace',
+      message: 'Claude reply text',
+    };
+
+    const result = parseHookPayload(payload);
+    expect(result.requiresApproval).toBe(false);
+    expect(result.event.type).toBe('session_chat_message');
+    if (result.event.type !== 'session_chat_message') return;
+    expect(result.event.provider).toBe('claude');
+    expect(result.event.role).toBe('assistant');
+    expect(result.event.content).toBe('Claude reply text');
+  });
+});
+
 describe('getOrCreateSessionId passthrough (pre-registered sessions)', () => {
   let db: BetterSqlite3.Database;
 
@@ -154,5 +187,66 @@ describe('getOrCreateSessionId passthrough (pre-registered sessions)', () => {
     const result3 = getOrCreateSessionId('stable-session', '/ws', db, cache);
     expect(result1).toBe(result2);
     expect(result2).toBe(result3);
+  });
+});
+
+describe('parseHookPayload subagent integrity under approval flows', () => {
+  let db: BetterSqlite3.Database;
+
+  beforeEach(() => {
+    db = openDatabase(':memory:');
+    setClaudeSessionDb(db);
+    setClaudeSessionCache(new Map());
+  });
+
+  afterEach(() => {
+    setClaudeSessionDb(null);
+    setClaudeSessionCache(new Map());
+    db.close();
+  });
+
+  it('SubagentStart and SubagentStop events preserve type and sessionId integrity alongside approval events', () => {
+    // Register parent session first via SessionStart
+    const parentPayload: HookPayload = {
+      session_id: 'parent-appr-sess',
+      hook_event_name: 'SessionStart',
+      cwd: '/workspace',
+    };
+    const parentResult = parseHookPayload(parentPayload);
+    const parentSessionId = parentResult.event.sessionId;
+
+    // SubagentStart under same parent
+    const subagentStartPayload: HookPayload = {
+      session_id: 'parent-appr-sess',
+      hook_event_name: 'SubagentStart',
+      agent_id: 'sub-for-appr',
+      cwd: '/workspace',
+    };
+    const subResult = parseHookPayload(subagentStartPayload);
+    expect(subResult.event.type).toBe('subagent_spawn');
+
+    // Approval PreToolUse (requires approval)
+    const approvalPayload: HookPayload = {
+      session_id: 'parent-appr-sess',
+      hook_event_name: 'PreToolUse',
+      tool_name: 'Bash',
+      tool_input: { command: 'rm -rf /tmp/important' },
+      cwd: '/workspace',
+    };
+    const approvalResult = parseHookPayload(approvalPayload);
+    expect(approvalResult.event.type).toBe('approval_request');
+    expect(approvalResult.requiresApproval).toBe(true);
+
+    // SubagentStop still maps correctly after approval event
+    const subagentStopPayload: HookPayload = {
+      session_id: 'parent-appr-sess',
+      hook_event_name: 'SubagentStop',
+      agent_id: 'sub-for-appr',
+      cwd: '/workspace',
+    };
+    const subStopResult = parseHookPayload(subagentStopPayload);
+    expect(subStopResult.event.type).toBe('subagent_complete');
+    // SessionId must be consistent across all events
+    expect(subStopResult.event.sessionId).toBe(parentSessionId);
   });
 });
