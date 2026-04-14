@@ -42,18 +42,22 @@ export class ClaudeLauncher {
   }
 
   async launch(sessionId: string, workspacePath: string): Promise<void> {
-    // 1. Build settings object with all 8 hook event types
-    const hookUrl = `http://localhost:${this.hookPort}/hook`;
+    // 1. Build settings object — claude hook format uses type:"command" with curl, not type:"http"
+    const hookCmd = `curl -sf -X POST http://localhost:${this.hookPort}/hook -d @- -H 'Content-Type: application/json'`;
+    const hookEntry = (matcher?: string) => ({
+      ...(matcher !== undefined ? { matcher } : {}),
+      hooks: [{ type: 'command', command: hookCmd }],
+    });
     const settings = {
       hooks: {
-        SessionStart: [{ type: 'http', url: hookUrl }],
-        SessionEnd: [{ type: 'http', url: hookUrl }],
-        PreToolUse: [{ type: 'http', url: hookUrl, timeout: 60 }],
-        PostToolUse: [{ type: 'http', url: hookUrl }],
-        PermissionRequest: [{ type: 'http', url: hookUrl, timeout: 60 }],
-        SubagentStart: [{ type: 'http', url: hookUrl }],
-        SubagentStop: [{ type: 'http', url: hookUrl }],
-        Notification: [{ type: 'http', url: hookUrl }],
+        SessionStart: [hookEntry()],
+        SessionEnd: [hookEntry()],
+        PreToolUse: [hookEntry('')],
+        PostToolUse: [hookEntry('')],
+        PermissionRequest: [hookEntry('')],
+        SubagentStart: [hookEntry()],
+        SubagentStop: [hookEntry()],
+        Notification: [hookEntry()],
       },
     };
 
