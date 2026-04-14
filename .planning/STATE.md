@@ -4,14 +4,14 @@ milestone: v1.1
 milestone_name: — 2D Pixel Art Game Experience
 status: planning
 stopped_at: Completed 18-02-PLAN.md (executed ahead of phase 17 by request)
-last_updated: "2026-04-13T22:36:00.000Z"
-last_activity: 2026-04-13 — Completed phase 18 audio system execution (ambient loop + SFX + audio controls)
+last_updated: "2026-04-14T10:33:25.000Z"
+last_activity: 2026-04-14 — Added planning phases 22–25 (chat, approvals reliability, avatar popup chat, session termination)
 progress:
-  total_phases: 25
+  total_phases: 29
   completed_phases: 16
-  total_plans: 81
+  total_plans: 87
   completed_plans: 77
-  percent: 95
+  percent: 89
 ---
 
 # Project State
@@ -168,6 +168,10 @@ All v1.0 decisions remain active and respected.
 - Phase 16.11 inserted after Phase 16.10: Agent Modal Terminal UX Redesign — black text on dark bg, timeline order wrong, raw JSON messages; full redesign with terminal input (uses /frontend-design)
 - Phase 16.12 inserted after Phase 16.11: Provider-Native Session Launch (Claude + Codex) (URGENT)
 - Phase 18 implemented ahead of dependency order by explicit request: ambient soundtrack + SFX system + persisted audio controls
+- Phase 22 added: Unified Session Chat with Daemon vs External Capability Split
+- Phase 23 added: Approval Hook Reliability Across Providers and Subagents
+- Phase 24 added: Agent Avatar Chat Popup Interaction
+- Phase 25 added: Session Termination Controls
 
 ### Pending Todos
 
