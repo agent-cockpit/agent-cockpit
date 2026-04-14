@@ -19,7 +19,19 @@ vi.mock('@radix-ui/react-dialog', () => ({
 
 // Mock Radix Tabs — render synchronously
 vi.mock('@radix-ui/react-tabs', () => ({
-  Root: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
+  Root: ({
+    children,
+    defaultValue,
+    value,
+  }: {
+    children: React.ReactNode
+    defaultValue?: string
+    value?: string
+  }) => (
+    <div data-testid="tabs-root" data-default-value={defaultValue} data-value={value}>
+      {children}
+    </div>
+  ),
   List: ({ children }: { children: React.ReactNode }) => <div role="tablist">{children}</div>,
   Trigger: ({ value, children }: { value: string; children: React.ReactNode }) =>
     <button role="tab" data-value={value}>{children}</button>,
@@ -48,9 +60,21 @@ vi.mock('../../../components/panels/ChatPanel.js', () => ({
 }))
 
 // Mock store
-const mockStore = { selectedSessionId: 'session-123', sessions: {
-  'session-123': { sessionId: 'session-123', workspacePath: '/home/user/my-project', provider: 'claude', status: 'active', startedAt: 0 }
-} }
+type PopupTabId = 'approvals' | 'chat' | 'timeline' | 'diff' | 'memory' | 'artifacts'
+let mockStore = {
+  selectedSessionId: 'session-123',
+  sessions: {
+    'session-123': {
+      sessionId: 'session-123',
+      workspacePath: '/home/user/my-project',
+      provider: 'claude',
+      status: 'active',
+      startedAt: 0,
+    },
+  },
+  popupPreferredTab: null as PopupTabId | null,
+  setPopupPreferredTab: vi.fn((_tab: PopupTabId | null) => {}),
+}
 vi.mock('../../../store/index.js', () => ({
   useStore: (selector: (s: typeof mockStore) => unknown) => selector(mockStore),
 }))
@@ -58,6 +82,11 @@ vi.mock('../../../store/index.js', () => ({
 import { InstancePopupHub } from '../InstancePopupHub.js'
 
 describe('InstancePopupHub', () => {
+  beforeEach(() => {
+    mockStore.popupPreferredTab = null
+    mockStore.setPopupPreferredTab.mockClear()
+  })
+
   it('renders nothing when open=false', () => {
     const { container } = render(<InstancePopupHub open={false} onClose={vi.fn()} />)
     expect(container.querySelector('[data-testid="dialog-root"]')).toBeNull()
@@ -101,5 +130,23 @@ describe('InstancePopupHub', () => {
   it('renders ChatPanel inside chat tab content', () => {
     render(<InstancePopupHub open={true} onClose={vi.fn()} />)
     expect(screen.getByTestId('chat-panel')).toBeInTheDocument()
+  })
+
+  it('initializes popup tabs to chat when popupPreferredTab is chat', () => {
+    mockStore.popupPreferredTab = 'chat'
+    render(<InstancePopupHub open={true} onClose={vi.fn()} />)
+
+    const tabsRoot = screen.getByTestId('tabs-root')
+    const activeTab =
+      tabsRoot.getAttribute('data-value') ??
+      tabsRoot.getAttribute('data-default-value')
+    expect(activeTab).toBe('chat')
+  })
+
+  it('consumes popupPreferredTab after applying chat preference', () => {
+    mockStore.popupPreferredTab = 'chat'
+    render(<InstancePopupHub open={true} onClose={vi.fn()} />)
+
+    expect(mockStore.setPopupPreferredTab).toHaveBeenCalledWith(null)
   })
 })

@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react'
 import * as Dialog from '@radix-ui/react-dialog'
 import * as Tabs from '@radix-ui/react-tabs'
 import { useStore } from '../../store/index.js'
@@ -27,11 +28,24 @@ const TAB_LABELS: Record<TabId, string> = {
 
 export function InstancePopupHub({ open, onClose }: Props) {
   const selectedSessionId = useStore((s) => s.selectedSessionId)
+  const popupPreferredTab = useStore((s) => s.popupPreferredTab)
+  const setPopupPreferredTab = useStore((s) => s.setPopupPreferredTab)
   const session = useStore((s) =>
     selectedSessionId ? s.sessions[selectedSessionId] : undefined
   )
+  const [activeTab, setActiveTab] = useState<TabId>('approvals')
 
   const projectName = session?.workspacePath.split('/').at(-1) ?? 'Session'
+
+  useEffect(() => {
+    if (!open) return
+    if (popupPreferredTab && TAB_IDS.includes(popupPreferredTab as TabId)) {
+      setActiveTab(popupPreferredTab as TabId)
+      setPopupPreferredTab(null)
+      return
+    }
+    setActiveTab('approvals')
+  }, [open, popupPreferredTab, setPopupPreferredTab])
 
   return (
     <Dialog.Root open={open} onOpenChange={(o) => { if (!o) onClose() }}>
@@ -65,7 +79,11 @@ export function InstancePopupHub({ open, onClose }: Props) {
           </div>
 
           {/* Tabs */}
-          <Tabs.Root defaultValue="approvals" className="flex flex-col flex-1 overflow-hidden">
+          <Tabs.Root
+            value={activeTab}
+            onValueChange={(value) => setActiveTab(value as TabId)}
+            className="flex flex-col flex-1 overflow-hidden"
+          >
             <Tabs.List className="flex border-b border-border shrink-0 px-4 gap-1">
               {TAB_IDS.map((id) => (
                 <Tabs.Trigger

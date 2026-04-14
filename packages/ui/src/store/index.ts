@@ -40,6 +40,7 @@ export interface SessionRecord {
 }
 
 export type PanelId = 'approvals' | 'timeline' | 'diff' | 'memory' | 'artifacts'
+export type PopupTabId = PanelId | 'chat'
 
 interface SessionsSlice {
   sessions: Record<string, SessionRecord>
@@ -49,10 +50,12 @@ interface SessionsSlice {
 interface UiSlice {
   selectedSessionId: string | null
   activePanel: PanelId
+  popupPreferredTab: PopupTabId | null
   filters: { provider: string | null; status: string | null; search: string }
   sessionDetailOpen: boolean
   selectSession: (id: string) => void
   setActivePanel: (panel: PanelId) => void
+  setPopupPreferredTab: (tab: PopupTabId | null) => void
   setFilter: (key: string, value: string | null) => void
   setSessionDetailOpen: (open: boolean) => void
 }
@@ -103,10 +106,12 @@ export const useStore = create<AppStore>()(
     // uiSlice
     selectedSessionId: null,
     activePanel: 'approvals',
+    popupPreferredTab: null,
     filters: { provider: null, status: null, search: '' },
     sessionDetailOpen: false,
     selectSession: (id) => set({ selectedSessionId: id }),
     setActivePanel: (panel) => set({ activePanel: panel }),
+    setPopupPreferredTab: (tab) => set({ popupPreferredTab: tab }),
     setFilter: (key, value) =>
       set((s) => ({ filters: { ...s.filters, [key]: value } })),
     setSessionDetailOpen: (open) => set({ sessionDetailOpen: open }),
