@@ -363,3 +363,19 @@ Plans:
 Plans:
 - [ ] 21-01-PLAN.md — ParticleSystem class (emitter, update loop, Canvas rendering, cap)
 - [ ] 21-02-PLAN.md — Wire dust/sparkle/success/damage emitters to game events
+
+### Phase 26: Agent Face Cards in Sidebar
+**Goal:** Each session row in the sidebar shows the agent's character face portrait — a small avatar image pulled from `assets/raw/{character}/face/` — giving the user an instant visual identity for every running agent at a glance.
+**Depends on:** Phase 25
+**Requirements:** sidebar-face-card
+**Success Criteria** (what must be TRUE):
+  1. Face images for all 10 characters are published to `public/sprites/faces/{character}-face.png` via a build/copy step
+  2. `MapSidebar.tsx` resolves the character for each session using `sessionToCharacter()` and renders the correct face image
+  3. Face image renders as a fixed-size (32x32 px) rounded avatar at the left edge of each session row
+  4. If an image fails to load, a graceful fallback (character initial) is shown — no broken-image box
+  5. Existing sidebar layout (status dot, project name, provider badge, approvals pill) is preserved and not broken
+**Plans:** 2 plans
+
+Plans:
+- [ ] 26-01-PLAN.md — Copy/export face PNGs to public/sprites/faces/, add characterFaceUrl() helper, TDD (sidebar-face-card)
+- [ ] 26-02-PLAN.md — Render face avatar in MapSidebar.tsx with fallback, visual QA checkpoint (sidebar-face-card)
