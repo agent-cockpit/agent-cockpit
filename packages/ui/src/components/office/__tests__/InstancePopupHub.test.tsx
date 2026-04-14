@@ -43,6 +43,9 @@ vi.mock('../../../components/panels/MemoryPanel.js', () => ({
 vi.mock('../../../components/panels/ArtifactsPanel.js', () => ({
   ArtifactsPanel: () => <div data-testid="artifacts-panel">ArtifactsPanel</div>,
 }))
+vi.mock('../../../components/panels/ChatPanel.js', () => ({
+  ChatPanel: () => <div data-testid="chat-panel">ChatPanel</div>,
+}))
 
 // Mock store
 const mockStore = { selectedSessionId: 'session-123', sessions: {
@@ -65,9 +68,10 @@ describe('InstancePopupHub', () => {
     expect(screen.getByTestId('dialog-content')).toBeInTheDocument()
   })
 
-  it('renders all 5 tab triggers', () => {
+  it('renders all 6 tab triggers including Chat', () => {
     render(<InstancePopupHub open={true} onClose={vi.fn()} />)
     expect(screen.getByText('Approvals')).toBeInTheDocument()
+    expect(screen.getByText('Chat')).toBeInTheDocument()
     expect(screen.getByText('Timeline')).toBeInTheDocument()
     expect(screen.getByText('Diff')).toBeInTheDocument()
     expect(screen.getByText('Memory')).toBeInTheDocument()
@@ -92,5 +96,10 @@ describe('InstancePopupHub', () => {
   it('renders ApprovalInbox inside approvals tab content', () => {
     render(<InstancePopupHub open={true} onClose={vi.fn()} />)
     expect(screen.getByTestId('approval-inbox')).toBeInTheDocument()
+  })
+
+  it('renders ChatPanel inside chat tab content', () => {
+    render(<InstancePopupHub open={true} onClose={vi.fn()} />)
+    expect(screen.getByTestId('chat-panel')).toBeInTheDocument()
   })
 })
