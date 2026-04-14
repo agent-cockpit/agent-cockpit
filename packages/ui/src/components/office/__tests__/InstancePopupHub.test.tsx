@@ -149,4 +149,23 @@ describe('InstancePopupHub', () => {
 
     expect(mockStore.setPopupPreferredTab).toHaveBeenCalledWith(null)
   })
+
+  it('defaults to approvals tab for non-avatar entry points', () => {
+    render(<InstancePopupHub open={true} onClose={vi.fn()} />)
+
+    const tabsRoot = screen.getByTestId('tabs-root')
+    expect(tabsRoot.getAttribute('data-value')).toBe('approvals')
+  })
+
+  it('resets to approvals after consuming one-shot chat preference', () => {
+    mockStore.popupPreferredTab = 'chat'
+    const { rerender } = render(<InstancePopupHub open={true} onClose={vi.fn()} />)
+    mockStore.popupPreferredTab = null
+
+    rerender(<InstancePopupHub open={false} onClose={vi.fn()} />)
+    rerender(<InstancePopupHub open={true} onClose={vi.fn()} />)
+
+    const tabsRoot = screen.getByTestId('tabs-root')
+    expect(tabsRoot.getAttribute('data-value')).toBe('approvals')
+  })
 })

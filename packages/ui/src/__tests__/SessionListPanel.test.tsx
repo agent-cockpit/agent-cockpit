@@ -42,6 +42,7 @@ beforeEach(() => {
     sessions: {},
     selectedSessionId: null,
     activePanel: 'approvals',
+    popupPreferredTab: null,
     filters: { provider: null, status: null, search: '' },
   })
 })
@@ -83,6 +84,17 @@ describe('SessionListPanel', () => {
     render(<SessionListPanel />)
     fireEvent.click(screen.getByText('alpha'))
     expect(mockNavigate).toHaveBeenCalledWith('/session/a/approvals')
+  })
+
+  it('clicking a SessionCard does not force popup chat preference', () => {
+    useStore.setState({
+      sessions: { a: makeSession({ sessionId: 'a', workspacePath: '/projects/alpha' }) },
+      popupPreferredTab: null,
+      filters: { provider: null, status: null, search: '' },
+    })
+    render(<SessionListPanel />)
+    fireEvent.click(screen.getByText('alpha'))
+    expect(useStore.getState().popupPreferredTab).toBeNull()
   })
 
   it('Launch Session button is visible', () => {
