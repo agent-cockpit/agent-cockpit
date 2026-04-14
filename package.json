@@ -7,7 +7,8 @@
     "test:watch": "vitest",
     "build": "pnpm -r build",
     "typecheck": "tsc --noEmit",
-    "sync-map": "rsync -av --delete \"assets/raw/Cockpit Map Export/\" packages/ui/public/map/"
+    "sync-map": "rsync -av --delete \"assets/raw/Cockpit Map Export/\" packages/ui/public/map/",
+    "copy-faces": "cd packages/ui && pnpm exec tsx ../../scripts/copy-faces.ts"
   },
   "devDependencies": {
     "typescript": "^5.0.0",

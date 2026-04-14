@@ -27,6 +27,12 @@ vi.mock('../../../store/index.js', () => ({
     }),
 }))
 
+vi.mock('../../office/characterMapping.js', () => ({
+  sessionToCharacter: (_id: string) => 'astronaut',
+  characterFaceUrl: (char: string) => `/sprites/faces/${char}-face.png`,
+  CHARACTER_TYPES: ['astronaut'],
+}))
+
 import { MapSidebar } from '../MapSidebar.js'
 
 function makeSession(overrides: Partial<SessionRecord> = {}): SessionRecord {
@@ -154,5 +160,53 @@ describe('MapSidebar', () => {
     render(<MapSidebar onFocusSession={vi.fn()} />)
 
     expect(screen.getByText('-- NO ACTIVE AGENTS --')).toBeInTheDocument()
+  })
+
+  it('renders face avatar img with correct src for each session', () => {
+    mockRefs.mockSessions = [
+      makeSession({ sessionId: 'session-face', workspacePath: '/workspace/face-test' }),
+    ]
+
+    render(<MapSidebar onFocusSession={vi.fn()} />)
+
+    const img = screen.getByTestId('face-avatar')
+    expect(img).toBeInTheDocument()
+    expect(img).toHaveAttribute('src', '/sprites/faces/astronaut-face.png')
+  })
+
+  it('renders fallback text initial when face image fails to load', () => {
+    mockRefs.mockSessions = [
+      makeSession({ sessionId: 'session-fallback', workspacePath: '/workspace/fallback-test' }),
+    ]
+
+    render(<MapSidebar onFocusSession={vi.fn()} />)
+
+    const img = screen.getByTestId('face-avatar')
+    fireEvent.error(img)
+
+    expect(screen.queryByTestId('face-avatar')).not.toBeInTheDocument()
+    const fallback = screen.getByTestId('face-avatar-fallback')
+    expect(fallback).toBeInTheDocument()
+    expect(fallback).toHaveTextContent('A')
+  })
+
+  it('each row manages its own fallback state independently', () => {
+    mockRefs.mockSessions = [
+      makeSession({ sessionId: 'session-row-1', workspacePath: '/workspace/row-1' }),
+      makeSession({ sessionId: 'session-row-2', workspacePath: '/workspace/row-2' }),
+    ]
+
+    render(<MapSidebar onFocusSession={vi.fn()} />)
+
+    const row1 = screen.getByRole('button', { name: /row-1/i })
+    const firstImg = within(row1).getByTestId('face-avatar')
+    fireEvent.error(firstImg)
+
+    expect(within(row1).queryByTestId('face-avatar')).not.toBeInTheDocument()
+    expect(within(row1).getByTestId('face-avatar-fallback')).toBeInTheDocument()
+
+    const row2 = screen.getByRole('button', { name: /row-2/i })
+    expect(within(row2).getByTestId('face-avatar')).toBeInTheDocument()
+    expect(within(row2).queryByTestId('face-avatar-fallback')).not.toBeInTheDocument()
   })
 })

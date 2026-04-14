@@ -29,6 +29,10 @@ Requirements for initial release. Each maps to roadmap phases.
 - [x] **OFFICE-03**: User can click an agent in Office mode to open its detailed Ops view
 - [x] **OFFICE-04**: User can drag agents to rearrange their positions and customize the office layout, with layout persisted locally
 
+### Office Gameplay Extensions
+
+- [x] **character-selection**: User can open a character picker from the existing menu/settings area, cycle through all available player characters with wrap-around, persist the confirmed choice locally, and see the Office map player sprite update immediately
+
 ### Ops Mode
 
 - [x] **OPS-01**: User can see a session list panel in Ops mode showing all sessions with status indicators
@@ -172,14 +176,15 @@ Which phases cover which requirements. Updated during roadmap creation.
 | HIST-02 | Phase 8 | Complete |
 | multi-map-render | Phase 16.9 | Complete |
 | npc-spawn-position | Phase 16.10 | Complete |
+| character-selection | Phase 27 | Complete |
 
 **Coverage:**
-- v1 requirements: 39 total
-- Mapped to phases: 39
+- v1 requirements: 40 total
+- Mapped to phases: 40
 - Unmapped: 0 ✓
 - Pending (gap closure phases 10–12): 9
-- Phase-local roadmap requirements mapped: 2 (`multi-map-render`, `npc-spawn-position`)
+- Phase-local roadmap requirements mapped: 3 (`multi-map-render`, `npc-spawn-position`, `character-selection`)
 
 ---
 *Requirements defined: 2026-04-04*
-*Last updated: 2026-04-13 after phase 16.10 completion — traceability updated*
+*Last updated: 2026-04-14 after phase 27 execution — traceability updated*

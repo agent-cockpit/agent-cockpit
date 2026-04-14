@@ -31,17 +31,19 @@ const {
   setSessionDetailOpenMock: vi.fn(),
 }))
 
+const storeState = {
+  events: {},
+  sessions: {},
+  selectedSessionId: null,
+  selectedPlayerCharacter: 'astronaut',
+  sessionDetailOpen: false,
+  selectSession: selectSessionMock,
+  setHistoryMode: setHistoryModeMock,
+  setPopupPreferredTab: setPopupPreferredTabMock,
+  setSessionDetailOpen: setSessionDetailOpenMock,
+}
+
 vi.mock('../../store/index.js', () => {
-  const storeState = {
-    events: {},
-    sessions: {},
-    selectedSessionId: null,
-    sessionDetailOpen: false,
-    selectSession: selectSessionMock,
-    setHistoryMode: setHistoryModeMock,
-    setPopupPreferredTab: setPopupPreferredTabMock,
-    setSessionDetailOpen: setSessionDetailOpenMock,
-  }
   const useStore = vi.fn((selector: (s: typeof storeState) => unknown) => selector(storeState))
   // Attach getState for canvas click handler usage
   ;(useStore as unknown as { getState: () => typeof storeState }).getState = () => storeState
@@ -66,6 +68,46 @@ const mockCtx = {
 }
 HTMLCanvasElement.prototype.getContext = vi.fn(() => mockCtx) as unknown as typeof HTMLCanvasElement.prototype.getContext
 
+const imageInstances: Array<{
+  src: string
+  _src: string
+  complete: boolean
+  naturalWidth: number
+  naturalHeight: number
+}> = []
+
+class MockImage {
+  _src = ''
+  complete = true
+  naturalWidth = 64
+  naturalHeight = 64
+
+  constructor() {
+    imageInstances.push(this)
+  }
+
+  set src(value: string) {
+    this._src = value
+  }
+
+  get src() {
+    return this._src
+  }
+}
+
+function stubMapManifestFetch() {
+  vi.stubGlobal('fetch', vi.fn(async (input: RequestInfo | URL) => {
+    if (String(input).endsWith('/maps/maps-manifest.json')) {
+      return {
+        ok: true,
+        json: async () => ({ maps: [] }),
+      } as Response
+    }
+
+    throw new Error(`Unexpected fetch in OfficePage test: ${String(input)}`)
+  }))
+}
+
 // Mock InstancePopupHub
 vi.mock('../../components/office/InstancePopupHub.js', () => ({
   InstancePopupHub: () => null,
@@ -87,9 +129,14 @@ describe('OfficePage canvas mount', () => {
     stopMock.mockClear()
     selectSessionMock.mockClear()
     setHistoryModeMock.mockClear()
+    storeState.selectedPlayerCharacter = 'astronaut'
+    storeState.sessionDetailOpen = false
+    imageInstances.length = 0
     setPopupPreferredTabMock.mockClear()
     setSessionDetailOpenMock.mockClear()
     vi.stubGlobal('ResizeObserver', MockResizeObserver)
+    vi.stubGlobal('Image', MockImage)
+    stubMapManifestFetch()
     // Reset npcs and player between tests
     Object.keys(gameState.npcs).forEach(k => delete gameState.npcs[k])
     gameState.player.x = 2 * 96
@@ -212,9 +259,9 @@ describe('OfficePage canvas mount', () => {
     // Camera must have snapped: cam.x === cam.targetX (instant, no lerp)
     expect(gameState.camera.x).toBe(gameState.camera.targetX)
     expect(gameState.camera.y).toBe(gameState.camera.targetY)
-    // targetX centred on NPC x=400: viewportW = canvas.width/zoom = 800/2 = 400
-    // targetX = clamp(400 - 200, 0, WORLD_W - 400) = 200
+    // Merged avatar-chat behavior snaps camera to NPC origin-based focus helper.
     expect(gameState.camera.targetX).toBe(200)
+    expect(gameState.camera.targetY).toBe(150)
     // Player must teleport to NPC position so update() preserves camera target on next tick
     expect(gameState.player.x).toBe(400)
     expect(gameState.player.y).toBe(300)
@@ -235,6 +282,24 @@ describe('OfficePage canvas mount', () => {
     // Click at (200, 200) — well outside the 64px sprite at (10, 10)
     fireEvent.click(canvas, { clientX: 200, clientY: 200 })
     expect(selectSessionMock).not.toHaveBeenCalled()
+  })
+
+  it('loads the selected character sprite sheet on mount', () => {
+    storeState.selectedPlayerCharacter = 'ninja'
+
+    render(<OfficePage />)
+
+    expect(imageInstances.at(-1)?.src).toBe('/sprites/ninja-sheet.png')
+  })
+
+  it('updates the player sprite sheet when the selected character changes', () => {
+    const { rerender } = render(<OfficePage />)
+    expect(imageInstances.at(-1)?.src).toBe('/sprites/astronaut-sheet.png')
+
+    storeState.selectedPlayerCharacter = 'ninja'
+    rerender(<OfficePage />)
+
+    expect(imageInstances.at(-1)?.src).toBe('/sprites/ninja-sheet.png')
   })
 
   it('pressing E near an NPC opens chat popup for that session', () => {
@@ -268,6 +333,7 @@ describe('OfficePage canvas mount', () => {
 
 describe('OfficePage scrollToSession', () => {
   beforeEach(() => {
+    stubMapManifestFetch()
     Object.keys(gameState.npcs).forEach(k => delete gameState.npcs[k])
     gameState.player.x = 2 * 96
     gameState.player.y = 5 * 96
@@ -283,6 +349,10 @@ describe('OfficePage scrollToSession', () => {
         pendingApprovals: 0,
       },
     ])
+  })
+
+  afterEach(() => {
+    vi.unstubAllGlobals()
   })
 
   it('focuses target session by snapping camera to centered coordinates', () => {

@@ -1,6 +1,9 @@
 import * as Dialog from '@radix-ui/react-dialog'
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useAudioSettings, audioSystem } from '../../audio/audioSystem.js'
+import { CharacterPicker } from '../sessions/CharacterPicker.js'
+import { useStore } from '../../store/index.js'
+import type { CharacterType } from './characterMapping.js'
 
 interface Props {
   open: boolean
@@ -10,6 +13,9 @@ interface Props {
 export function MenuPopup({ open, onClose }: Props) {
   const audioSettings = useAudioSettings()
   const prevOpenRef = useRef(open)
+  const selectedPlayerCharacter = useStore((state) => state.selectedPlayerCharacter)
+  const setSelectedPlayerCharacter = useStore((state) => state.setSelectedPlayerCharacter)
+  const [draftCharacter, setDraftCharacter] = useState<CharacterType>(selectedPlayerCharacter)
 
   useEffect(() => {
     if (prevOpenRef.current !== open) {
@@ -17,6 +23,12 @@ export function MenuPopup({ open, onClose }: Props) {
       prevOpenRef.current = open
     }
   }, [open])
+
+  useEffect(() => {
+    if (open) {
+      setDraftCharacter(selectedPlayerCharacter)
+    }
+  }, [open, selectedPlayerCharacter])
 
   return (
     <Dialog.Root open={open} onOpenChange={(nextOpen) => { if (!nextOpen) onClose() }}>
@@ -32,7 +44,9 @@ export function MenuPopup({ open, onClose }: Props) {
           <div className="cockpit-frame-full flex items-center gap-3 px-4 py-3 border-b border-border shrink-0 bg-[var(--color-panel-surface)]">
             <span className="cockpit-corner cockpit-corner-tl" aria-hidden />
             <span className="cockpit-corner cockpit-corner-tr" aria-hidden />
-            <Dialog.Title className="cockpit-label">Game Menu</Dialog.Title>
+            <span className="cockpit-corner cockpit-corner-bl" aria-hidden />
+            <span className="cockpit-corner cockpit-corner-br" aria-hidden />
+            <Dialog.Title className="cockpit-label">GAME MENU</Dialog.Title>
             <Dialog.Close
               className="ml-auto cockpit-label hover:text-foreground transition-colors px-2 py-1"
               aria-label="Close menu"
@@ -42,22 +56,31 @@ export function MenuPopup({ open, onClose }: Props) {
           </div>
 
           <div className="p-4 space-y-4">
+            <CharacterPicker
+              value={draftCharacter}
+              onChange={setDraftCharacter}
+              onConfirm={() => {
+                setSelectedPlayerCharacter(draftCharacter)
+                onClose()
+              }}
+            />
+
             <section className="cockpit-frame-full rounded-none border border-border/70 bg-[var(--color-panel-surface)] px-3 py-3">
-              <p className="cockpit-label mb-3">Audio</p>
+              <p className="cockpit-label mb-3">AUDIO</p>
               <div className="mb-3 flex items-center justify-between gap-2">
-                <span className="data-readout-dim text-[11px]">Master Audio</span>
+                <span className="data-readout-dim text-[11px]">MASTER AUDIO</span>
                 <button
                   type="button"
                   onClick={() => audioSystem.setMuted(!audioSettings.muted)}
                   className="cockpit-btn px-2 py-1 text-[10px]"
                   aria-label={audioSettings.muted ? 'Unmute audio' : 'Mute audio'}
                 >
-                  {audioSettings.muted ? 'Unmute' : 'Mute'}
+                  {audioSettings.muted ? 'UNMUTE' : 'MUTE'}
                 </button>
               </div>
 
               <label className="mb-2 block">
-                <span className="data-readout-dim text-[10px]">Music {Math.round(audioSettings.musicVolume * 100)}%</span>
+                <span className="data-readout-dim text-[10px]">MUSIC {Math.round(audioSettings.musicVolume * 100)}%</span>
                 <input
                   type="range"
                   min={0}

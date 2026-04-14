@@ -17,3 +17,7 @@ export function sessionToCharacter(sessionId: string): CharacterType {
   const index = parseInt(sessionId.slice(-4), 16) % CHARACTER_TYPES.length
   return CHARACTER_TYPES[index]
 }
+
+export function characterFaceUrl(character: CharacterType): string {
+  return `/sprites/faces/${character}-face.png`
+}

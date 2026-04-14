@@ -2,15 +2,15 @@
 gsd_state_version: 1.0
 milestone: v1.1
 milestone_name: — 2D Pixel Art Game Experience
-status: Ready for execution
-stopped_at: Completed 24-01-PLAN.md
-last_updated: "2026-04-14T21:49:05.404Z"
-last_activity: 2026-04-14 — Completed phase 24 plan 24-01 (avatar chat popup interaction)
+status: executing
+stopped_at: Phase 29 UI-SPEC approved
+last_updated: "2026-04-14T21:30:04.764Z"
+last_activity: 2026-04-14
 progress:
   total_phases: 29
   completed_phases: 18
   total_plans: 60
-  completed_plans: 52
+  completed_plans: 53
   percent: 91
 ---
 
@@ -21,20 +21,21 @@ progress:
 See: .planning/PROJECT.md (updated 2026-04-10)
 
 **Core value:** One unified approval, memory and replay layer across Claude Code and Codex — so developers can run agents productively, not just watch them.
-**Current focus:** Planning v1.1 — 2D Pixel Art Game Experience
+**Current focus:** Phase 28 complete — walking-sprites-all-characters
 
 ## Current Position
 
-Phase: 25 — Session Termination Controls
-Plan: 25-01 (pending)
-Status: Ready for execution
-Last activity: 2026-04-14 — Completed phase 24 plan 24-01 (avatar chat popup interaction)
+Phase: 28
+Plan: 3 of 3 complete
+Status: Phase 28 complete
+Last activity: 2026-04-14 -- Phase 28 completed
 
 Progress: [█████████░] 91%
 
 ## v1.0 Completed
 
 All 14 phases complete:
+
 - Phase 1: Daemon Core
 - Phase 2: Claude Adapter (Approval Foundation)
 - Phase 3: Browser UI Shell (Session Management)
@@ -56,17 +57,20 @@ All 14 phases complete:
 Transform Office Mode from a static visualization into an engaging 2D pixel art game experience:
 
 **Core Mechanics:**
+
 - Player-controlled movement (WASD, arrow keys)
 - Click-to-teleport to agents
 - NPC agents that move to activity zones
 - 60 FPS game loop with smooth animations
 
 **Atmosphere:**
+
 - Ambient office background music
 - Sound effects for actions
 - Particle effects for visual feedback
 
 **Persistence:**
+
 - Quick save/load system
 - Auto-save on key actions
 - All game state preserved
@@ -77,6 +81,7 @@ Transform Office Mode from a static visualization into an engaging 2D pixel art 
 
 Decisions are logged in PROJECT.md Key Decisions table.
 Recent decisions affecting current work:
+
 - Roadmap: v1.1 adds game engine on top of existing React/Zustand architecture
 - v1.1: Canvas for game rendering, React for UI overlay (hybrid approach)
 - v1.1: NPC movement zones: coding → workstation, waiting for approval → meeting room
@@ -85,6 +90,7 @@ Recent decisions affecting current work:
 - v1.1: Save data: player position, game state, session data (not agent positions)
 
 All v1.0 decisions remain active and respected.
+
 - [Phase 15]: Added _loop stop-guard (rafId===null check) to prevent update() firing after stop() when a pending rAF callback exists
 - [Phase 15]: Global HTMLCanvasElement.getContext and ResizeObserver stubs added to setupTests.ts to prevent jsdom crashes in all canvas-using tests
 - [Phase 15]: GameEngine subclassed inline (anonymous class) inside OfficePage useEffect for clarity and co-location
@@ -154,6 +160,7 @@ All v1.0 decisions remain active and respected.
 - [Phase 16.12-03]: CodexAdapter needs clientInfo in initialize + protocol version 2026-01-01 to avoid silent error hangs
 - [Phase 16.12-03]: GET /api/browse endpoint added for folder picker UX in LaunchSessionModal — avoids manual path typing
 - [Phase 16.12-03]: Phase 16.12 COMPLETE — full provider-native launch flow verified end-to-end by user for both Claude and Codex
+- [Phase 26-agent-face-cards-sidebar]: copy-faces.ts run from packages/ui directory so pnpm resolves sharp from packages/ui devDependencies
 - [Phase 22]: Session capabilities are explicit and flow through daemon summaries plus live session_start events.
 - [Phase 22]: session_chat emits normalized session_chat_message/session_chat_error events for replay-safe UI behavior.
 - [Phase 22]: WebSocket handlers dispatch through runtime registry keyed by sessionId to keep provider routing server-side.
@@ -191,8 +198,8 @@ None yet — requirements phase will surface tasks.
 
 ## Session Continuity
 
-Last session: 2026-04-14T13:02:52.352Z
-Stopped at: Completed 24-01-PLAN.md
-Resume file: None
+Last session: 2026-04-14T21:13:04.937Z
+Stopped at: Phase 29 UI-SPEC approved
+Resume file: .planning/phases/29-sidebar-menu-design-overhaul/29-UI-SPEC.md
 
 *Updated after each plan completion*

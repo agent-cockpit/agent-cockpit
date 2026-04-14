@@ -40,7 +40,7 @@ const SPAWN_SLOTS: ReadonlyArray<{ x: number; y: number }> = [
 
 /** Pixel offset applied per cycle to prevent exact NPC stacking when sessions > 12. */
 const SPAWN_JITTER = 16
-const SPRITE_SIZE = 38
+const SPRITE_SIZE = 64
 const INTERACT_RADIUS_PX = 64
 
 function isTextInputFocused(active: Element | null): boolean {
@@ -213,6 +213,7 @@ function drawScreenOverlays(
 export function OfficePage() {
   const sessions = useActiveSessions()
   const sessionDetailOpen = useStore((s) => s.sessionDetailOpen)
+  const selectedPlayerCharacter = useStore((s) => s.selectedPlayerCharacter)
   const setSessionDetailOpen = useStore((s) => s.setSessionDetailOpen)
   const setPopupPreferredTab = useStore((s) => s.setPopupPreferredTab)
   const [menuOpen, setMenuOpen] = useState(false)
@@ -306,19 +307,16 @@ export function OfficePage() {
   // Register sidebar focus callback for map/session synchronization.
   useEffect(() => {
     _scrollToSession = (id: string) => {
-      const pos = gameState.npcs[id]
-      if (!pos) return
-
-      const cam = gameState.camera
-      gameState.player.x = pos.x
-      gameState.player.y = pos.y
-      cam.targetX = Math.max(0, Math.min(pos.x - cam.viewportW / 2, WORLD_W - cam.viewportW))
-      cam.targetY = Math.max(0, Math.min(pos.y - cam.viewportH / 2, WORLD_H - cam.viewportH))
-      cam.x = cam.targetX
-      cam.y = cam.targetY
+      focusSessionInWorld(id)
     }
     return () => { _scrollToSession = null }
   }, [])
+
+  useEffect(() => {
+    const playerImg = new Image()
+    playerImg.src = `/sprites/${selectedPlayerCharacter}-sheet.png`
+    playerImgRef.current = playerImg
+  }, [selectedPlayerCharacter])
 
   // Seed gameState.npcs from sessions — assign walkable spawn slot on first appearance only
   useEffect(() => {
@@ -345,10 +343,6 @@ export function OfficePage() {
     if (!canvas) return
     const ctx = canvas.getContext('2d')
     if (!ctx) { console.error('[GameEngine] canvas 2d context unavailable'); return }
-
-    const playerImg = new Image()
-    playerImg.src = '/sprites/astronaut-sheet.png'
-    playerImgRef.current = playerImg
 
     const tilemapRenderer = new TilemapRenderer()
     // Load map assets before starting engine (non-blocking: engine starts after assets ready)

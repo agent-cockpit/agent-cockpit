@@ -41,6 +41,7 @@ export function drawAgentSprite({
     blocked: 8,
     completed: 9,
     failed: 7,
+    walk: 8,
   }
   const col = Math.floor(tick / NPC_TICKS_PER_FRAME) % NPC_FRAME_COUNTS[animState]
   const src = `/sprites/${characterType}-sheet.png`

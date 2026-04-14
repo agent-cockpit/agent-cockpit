@@ -423,3 +423,36 @@ Plans:
 
 Plans:
 - [ ] 25-01-PLAN.md — Managed-session registry + terminate API + UI controls and capability gating
+
+### Phase 26: Agent Face Cards in Sidebar
+**Goal:** Each session row in the sidebar shows the agent's character face portrait — a small avatar image pulled from `assets/raw/{character}/face/` — giving the user an instant visual identity for every running agent at a glance.
+**Depends on:** Phase 25
+**Requirements:** sidebar-face-card
+**Success Criteria** (what must be TRUE):
+  1. Face images for all 10 characters are published to `public/sprites/faces/{character}-face.png` via a build/copy step
+  2. `MapSidebar.tsx` resolves the character for each session using `sessionToCharacter()` and renders the correct face image
+  3. Face image renders as a fixed-size (32x32 px) rounded avatar at the left edge of each session row
+  4. If an image fails to load, a graceful fallback (character initial) is shown — no broken-image box
+  5. Existing sidebar layout (status dot, project name, provider badge, approvals pill) is preserved and not broken
+**Plans:** 1/2 plans executed
+
+Plans:
+- [ ] 26-01-PLAN.md — Copy/export face PNGs to public/sprites/faces/, add characterFaceUrl() helper, TDD (sidebar-face-card)
+- [ ] 26-02-PLAN.md — Render face avatar in MapSidebar.tsx with fallback, visual QA checkpoint (sidebar-face-card)
+
+### Phase 27: Player Character Selection UI
+**Goal:** The user can choose which character they play as. A character picker is accessible from the top-bar or settings menu, styled like a game screen with left/right arrows to cycle through all 10 characters. The selected character is persisted and the player sprite on the map updates immediately.
+**Depends on:** Phase 26
+**Requirements:** character-selection
+**Success Criteria** (what must be TRUE):
+  1. A character picker UI shows the current character's face portrait and name, with left/right arrows to cycle through all 10 characters
+  2. Pressing the arrows cycles through `CHARACTER_TYPES` with wrap-around (after last, loops to first)
+  3. Selected character is persisted to `localStorage` and restored on page load
+  4. The player sprite on the Office map updates to the selected character's sprite sheet immediately on confirm
+  5. The picker is reachable from the existing top-bar/settings area without breaking current nav
+**Plans:** 3/3 plans complete
+
+Plans:
+- [x] 27-01-PLAN.md — Add selectedPlayerCharacter to Zustand store + localStorage persistence, TDD (character-selection)
+- [x] 27-02-PLAN.md — CharacterPicker component: face preview, left/right arrows, confirm button (character-selection)
+- [x] 27-03-PLAN.md — Wire picker into MenuPopup and OfficePage sprite loading, visual QA checkpoint (character-selection)
