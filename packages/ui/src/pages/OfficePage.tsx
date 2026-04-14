@@ -202,6 +202,7 @@ function drawScreenOverlays(
 export function OfficePage() {
   const sessions = useActiveSessions()
   const sessionDetailOpen = useStore((s) => s.sessionDetailOpen)
+  const selectedPlayerCharacter = useStore((s) => s.selectedPlayerCharacter)
   const setSessionDetailOpen = useStore((s) => s.setSessionDetailOpen)
   const [menuOpen, setMenuOpen] = useState(false)
   const canvasRef = useRef<HTMLCanvasElement>(null)
@@ -226,6 +227,12 @@ export function OfficePage() {
     }
     return () => { _scrollToSession = null }
   }, [])
+
+  useEffect(() => {
+    const playerImg = new Image()
+    playerImg.src = `/sprites/${selectedPlayerCharacter}-sheet.png`
+    playerImgRef.current = playerImg
+  }, [selectedPlayerCharacter])
 
   // Seed gameState.npcs from sessions — assign walkable spawn slot on first appearance only
   useEffect(() => {
@@ -252,10 +259,6 @@ export function OfficePage() {
     if (!canvas) return
     const ctx = canvas.getContext('2d')
     if (!ctx) { console.error('[GameEngine] canvas 2d context unavailable'); return }
-
-    const playerImg = new Image()
-    playerImg.src = '/sprites/astronaut-sheet.png'
-    playerImgRef.current = playerImg
 
     const tilemapRenderer = new TilemapRenderer()
     // Load map assets before starting engine (non-blocking: engine starts after assets ready)
