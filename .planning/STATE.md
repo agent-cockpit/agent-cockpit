@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v1.1
 milestone_name: — 2D Pixel Art Game Experience
-status: completed
-stopped_at: Completed 22-01-PLAN.md
-last_updated: "2026-04-14T11:29:00.337Z"
+status: Ready for execution
+stopped_at: Completed 23-01-PLAN.md
+last_updated: "2026-04-14T13:02:52.357Z"
 last_activity: 2026-04-14 — Completed phase 22 plan 22-01 (session chat capability split)
 progress:
   total_phases: 29
   completed_phases: 17
-  total_plans: 59
-  completed_plans: 50
-  percent: 95
+  total_plans: 60
+  completed_plans: 51
+  percent: 90
 ---
 
 # Project State
@@ -157,6 +157,7 @@ All v1.0 decisions remain active and respected.
 - [Phase 22]: Session capabilities are explicit and flow through daemon summaries plus live session_start events.
 - [Phase 22]: session_chat emits normalized session_chat_message/session_chat_error events for replay-safe UI behavior.
 - [Phase 22]: WebSocket handlers dispatch through runtime registry keyed by sessionId to keep provider routing server-side.
+- [Phase 23]: applyEventToApprovals must return same state reference on unrelated events — preserves Zustand selector memoization
 
 ### Roadmap Evolution
 
@@ -189,8 +190,8 @@ None yet — requirements phase will surface tasks.
 
 ## Session Continuity
 
-Last session: 2026-04-14T11:29:00.332Z
-Stopped at: Completed 22-01-PLAN.md
+Last session: 2026-04-14T13:02:52.352Z
+Stopped at: Completed 23-01-PLAN.md
 Resume file: None
 
 *Updated after each plan completion*

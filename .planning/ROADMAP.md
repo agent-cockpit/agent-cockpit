@@ -389,7 +389,7 @@ Plans:
   3. Subagent-related approval and lifecycle events are persisted and replayed correctly
   4. No provider-specific regression: Claude hook approvals and Codex app-server approvals both remain green
   5. Regression tests cover PreToolUse, PermissionRequest, and subagent flows end-to-end
-**Plans:** 1 plan
+**Plans:** 1/1 plans complete
 
 Plans:
 - [ ] 23-01-PLAN.md — Approval reliability matrix + hook/parser/queue fixes for Claude and Codex (including subagents)
