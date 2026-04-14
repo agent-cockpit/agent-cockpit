@@ -4,6 +4,7 @@ import type Database from 'better-sqlite3';
 import type { NormalizedEvent } from '@cockpit/shared';
 import { getEventsSince, getSessionSummary } from '../db/queries.js';
 import { approvalQueue } from '../approvals/approvalQueue.js';
+import { logger } from '../logger.js';
 
 interface ManagedRuntimeHandle {
   provider: 'claude' | 'codex'
@@ -34,6 +35,8 @@ export function handleConnection(
   // This loop completes atomically before any new event can arrive via eventBus.
   // No async gaps allowed here — do not add await or setImmediate inside this loop.
   const missed = getEventsSince(db, lastSeenSequence);
+
+  logger.info('ws', 'Catch-up replay', { lastSeenSequence, replayCount: missed.length });
 
   for (const event of missed) {
     if (ws.readyState === WebSocket.OPEN) {
@@ -89,7 +92,10 @@ export function handleConnection(
         typeof approvalId === 'string' &&
         (decision === 'approve' || decision === 'deny' || decision === 'always_allow')
       ) {
+        logger.info('ws', 'Approval decision received', { approvalId, decision });
         approvalQueue.decide(approvalId, decision, db);
+      } else {
+        logger.warn('ws', 'Invalid approval_decision payload', { approvalId, decision });
       }
       return;
     }
@@ -115,9 +121,19 @@ export function handleConnection(
 
       const runtime = deps?.runtimeRegistry?.get(sessionId);
       const provider = resolveProvider(summary.provider, runtime?.provider);
-      console.log(`[ws/chat] incoming session_chat session=${sessionId} provider=${provider} canSend=${summary.capabilities.canSendMessage} runtime=${runtime ? 'yes' : 'no'}`);
+      logger.info('ws', 'session_chat received', {
+        sessionId,
+        provider,
+        canSend: summary.capabilities.canSendMessage,
+        hasRuntime: !!runtime,
+        contentLen: content.trim().length,
+      });
 
       if (!summary.capabilities.canSendMessage) {
+        logger.warn('ws', 'Chat send blocked', {
+          sessionId,
+          reason: summary.capabilities.reason,
+        });
         emitChatError(
           sessionId,
           provider,
@@ -128,6 +144,7 @@ export function handleConnection(
       }
 
       if (!runtime) {
+        logger.warn('ws', 'Chat runtime unavailable', { sessionId, provider });
         emitChatError(
           sessionId,
           provider,
@@ -159,11 +176,11 @@ export function handleConnection(
               role: 'assistant',
               content: assistantMessage.trim(),
             });
-            console.log(`[ws/chat] assistant response emitted session=${sessionId} provider=${provider} chars=${assistantMessage.trim().length}`);
+            logger.info('ws', 'Assistant response emitted', { sessionId, provider, chars: assistantMessage.trim().length });
           }
         })
         .catch((err: unknown) => {
-          console.error(`[ws/chat] send failed session=${sessionId} provider=${provider}`, err);
+          logger.error('ws', 'Chat send failed', { sessionId, provider, error: String(err) });
           emitChatError(
             sessionId,
             provider,
@@ -175,7 +192,7 @@ export function handleConnection(
   });
 
   ws.on('error', (err) => {
-    console.error('[cockpit-daemon] WebSocket client error:', err.message);
+    logger.error('ws', 'WebSocket client error', { error: err.message });
   });
 
   ws.on('close', () => {

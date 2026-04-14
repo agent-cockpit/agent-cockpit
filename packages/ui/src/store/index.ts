@@ -85,11 +85,12 @@ export const useStore = create<AppStore>()(
     // sessionsSlice
     sessions: {},
     applyEvent: (event) =>
-      set((state) => ({
-        ...applyEventToSessions(state, event),
-        ...applyEventToEvents(state, event),
-        ...applyEventToApprovals(state, event),
-      })),
+      set((state) => {
+        const sessionsPatch = applyEventToSessions(state, event)
+        const eventsPatch = applyEventToEvents(state, event)
+        const { pendingApprovalsBySession } = applyEventToApprovals(state, event)
+        return { ...sessionsPatch, ...eventsPatch, pendingApprovalsBySession }
+      }),
 
     // eventsSlice
     events: {},

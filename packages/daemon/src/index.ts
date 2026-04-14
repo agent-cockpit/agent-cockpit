@@ -5,6 +5,7 @@ import { createHookServer, initStartedSessions } from './adapters/claude/hookSer
 import { setClaudeSessionCache, setClaudeSessionDb } from './adapters/claude/hookParser.js';
 import { approvalQueue } from './approvals/approvalQueue.js';
 import { eventBus } from './eventBus.js';
+import { logger } from './logger.js';
 import type { WebSocketServer } from 'ws';
 import type Database from 'better-sqlite3';
 import type http from 'node:http';
@@ -35,21 +36,30 @@ const hookServer = createHookServer(
 );
 
 hookServer.once('listening', () => {
-  console.log('[cockpit-daemon] Hook server listening on port', HOOK_PORT);
+  logger.info('daemon', 'Hook server listening', { port: HOOK_PORT });
 });
 
 const { wss, httpServer } = createWsServer(db, WS_PORT);
 
 // Event pipeline: eventBus → persist → broadcast
 eventBus.on('event', (rawEvent) => {
+  logger.debug('daemon', `Event pipeline: ${rawEvent.type}`, { sessionId: rawEvent.sessionId });
   const saved = persistEvent(db, rawEvent);
+  logger.debug('daemon', `Event persisted: seq=${(saved as { sequenceNumber?: number }).sequenceNumber}`, {
+    type: saved.type,
+    sessionId: saved.sessionId,
+  });
   broadcast(wss, JSON.stringify(saved), db);
 });
 
 // Close orphaned sessions: sessions with session_start but no session_end and no activity in 2h
 // Runs after eventBus is wired so the emitted events are persisted and broadcast
 const twoHoursAgo = new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString();
-for (const sessionId of getOrphanedSessionIds(db, twoHoursAgo)) {
+const orphaned = getOrphanedSessionIds(db, twoHoursAgo);
+if (orphaned.length > 0) {
+  logger.info('daemon', `Closing ${orphaned.length} orphaned session(s)`, { sessionIds: orphaned });
+}
+for (const sessionId of orphaned) {
   eventBus.emit('event', {
     schemaVersion: 1,
     sessionId,
@@ -61,7 +71,7 @@ for (const sessionId of getOrphanedSessionIds(db, twoHoursAgo)) {
 
 // Graceful shutdown
 function shutdown(db: Database.Database, wss: WebSocketServer, hookServer: http.Server): void {
-  console.log('[cockpit-daemon] Shutting down...');
+  logger.info('daemon', 'Shutting down...');
   // Terminate all open client connections before closing the server
   wss.clients.forEach((client) => client.terminate());
   wss.close(() => {
@@ -79,5 +89,5 @@ process.on('SIGTERM', () => shutdown(db, wss, hookServer));
 process.on('SIGINT', () => shutdown(db, wss, hookServer));
 
 httpServer.once('listening', () => {
-  console.log(`[cockpit-daemon] Started. DB: ${DB_PATH}, WS port: ${WS_PORT}`);
+  logger.info('daemon', 'Started', { db: DB_PATH, wsPort: WS_PORT, hookPort: HOOK_PORT });
 });

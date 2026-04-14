@@ -3,6 +3,7 @@ import http from 'node:http';
 import crypto from 'node:crypto';
 import fs from 'node:fs';
 import { WebSocketServer, WebSocket } from 'ws';
+import { logger } from '../logger.js';
 import type Database from 'better-sqlite3';
 import type { NormalizedEvent } from '@cockpit/shared';
 import { handleConnection } from './handlers.js';
@@ -110,14 +111,14 @@ function handleLaunchSession(
         if (provider === 'claude') {
           const launcher = new ClaudeLauncher(hookPort, db);
           await launcher.preflight(workspacePath);
-          console.log(`[cockpit-daemon] Launching claude session ${sessionId} in ${workspacePath}`);
+          logger.info('launch', 'Launching claude session', { sessionId, workspacePath });
           const runtime = await launcher.launch(sessionId, workspacePath);
           runtimeRegistry.register(sessionId, {
             provider: 'claude',
             sendMessage: (message) => runtime.sendMessage(message),
             terminateSession: () => runtime.terminateSession(),
           });
-          console.log(`[cockpit-daemon] claude spawned for session ${sessionId}`);
+          logger.info('launch', 'Claude session spawned', { sessionId });
           res.writeHead(200, { 'Content-Type': 'application/json' });
           res.end(JSON.stringify({ sessionId, mode: 'initiated' }));
         } else {
@@ -141,9 +142,10 @@ function handleLaunchSession(
               runtimeRegistry.unregister(sessionId);
             },
           });
+          logger.info('launch', 'Codex session spawned', { sessionId, workspacePath });
           adapter.start().catch((err: unknown) => {
             runtimeRegistry.unregister(sessionId);
-            console.error('[cockpit-daemon] CodexAdapter.start() failed:', err);
+            logger.error('launch', 'CodexAdapter.start() failed', { sessionId, error: String(err) });
           });
           res.writeHead(200, { 'Content-Type': 'application/json' });
           res.end(JSON.stringify({ sessionId, mode: 'initiated' }));
@@ -378,6 +380,20 @@ export function createWsServer(
   });
 
   wss.on('connection', (ws, req) => {
+    const url = new URL(req.url ?? '/', 'http://localhost');
+    const lastSeenSequence = url.searchParams.get('lastSeenSequence') ?? '0';
+    logger.info('ws', 'Client connected', {
+      remoteAddress: req.socket.remoteAddress,
+      lastSeenSequence,
+      totalClients: wss.clients.size + 1,
+    });
+    ws.on('close', (code, reason) => {
+      logger.info('ws', 'Client disconnected', {
+        code,
+        reason: reason.toString(),
+        remainingClients: wss.clients.size,
+      });
+    });
     handleConnection(ws, req, db, {
       runtimeRegistry: {
         get: (sessionId) => runtimeRegistry.get(sessionId),
@@ -391,14 +407,14 @@ export function createWsServer(
 
   httpServer.on('error', (err: NodeJS.ErrnoException) => {
     if (err.code === 'EADDRINUSE') {
-      console.error(`[cockpit-daemon] Port ${port} is already in use. Stop the existing daemon or set COCKPIT_WS_PORT to a different port.`);
+      logger.error('ws', `Port ${port} is already in use`, { port });
       process.exit(1);
     }
     throw err;
   });
 
   httpServer.listen(port, () => {
-    console.log(`[cockpit-daemon] WebSocket server listening on ws://localhost:${port}`);
+    logger.info('ws', `WebSocket server listening`, { url: `ws://localhost:${port}` });
   });
 
   return { wss, httpServer, runtimeRegistry };
@@ -406,9 +422,11 @@ export function createWsServer(
 
 export function broadcast(wss: WebSocketServer, payload: string, db?: Database.Database): void {
   // Populate pendingSuggestions when a memory_write event with suggested=true is broadcast
+  let parsedForLog: { type?: string; sessionId?: string; sequenceNumber?: number } | null = null;
   if (db) {
     try {
-      const parsed = JSON.parse(payload) as { type?: string; suggested?: boolean; sessionId?: string; memoryKey?: string; value?: unknown };
+      const parsed = JSON.parse(payload) as { type?: string; suggested?: boolean; sessionId?: string; memoryKey?: string; value?: unknown; sequenceNumber?: number };
+      parsedForLog = { type: parsed.type, sessionId: parsed.sessionId, sequenceNumber: parsed.sequenceNumber };
       if (parsed.type === 'memory_write' && parsed.suggested === true) {
         const workspace = getWorkspacePath(db, parsed.sessionId ?? '');
         if (workspace && parsed.memoryKey) {
@@ -417,9 +435,20 @@ export function broadcast(wss: WebSocketServer, payload: string, db?: Database.D
       }
     } catch { /* ignore parse errors */ }
   }
+
+  let sent = 0;
   wss.clients.forEach((client) => {
     if (client.readyState === WebSocket.OPEN) {
       client.send(payload);
+      sent++;
     }
   });
+
+  if (parsedForLog?.type) {
+    logger.debug('broadcast', `Event broadcast: ${parsedForLog.type}`, {
+      sessionId: parsedForLog.sessionId,
+      seq: parsedForLog.sequenceNumber,
+      clients: sent,
+    });
+  }
 }
