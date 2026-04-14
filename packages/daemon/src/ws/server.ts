@@ -8,17 +8,81 @@ import { handleConnection } from './handlers.js';
 import { CodexAdapter } from '../adapters/codex/codexAdapter.js';
 import { ClaudeLauncher, LaunchError } from '../adapters/claude/claudeLauncher.js';
 import { eventBus } from '../eventBus.js';
-import { getEventsBySession, searchAll, getAllSessions, getSessionSummary } from '../db/queries.js';
+import { getEventsBySession, searchAll, getAllSessions, getSessionSummary, type SessionSummary } from '../db/queries.js';
 import { resolveClaudeMdPath, resolveAutoMemoryPath, readFileSafe, writeFileSafe, getWorkspacePath } from '../memory/memoryReader.js';
 import { insertNote, listNotes, deleteNote } from '../memory/memoryNotes.js';
 
 // Pending agent-suggested memory writes: memoryKey → { workspace, value }
 const pendingSuggestions = new Map<string, { workspace: string; value: string }>();
 
+export interface ManagedSessionRuntime {
+  provider: 'claude' | 'codex'
+  sendMessage: (message: string) => Promise<void>
+  terminateSession?: () => void
+}
+
+export interface ManagedSessionRegistry {
+  register: (sessionId: string, runtime: ManagedSessionRuntime) => void
+  unregister: (sessionId: string) => void
+  get: (sessionId: string) => ManagedSessionRuntime | undefined
+  has: (sessionId: string) => boolean
+}
+
+function createManagedSessionRegistry(): ManagedSessionRegistry {
+  const runtimes = new Map<string, ManagedSessionRuntime>()
+  return {
+    register: (sessionId, runtime) => { runtimes.set(sessionId, runtime) },
+    unregister: (sessionId) => { runtimes.delete(sessionId) },
+    get: (sessionId) => runtimes.get(sessionId),
+    has: (sessionId) => runtimes.has(sessionId),
+  }
+}
+
+function applyRuntimeCapabilityState(
+  summary: SessionSummary,
+  runtimeRegistry: ManagedSessionRegistry,
+): SessionSummary {
+  const base = summary.capabilities
+  if (summary.finalStatus !== 'active') {
+    return {
+      ...summary,
+      capabilities: {
+        ...base,
+        canSendMessage: false,
+        canTerminateSession: false,
+        reason: 'Session is not active.',
+      },
+    }
+  }
+  if (!base.managedByDaemon) {
+    return summary
+  }
+  if (runtimeRegistry.has(summary.sessionId)) {
+    return {
+      ...summary,
+      capabilities: {
+        ...base,
+        canSendMessage: true,
+        canTerminateSession: true,
+      },
+    }
+  }
+  return {
+    ...summary,
+    capabilities: {
+      ...base,
+      canSendMessage: false,
+      canTerminateSession: false,
+      reason: 'Managed session runtime is not available for chat send.',
+    },
+  }
+}
+
 function handleLaunchSession(
   req: http.IncomingMessage,
   res: http.ServerResponse,
   db: Database.Database,
+  runtimeRegistry: ManagedSessionRegistry,
 ): void {
   let body = '';
   req.on('data', (chunk) => { body += chunk; });
@@ -46,7 +110,12 @@ function handleLaunchSession(
           const launcher = new ClaudeLauncher(hookPort, db);
           await launcher.preflight(workspacePath);
           console.log(`[cockpit-daemon] Launching claude session ${sessionId} in ${workspacePath}`);
-          await launcher.launch(sessionId, workspacePath);
+          const runtime = await launcher.launch(sessionId, workspacePath);
+          runtimeRegistry.register(sessionId, {
+            provider: 'claude',
+            sendMessage: (message) => runtime.sendMessage(message),
+            terminateSession: () => runtime.terminateSession(),
+          });
           console.log(`[cockpit-daemon] claude spawned for session ${sessionId}`);
           res.writeHead(200, { 'Content-Type': 'application/json' });
           res.end(JSON.stringify({ sessionId, mode: 'initiated' }));
@@ -56,9 +125,23 @@ function handleLaunchSession(
             sessionId,
             workspacePath,
             db,
-            (event) => eventBus.emit('event', event),
+            (event) => {
+              if (event.type === 'session_end') {
+                runtimeRegistry.unregister(sessionId);
+              }
+              eventBus.emit('event', event);
+            },
           );
+          runtimeRegistry.register(sessionId, {
+            provider: 'codex',
+            sendMessage: (message) => adapter.sendChatMessage(message),
+            terminateSession: () => {
+              adapter.stop();
+              runtimeRegistry.unregister(sessionId);
+            },
+          });
           adapter.start().catch((err: unknown) => {
+            runtimeRegistry.unregister(sessionId);
             console.error('[cockpit-daemon] CodexAdapter.start() failed:', err);
           });
           res.writeHead(200, { 'Content-Type': 'application/json' });
@@ -80,9 +163,10 @@ function handleLaunchSession(
 export function createWsServer(
   db: Database.Database,
   port: number,
-): { wss: WebSocketServer; httpServer: ReturnType<typeof createServer> } {
+): { wss: WebSocketServer; httpServer: ReturnType<typeof createServer>; runtimeRegistry: ManagedSessionRegistry } {
   const httpServer = createServer();
   const wss = new WebSocketServer({ noServer: true });
+  const runtimeRegistry = createManagedSessionRegistry();
 
   // Handle standard HTTP requests (REST API)
   httpServer.on('request', (req, res) => {
@@ -161,8 +245,9 @@ export function createWsServer(
         res.writeHead(404, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
         res.end(JSON.stringify({ error: 'session not found' }));
       } else {
+        const withRuntime = applyRuntimeCapabilityState(summary, runtimeRegistry);
         res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
-        res.end(JSON.stringify(summary));
+        res.end(JSON.stringify(withRuntime));
       }
       return;
     }
@@ -170,7 +255,7 @@ export function createWsServer(
     // GET /api/sessions (all sessions list)
     const allSessionsMatch = req.method === 'GET' && req.url === '/api/sessions';
     if (allSessionsMatch) {
-      const sessions = getAllSessions(db);
+      const sessions = getAllSessions(db).map((summary) => applyRuntimeCapabilityState(summary, runtimeRegistry));
       res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
       res.end(JSON.stringify(sessions));
       return;
@@ -186,7 +271,7 @@ export function createWsServer(
     }
 
     if (req.method === 'POST' && req.url === '/api/sessions') {
-      handleLaunchSession(req, res, db);
+      handleLaunchSession(req, res, db, runtimeRegistry);
       return;
     }
 
@@ -307,7 +392,7 @@ export function createWsServer(
     console.log(`[cockpit-daemon] WebSocket server listening on ws://localhost:${port}`);
   });
 
-  return { wss, httpServer };
+  return { wss, httpServer, runtimeRegistry };
 }
 
 export function broadcast(wss: WebSocketServer, payload: string, db?: Database.Database): void {

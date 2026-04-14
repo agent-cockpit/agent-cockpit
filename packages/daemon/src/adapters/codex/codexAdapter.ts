@@ -238,6 +238,20 @@ export class CodexAdapter {
     this.proc = null;
   }
 
+  async sendChatMessage(message: string): Promise<void> {
+    const content = message.trim();
+    if (!content) return;
+    if (!this.proc || this.proc.killed || !this.proc.stdin?.writable) {
+      throw new Error('Codex runtime is not available for chat send');
+    }
+    // Notification shape for Codex app-server user text input.
+    this.writeToStdin({
+      jsonrpc: '2.0',
+      method: 'conversation/send',
+      params: { content },
+    });
+  }
+
   // -------------------------------------------------------------------------
   // Private helpers
   // -------------------------------------------------------------------------

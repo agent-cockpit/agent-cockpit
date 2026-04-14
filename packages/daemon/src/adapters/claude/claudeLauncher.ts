@@ -17,6 +17,12 @@ export class LaunchError extends Error {
 
 type ProcFactory = (args: string[], opts: object) => ChildProcess;
 
+export interface ManagedClaudeRuntime {
+  sendMessage: (message: string) => Promise<void>
+  terminateSession: () => void
+  isActive: () => boolean
+}
+
 export class ClaudeLauncher {
   private readonly db: Database.Database | null;
   private readonly procFactory: ProcFactory | undefined;
@@ -41,7 +47,7 @@ export class ClaudeLauncher {
     }
   }
 
-  async launch(sessionId: string, workspacePath: string): Promise<void> {
+  async launch(sessionId: string, workspacePath: string): Promise<ManagedClaudeRuntime> {
     // 1. Build settings object — claude hook format uses type:"command" with curl, not type:"http"
     const hookCmd = `curl -sf -X POST http://localhost:${this.hookPort}/hook -d @- -H 'Content-Type: application/json'`;
     const hookEntry = (matcher?: string) => ({
@@ -76,7 +82,7 @@ export class ClaudeLauncher {
     console.log(`[ClaudeLauncher] spawning claude --session-id ${sessionId} --settings ${settingsPath} in cwd=${workspacePath}`);
     const claudeArgs = ['--session-id', sessionId, '--settings', settingsPath];
     const args = ['-q', '/dev/null', 'claude', ...claudeArgs];
-    const spawnOpts = { cwd: workspacePath, stdio: ['ignore', 'pipe', 'pipe'] as ['ignore', 'pipe', 'pipe'], detached: true };
+    const spawnOpts = { cwd: workspacePath, stdio: ['pipe', 'pipe', 'pipe'] as ['pipe', 'pipe', 'pipe'], detached: true };
 
     const proc = this.procFactory
       ? this.procFactory(claudeArgs, spawnOpts)
@@ -85,7 +91,7 @@ export class ClaudeLauncher {
     proc.unref();
 
     // 5. Wrap in a Promise that resolves on 'spawn' and rejects on error/non-zero exit
-    return new Promise<void>((resolve, reject) => {
+    return new Promise<ManagedClaudeRuntime>((resolve, reject) => {
       let stderr = '';
 
       const stderrStream = proc.stderr;
@@ -99,7 +105,20 @@ export class ClaudeLauncher {
 
       proc.once('spawn', () => {
         console.log(`[ClaudeLauncher] claude process spawned (pid=${proc.pid})`);
-        resolve();
+        resolve({
+          sendMessage: async (message: string) => {
+            if (!proc.stdin?.writable || proc.killed || proc.exitCode !== null) {
+              throw new LaunchError('SPAWN_FAILED', 'claude runtime is not available for chat send');
+            }
+            proc.stdin.write(`${message.trimEnd()}\n`);
+          },
+          terminateSession: () => {
+            if (!proc.killed) {
+              proc.kill();
+            }
+          },
+          isActive: () => !proc.killed && proc.exitCode === null,
+        });
       });
 
       proc.once('error', (err: NodeJS.ErrnoException) => {
