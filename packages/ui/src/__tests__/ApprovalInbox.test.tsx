@@ -61,7 +61,7 @@ describe('APPR-01: Empty state', () => {
   it('renders "No pending approvals" when pendingApprovalsBySession is empty', () => {
     useStore.setState({ pendingApprovalsBySession: {} })
     renderInbox()
-    expect(screen.getByText(/No pending approvals/i)).toBeInTheDocument()
+    expect(screen.getByText(/QUEUE EMPTY/i)).toBeInTheDocument()
   })
 })
 
@@ -81,7 +81,7 @@ describe('APPR-02 + APPR-04: Approval card detail fields', () => {
       pendingApprovalsBySession: { [SESSION_ID]: [makeApproval()] },
     })
     renderInbox()
-    expect(screen.getByText('high')).toBeInTheDocument()
+    expect(screen.getByAltText(/high risk/i)).toBeInTheDocument()
   })
 
   it('approval card shows proposedAction text', () => {
@@ -90,6 +90,39 @@ describe('APPR-02 + APPR-04: Approval card detail fields', () => {
     })
     renderInbox()
     expect(screen.getByText('rm -rf /tmp')).toBeInTheDocument()
+  })
+
+  it('formats structured JSON proposedAction into readable sections', () => {
+    useStore.setState({
+      pendingApprovalsBySession: {
+        [SESSION_ID]: [
+          makeApproval({
+            proposedAction: JSON.stringify({
+              file_path: '/repo/codexParser.ts',
+              old_string: "case 'a':\\n  return 1;",
+              new_string: "case 'a':\\n  return 2;",
+              replace_all: false,
+            }),
+          }),
+        ],
+      },
+    })
+    renderInbox()
+
+    const formatted = screen.getByText((_, element) =>
+      element?.tagName === 'PRE' &&
+      element.textContent?.includes('FILE') &&
+      element.textContent?.includes('OLD') &&
+      element.textContent?.includes('NEW') &&
+      element.textContent?.includes('REPLACE ALL'),
+    )
+
+    expect(formatted).toBeInTheDocument()
+    expect(formatted.textContent).toContain('/repo/codexParser.ts')
+    expect(formatted.textContent).toContain("case 'a':")
+    expect(formatted.textContent).toContain('return 2;')
+    expect(formatted.textContent).toContain('false')
+    expect(formatted.textContent).not.toContain('"file_path"')
   })
 
   it('approval card shows affectedPaths', () => {

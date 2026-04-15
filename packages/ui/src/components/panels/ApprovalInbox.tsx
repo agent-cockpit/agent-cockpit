@@ -16,6 +16,69 @@ function formatActionType(actionType: string): string {
     .join(' ')
 }
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value)
+}
+
+function parseStructuredAction(raw: string): unknown | null {
+  const trimmed = raw.trim()
+  if (!trimmed) return null
+  try {
+    const parsed = JSON.parse(trimmed) as unknown
+    if (typeof parsed === 'string') {
+      const nested = parsed.trim()
+      if (
+        (nested.startsWith('{') && nested.endsWith('}')) ||
+        (nested.startsWith('[') && nested.endsWith(']'))
+      ) {
+        try {
+          return JSON.parse(nested) as unknown
+        } catch {
+          return parsed
+        }
+      }
+    }
+    return parsed
+  } catch {
+    return null
+  }
+}
+
+function formatStructuredAction(parsed: unknown): string {
+  if (!isRecord(parsed)) {
+    return JSON.stringify(parsed, null, 2)
+  }
+
+  const filePath = typeof parsed['file_path'] === 'string' ? parsed['file_path'] : null
+  const oldString = typeof parsed['old_string'] === 'string' ? parsed['old_string'] : null
+  const newString = typeof parsed['new_string'] === 'string' ? parsed['new_string'] : null
+  const replaceAll = typeof parsed['replace_all'] === 'boolean' ? parsed['replace_all'] : null
+
+  if (filePath || oldString !== null || newString !== null || replaceAll !== null) {
+    const sections: string[] = []
+    if (filePath) sections.push(`FILE\n${filePath}`)
+    if (oldString !== null) sections.push(`OLD\n${oldString}`)
+    if (newString !== null) sections.push(`NEW\n${newString}`)
+    if (replaceAll !== null) sections.push(`REPLACE ALL\n${replaceAll ? 'true' : 'false'}`)
+
+    const extras = Object.fromEntries(
+      Object.entries(parsed).filter(([key]) => !['file_path', 'old_string', 'new_string', 'replace_all'].includes(key)),
+    )
+    if (Object.keys(extras).length > 0) {
+      sections.push(`DETAILS\n${JSON.stringify(extras, null, 2)}`)
+    }
+    return sections.join('\n\n')
+  }
+
+  return JSON.stringify(parsed, null, 2)
+}
+
+function formatProposedAction(raw: string): string {
+  const parsed = parseStructuredAction(raw)
+  if (parsed === null) return raw
+  return formatStructuredAction(parsed)
+}
+
 // ─── ApprovalCard ─────────────────────────────────────────────────────────────
 
 interface ApprovalCardProps {
@@ -25,6 +88,7 @@ interface ApprovalCardProps {
 }
 
 function ApprovalCard({ approval, disabled, onDecision }: ApprovalCardProps) {
+  const formattedAction = formatProposedAction(approval.proposedAction)
   const buttonBase =
     'px-3 py-1.5 text-xs font-medium [font-family:var(--font-mono-data)] uppercase tracking-wide disabled:opacity-50 disabled:cursor-not-allowed transition-colors'
 
@@ -42,7 +106,9 @@ function ApprovalCard({ approval, disabled, onDecision }: ApprovalCardProps) {
       {/* Proposed action */}
       <div className="mb-2">
         <span className="cockpit-label">Proposed action</span>
-        <p className="data-readout text-xs mt-0.5">{approval.proposedAction}</p>
+        <pre className="data-readout text-xs mt-0.5 whitespace-pre-wrap break-words leading-relaxed max-h-72 overflow-auto bg-[var(--color-panel-surface)]/65 border border-border/50 p-2">
+          {formattedAction}
+        </pre>
       </div>
 
       {/* Affected paths */}

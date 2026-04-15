@@ -122,11 +122,11 @@ export function MapSidebar({ onFocusSession }: Props) {
                 <span className="cockpit-corner cockpit-corner-br" aria-hidden />
               </>
             )}
-            <div className="flex items-start justify-between gap-3">
+            <div className="flex items-start gap-3">
               <FaceAvatar character={sessionToCharacter(session.sessionId)} />
-              <div className="min-w-0">
+              <div className="min-w-0 flex-1">
                 <div className="flex items-center gap-2">
-                  <span className="truncate text-xs font-semibold text-foreground [font-family:var(--font-mono-data)] uppercase tracking-wide">{projectName}</span>
+                  <span className="min-w-0 flex-1 truncate text-xs font-semibold text-foreground [font-family:var(--font-mono-data)] uppercase tracking-wide">{projectName}</span>
                   <span className={`shrink-0 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wide ${session.provider === 'claude' ? 'badge-provider-claude' : 'badge-provider-codex'}`}>
                     {providerLabel}
                   </span>
@@ -141,27 +141,29 @@ export function MapSidebar({ onFocusSession }: Props) {
                 </div>
               </div>
 
-              {session.pendingApprovals > 0 && (
-                <span
-                  data-testid="pending-approvals-pill"
-                  className="inline-flex min-w-6 shrink-0 items-center justify-center rounded-none border px-2 py-0.5 text-[11px] font-semibold ring-1 [font-family:var(--font-mono-data)]"
-                  style={{
-                    borderColor: 'var(--color-approval-border)',
-                    backgroundColor: 'var(--color-approval-bg)',
-                    color: 'var(--color-approval-text)',
-                    boxShadow: '0 0 0 1px color-mix(in oklch, var(--color-approval-border) 60%, transparent)',
-                    textShadow: '0 0 6px rgba(251,191,36,0.6)',
-                  }}
-                >
-                  {session.pendingApprovals}
-                </span>
-              )}
             </div>
 
             {showSecondaryMetadata && (
-              <p data-testid="secondary-metadata" className="mt-1 truncate text-[10px] data-readout-dim">
-                {secondaryPieces.join(' // ')}
-              </p>
+              <div className="mt-1 flex items-center gap-2 pl-11">
+                <p data-testid="secondary-metadata" className="min-w-0 flex-1 truncate text-[10px] data-readout-dim">
+                  {secondaryPieces.join(' // ')}
+                </p>
+                {session.pendingApprovals > 0 && (
+                  <span
+                    data-testid="pending-approvals-pill"
+                    className="inline-flex min-w-6 shrink-0 items-center justify-center rounded-none border px-2 py-0.5 text-[11px] font-semibold ring-1 [font-family:var(--font-mono-data)]"
+                    style={{
+                      borderColor: 'var(--color-approval-border)',
+                      backgroundColor: 'var(--color-approval-bg)',
+                      color: 'var(--color-approval-text)',
+                      boxShadow: '0 0 0 1px color-mix(in oklch, var(--color-approval-border) 60%, transparent)',
+                      textShadow: '0 0 6px rgba(251,191,36,0.6)',
+                    }}
+                  >
+                    {session.pendingApprovals}
+                  </span>
+                )}
+              </div>
             )}
           </button>
         )
