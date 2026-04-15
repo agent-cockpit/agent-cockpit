@@ -25,6 +25,7 @@ import {
 } from '../game/PlayerInput.js'
 import { TilemapRenderer, type MapsManifest } from '../game/TilemapRenderer.js'
 import { CollisionMap, PLAYER_HITBOX } from '../game/CollisionMap.js'
+import { stepNpcBehaviors } from '../game/NpcBehavior.js'
 
 // Module-level sidebar focus callback for MapSidebar compatibility.
 let _scrollToSession: ((id: string) => void) | null = null
@@ -359,6 +360,61 @@ function playerSpriteRectAt(pos: WorldPosition): AxisAlignedRect {
   }
 }
 
+function npcHitboxAt(pos: WorldPosition): AxisAlignedRect {
+  return {
+    x: pos.x + PLAYER_HITBOX.offsetX,
+    y: pos.y + PLAYER_HITBOX.offsetY,
+    w: PLAYER_HITBOX.w,
+    h: PLAYER_HITBOX.h,
+  }
+}
+
+function canOccupyNpcPosition(
+  candidate: WorldPosition,
+  occupiedNpcHitboxes: ReadonlyArray<AxisAlignedRect>,
+  playerHitbox: AxisAlignedRect,
+  collisionProbe: CollisionProbe | null,
+): boolean {
+  const candidateHitbox = npcHitboxAt(candidate)
+  if (rectsOverlap(candidateHitbox, playerHitbox)) return false
+  if (occupiedNpcHitboxes.some((hitbox) => rectsOverlap(candidateHitbox, hitbox))) return false
+  if (collisionProbe?.overlaps(candidateHitbox.x, candidateHitbox.y, candidateHitbox.w, candidateHitbox.h)) {
+    return false
+  }
+  return true
+}
+
+function resolveNpcMovementPosition(
+  current: WorldPosition,
+  desired: WorldPosition,
+  occupiedNpcHitboxes: ReadonlyArray<AxisAlignedRect>,
+  playerHitbox: AxisAlignedRect,
+  collisionProbe: CollisionProbe | null,
+): WorldPosition {
+  const clampedCurrent = clampPlayerPositionToWorld(current)
+  const clampedDesired = clampPlayerPositionToWorld(desired)
+  if (canOccupyNpcPosition(clampedDesired, occupiedNpcHitboxes, playerHitbox, collisionProbe)) {
+    return clampedDesired
+  }
+
+  const xOnly = clampPlayerPositionToWorld({ x: clampedDesired.x, y: clampedCurrent.y })
+  if (canOccupyNpcPosition(xOnly, occupiedNpcHitboxes, playerHitbox, collisionProbe)) {
+    return xOnly
+  }
+
+  const yOnly = clampPlayerPositionToWorld({ x: clampedCurrent.x, y: clampedDesired.y })
+  if (canOccupyNpcPosition(yOnly, occupiedNpcHitboxes, playerHitbox, collisionProbe)) {
+    return yOnly
+  }
+
+  return clampedCurrent
+}
+
+export function derivePausedNpcSessionIds(sessionDetailOpen: boolean, selectedSessionId: string | null): Set<string> {
+  if (!sessionDetailOpen || !selectedSessionId) return new Set()
+  return new Set([selectedSessionId])
+}
+
 function isTeleportSpotFree(
   pos: WorldPosition,
   occupiedSpriteRects: ReadonlyArray<AxisAlignedRect>,
@@ -422,6 +478,7 @@ function findNearestFreeTeleportPosition(
 export function OfficePage() {
   const sessions = useActiveSessions()
   const sessionDetailOpen = useStore((s) => s.sessionDetailOpen)
+  const selectedSessionId = useStore((s) => s.selectedSessionId)
   const selectedPlayerCharacter = useStore((s) => s.selectedPlayerCharacter)
   const setSessionDetailOpen = useStore((s) => s.setSessionDetailOpen)
   const setPopupPreferredTab = useStore((s) => s.setPopupPreferredTab)
@@ -439,6 +496,8 @@ export function OfficePage() {
   const persistedPlayerStateRef = useRef<StoredPlayerState | null>(null)
   const lastPlayerPersistAtRef = useRef<number>(0)
   const selectedPlayerCharacterRef = useRef<CharacterType>(selectedPlayerCharacter)
+  const selectedSessionIdRef = useRef<string | null>(selectedSessionId)
+  const sessionDetailOpenRef = useRef<boolean>(sessionDetailOpen)
   const previousNpcPositionsRef = useRef<Record<string, WorldPosition>>({})
   const lastPlayerAnimFrameRef = useRef<number>(-1)
 
@@ -577,6 +636,14 @@ export function OfficePage() {
   }, [selectedPlayerCharacter])
 
   useEffect(() => {
+    selectedSessionIdRef.current = selectedSessionId
+  }, [selectedSessionId])
+
+  useEffect(() => {
+    sessionDetailOpenRef.current = sessionDetailOpen
+  }, [sessionDetailOpen])
+
+  useEffect(() => {
     const persisted = readStoredPlayerState()
     if (!persisted) return
     gameState.player.x = persisted.x
@@ -696,6 +763,46 @@ export function OfficePage() {
 
         const deltaSec = Math.max(deltaMs / 1000, 0.0001)
         const liveSessions = useStore.getState().sessions
+        const activeNpcSessions = Object.values(liveSessions)
+          .filter((session) => session.status === 'active' && gameState.npcs[session.sessionId])
+        const pausedSessionIds = derivePausedNpcSessionIds(
+          sessionDetailOpenRef.current,
+          selectedSessionIdRef.current,
+        )
+        const behaviorStep = stepNpcBehaviors({
+          sessions: activeNpcSessions,
+          positions: gameState.npcs,
+          deltaMs,
+          tick: gameState.tick,
+          worldWidth: WORLD_W,
+          worldHeight: WORLD_H,
+          pausedSessionIds,
+        })
+        const playerHitbox = playerHitboxAt({ x: gameState.player.x, y: gameState.player.y })
+        const resolvedPositions: Record<string, WorldPosition> = { ...gameState.npcs }
+        const orderedSessionIds = Object.keys(behaviorStep.positions).sort((a, b) => a.localeCompare(b))
+        for (const sessionId of orderedSessionIds) {
+          const current = resolvedPositions[sessionId]
+          const desired = behaviorStep.positions[sessionId]
+          if (!current || !desired) continue
+          const occupiedNpcHitboxes = orderedSessionIds
+            .filter((id) => id !== sessionId && !!resolvedPositions[id])
+            .map((id) => npcHitboxAt(resolvedPositions[id]!))
+          const next = resolveNpcMovementPosition(
+            current,
+            desired,
+            occupiedNpcHitboxes,
+            playerHitbox,
+            collisionMapRef.current,
+          )
+          resolvedPositions[sessionId] = next
+        }
+        for (const sessionId of orderedSessionIds) {
+          const next = resolvedPositions[sessionId]
+          if (!next) continue
+          gameState.npcs[sessionId] = { x: next.x, y: next.y }
+        }
+
         const previousNpcPositions = previousNpcPositionsRef.current
         for (const [sessionId, pos] of Object.entries(gameState.npcs)) {
           const prev = previousNpcPositions[sessionId]
