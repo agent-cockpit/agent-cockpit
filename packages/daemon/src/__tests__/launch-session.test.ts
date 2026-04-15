@@ -119,6 +119,34 @@ describe('POST /api/sessions', () => {
     expect(data.hookCommand).toBeUndefined();
   });
 
+  it('persists session_start immediately for daemon-launched Claude sessions', async () => {
+    const { status, data } = await httpPost(port, '/api/sessions', {
+      provider: 'claude',
+      workspacePath: '/tmp',
+    });
+
+    expect(status).toBe(200);
+    const sessionId = data.sessionId as string;
+
+    const events = db.prepare(
+      'SELECT type, payload FROM events WHERE session_id = ? ORDER BY sequence_number ASC',
+    ).all(sessionId) as Array<{ type: string; payload: string }>;
+
+    expect(events.some((event) => event.type === 'session_start')).toBe(true);
+    const startEvent = events.find((event) => event.type === 'session_start');
+    expect(startEvent).toBeDefined();
+    const payload = JSON.parse(startEvent!.payload) as {
+      workspacePath: string;
+      managedByDaemon: boolean;
+      canSendMessage: boolean;
+      canTerminateSession: boolean;
+    };
+    expect(payload.workspacePath).toBe('/tmp');
+    expect(payload.managedByDaemon).toBe(true);
+    expect(payload.canSendMessage).toBe(true);
+    expect(payload.canTerminateSession).toBe(true);
+  });
+
   it('returns 200 with { sessionId, mode: "initiated" } for Codex', async () => {
     const { status, data } = await httpPost(port, '/api/sessions', {
       provider: 'codex',

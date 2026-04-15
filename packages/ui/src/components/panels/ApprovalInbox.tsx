@@ -154,7 +154,7 @@ function ApprovalCard({ approval, disabled, onDecision }: ApprovalCardProps) {
         <button
           disabled={disabled}
           onClick={() => onDecision(approval.approvalId, 'always_allow')}
-          className={`${buttonBase} bg-[var(--color-cockpit-cyan)]/10 border border-[var(--color-cockpit-cyan)]/40 text-[var(--color-cockpit-cyan)] hover:bg-[var(--color-cockpit-cyan)]/20`}
+          className={`${buttonBase} bg-[color-mix(in_srgb,var(--color-cockpit-accent)_10%,transparent)] border border-[color-mix(in_srgb,var(--color-cockpit-accent)_40%,transparent)] text-[var(--color-cockpit-accent)] hover:bg-[color-mix(in_srgb,var(--color-cockpit-accent)_20%,transparent)]`}
           aria-label="Always Allow"
         >
           Always Allow

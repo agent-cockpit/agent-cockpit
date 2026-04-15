@@ -64,7 +64,7 @@ function DiffView({ diff }: { diff: string }) {
         }
         if (line.startsWith('@')) {
           return (
-            <div key={i} style={{ color: 'var(--color-cockpit-cyan)', opacity: 0.7 }}>
+            <div key={i} style={{ color: 'var(--color-cockpit-accent)', opacity: 0.7 }}>
               {line}
             </div>
           )
@@ -137,7 +137,7 @@ export function DiffPanel() {
                   onClick={() => setSelectedFilePath(entry.filePath)}
                   className={`px-3 py-2 cursor-pointer transition-colors ${
                     entry.filePath === selectedFilePath
-                      ? 'bg-[var(--color-cockpit-cyan)]/10 border-l-2 border-l-[var(--color-cockpit-cyan)]'
+                      ? 'bg-[color-mix(in_srgb,var(--color-cockpit-accent)_10%,transparent)] border-l-2 border-l-[var(--color-cockpit-accent)]'
                       : 'hover:bg-muted/30 border-l-2 border-l-transparent'
                   }`}
                 >

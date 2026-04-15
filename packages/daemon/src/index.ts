@@ -15,6 +15,7 @@ const WS_PORT = parseInt(process.env['COCKPIT_WS_PORT'] ?? '3001', 10);
 const HOOK_PORT = parseInt(process.env['COCKPIT_HOOK_PORT'] ?? '3002', 10);
 
 const db = openDatabase(DB_PATH);
+let shuttingDown = false;
 
 // Initialize Claude session ID cache from persisted table — must happen before hook server starts
 const claudeSessionCache = initializeClaudeSessionCache(db);
@@ -71,6 +72,8 @@ for (const sessionId of orphaned) {
 
 // Graceful shutdown
 function shutdown(db: Database.Database, wss: WebSocketServer, hookServer: http.Server): void {
+  if (shuttingDown) return;
+  shuttingDown = true;
   logger.info('daemon', 'Shutting down...');
   // Terminate all open client connections before closing the server
   wss.clients.forEach((client) => client.terminate());

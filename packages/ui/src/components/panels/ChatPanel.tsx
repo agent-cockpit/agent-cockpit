@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { useParams } from 'react-router'
 import { useStore } from '../../store/index.js'
 import { sendWsMessage } from '../../hooks/useSessionEvents.js'
@@ -31,7 +31,11 @@ export function ChatPanel() {
   const [message, setMessage] = useState('')
   const [awaitingReply, setAwaitingReply] = useState(false)
   const [lastSendAt, setLastSendAt] = useState<string | null>(null)
+  const [isComposerFocused, setIsComposerFocused] = useState(false)
   const replyTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const composerInputRef = useRef<HTMLInputElement | null>(null)
+  const composerMeasureRef = useRef<HTMLSpanElement | null>(null)
+  const [caretOffsetPx, setCaretOffsetPx] = useState(0)
 
   const chatMessages = useMemo(
     () => events.filter(isChatMessage),
@@ -50,6 +54,12 @@ export function ChatPanel() {
 
   const sendEnabledForSession = session?.canSendMessage === true
   const canSend = sendEnabledForSession && wsStatus === 'connected' && !awaitingReply
+
+  const promptPlaceholder = canSend ? 'Type a message' : 'Waiting for reply'
+  const showTerminalCaret = canSend && isComposerFocused
+  const caretClassName = message.length > 0
+    ? 'chat-terminal-caret chat-terminal-caret-solid'
+    : 'chat-terminal-caret'
 
   useEffect(() => {
     return () => {
@@ -84,6 +94,16 @@ export function ChatPanel() {
     }
   }, [wsStatus])
 
+  useLayoutEffect(() => {
+    const input = composerInputRef.current
+    const measure = composerMeasureRef.current
+    if (!input || !measure) return
+
+    measure.textContent = message
+    const measuredWidth = measure.getBoundingClientRect().width
+    setCaretOffsetPx(measuredWidth - input.scrollLeft)
+  }, [message])
+
   function onSend(): void {
     const content = message.trim()
     if (!sessionId || !content || !canSend) return
@@ -117,7 +137,7 @@ export function ChatPanel() {
       <div className="border-b border-border p-3">
         <h2 className="cockpit-label">Session Chat</h2>
         {awaitingReply && (
-          <p className="mt-1 text-xs text-[var(--color-cockpit-cyan)] [font-family:var(--font-mono-data)]">
+          <p className="mt-1 text-xs text-[var(--color-cockpit-accent)] [font-family:var(--font-mono-data)]">
             {session.provider === 'claude' ? 'Claude is typing...' : 'Codex is typing...'}
           </p>
         )}
@@ -135,40 +155,72 @@ export function ChatPanel() {
           chatMessages.map((chat, index) => (
             <div
               key={`${chat.timestamp}-${index}`}
-              className="border border-border/70 bg-[oklch(0.23_0.02_250)] px-3 py-2"
+              className="flex items-start gap-2 [font-family:var(--font-mono-data)] text-sm leading-relaxed"
             >
-              <p className="text-[10px] uppercase tracking-wide text-[var(--color-cockpit-cyan)] [font-family:var(--font-mono-data)]">
-                {chat.role}
-              </p>
-              <p className="text-sm mt-0.5 whitespace-pre-wrap leading-relaxed text-[var(--color-foreground)]">{chat.content}</p>
+              {chat.role === 'user' ? (
+                <span className="shrink-0 text-[var(--color-cockpit-accent)]" aria-hidden>
+                  &gt;
+                </span>
+              ) : (
+                <span
+                  className={`shrink-0 text-base leading-none ${
+                    chat.provider === 'claude'
+                      ? 'text-[var(--color-cockpit-amber)]'
+                      : chat.provider === 'codex'
+                        ? 'text-[var(--color-cockpit-accent)]'
+                        : 'text-[var(--color-cockpit-dim)]'
+                  }`}
+                  aria-hidden
+                >
+                  •
+                </span>
+              )}
+              <p className="min-w-0 whitespace-pre-wrap text-[var(--color-foreground)]">{chat.content}</p>
             </div>
           ))
         )}
       </div>
 
       {sendEnabledForSession ? (
-        <div className="border-t border-border p-3 flex gap-2 items-center">
-          <input
-            type="text"
-            value={message}
-            onChange={(e) => setMessage(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter') {
-                e.preventDefault()
-                onSend()
-              }
-            }}
-            placeholder="Send a message"
-            className="flex-1 bg-[oklch(0.23_0.02_250)] border border-border px-3 py-2 text-sm text-[var(--color-foreground)] placeholder:text-[var(--color-cockpit-dim)] [font-family:var(--font-mono-data)]"
-            disabled={wsStatus !== 'connected' || awaitingReply}
-          />
-          <button
-            className="cockpit-btn text-xs px-3 py-2 disabled:opacity-50 disabled:cursor-not-allowed"
-            onClick={onSend}
-            disabled={!canSend || message.trim().length === 0}
-          >
-            Send
-          </button>
+        <div className="border-t border-border p-3">
+          <div className="relative border border-border bg-[oklch(0.23_0.02_250)]">
+            <span
+              className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm text-[var(--color-cockpit-accent)] [font-family:var(--font-mono-data)]"
+              aria-hidden
+            >
+              &gt;
+            </span>
+            <input
+              ref={composerInputRef}
+              type="text"
+              aria-label="Chat message"
+              value={message}
+              onChange={(e) => setMessage(e.target.value)}
+              onFocus={() => setIsComposerFocused(true)}
+              onBlur={() => setIsComposerFocused(false)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  e.preventDefault()
+                  onSend()
+                }
+              }}
+              placeholder={promptPlaceholder}
+              className="block min-h-11 w-full border-0 bg-transparent py-2 pr-3 pl-7 text-sm text-[var(--color-foreground)] outline-none placeholder:text-[var(--color-cockpit-dim)] [font-family:var(--font-mono-data)] caret-transparent disabled:cursor-not-allowed"
+              disabled={wsStatus !== 'connected' || awaitingReply}
+            />
+            {showTerminalCaret && (
+              <span
+                className={`${caretClassName} pointer-events-none absolute top-1/2 -translate-y-1/2`}
+                style={{ left: `calc(1.75rem + ${caretOffsetPx}px)` }}
+                aria-hidden
+              />
+            )}
+            <span
+              ref={composerMeasureRef}
+              className="pointer-events-none absolute left-0 top-0 invisible whitespace-pre text-sm [font-family:var(--font-mono-data)]"
+              aria-hidden
+            />
+          </div>
         </div>
       ) : (
         <div className="border-t border-border p-3">
