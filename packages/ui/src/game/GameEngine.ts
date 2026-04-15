@@ -24,9 +24,14 @@ export class GameEngine {
   private _loop = (timestamp: number): void => {
     // Guard: if stop() was called while a rAF was still pending, do nothing
     if (this.rafId === null) return
-    const raw = this.lastTimestamp !== null ? timestamp - this.lastTimestamp : 0
-    const deltaMs = Math.min(raw, this.MAX_DELTA_MS)
-    this.lastTimestamp = timestamp
+    const safeTimestamp = Number.isFinite(timestamp)
+      ? timestamp
+      : (this.lastTimestamp ?? 0)
+    const rawDelta = this.lastTimestamp !== null ? safeTimestamp - this.lastTimestamp : 0
+    const deltaMs = Number.isFinite(rawDelta)
+      ? Math.max(0, Math.min(rawDelta, this.MAX_DELTA_MS))
+      : 0
+    this.lastTimestamp = safeTimestamp
     this.update(deltaMs)
     this.render()
     this.rafId = requestAnimationFrame(this._loop)

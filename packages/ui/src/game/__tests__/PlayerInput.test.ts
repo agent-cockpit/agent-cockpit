@@ -280,6 +280,14 @@ describe('attachInput / detachInput lifecycle', () => {
     expect(codes).toContain('keyup')
   })
 
+  it('detachInput removes blur listener from window', () => {
+    const removeSpy = vi.spyOn(window, 'removeEventListener')
+    attachInput()
+    detachInput()
+    const codes = removeSpy.mock.calls.map(([event]) => event)
+    expect(codes).toContain('blur')
+  })
+
   it('detachInput clears the keysDown Set', () => {
     vi.spyOn(document, 'activeElement', 'get').mockReturnValue(document.body)
     attachInput()
@@ -296,6 +304,18 @@ describe('attachInput / detachInput lifecycle', () => {
     attachInput()
     const countAfterSecond = addSpy.mock.calls.length
     expect(countAfterSecond).toBe(countAfterFirst)
+  })
+
+  it('window blur clears keysDown to avoid stuck movement when focus is lost', () => {
+    vi.spyOn(document, 'activeElement', 'get').mockReturnValue(document.body)
+    attachInput()
+    window.dispatchEvent(new KeyboardEvent('keydown', { code: 'KeyW', bubbles: true }))
+    window.dispatchEvent(new KeyboardEvent('keydown', { code: 'KeyA', bubbles: true }))
+    expect(getKeysDown().size).toBe(2)
+
+    window.dispatchEvent(new Event('blur'))
+
+    expect(getKeysDown().size).toBe(0)
   })
 })
 
@@ -348,6 +368,24 @@ describe('movePlayer — animTime', () => {
   it('full 8-frame walk cycle completes in 800ms', () => {
     const cycleMs = WALK_FRAME_DURATION_MS * WALK_FRAME_COUNT
     expect(cycleMs).toBe(800)
+  })
+})
+
+describe('movePlayer — invalid delta handling', () => {
+  it('ignores NaN deltaMs instead of mutating player position', () => {
+    const player = makePlayer(SAFE_X, SAFE_Y, 'south', 200)
+    movePlayer(player, keys('KeyW'), Number.NaN)
+    expect(player.x).toBe(SAFE_X)
+    expect(player.y).toBe(SAFE_Y)
+    expect(player.animTime).toBe(0)
+  })
+
+  it('ignores negative deltaMs instead of moving backwards unexpectedly', () => {
+    const player = makePlayer(SAFE_X, SAFE_Y, 'south', 200)
+    movePlayer(player, keys('KeyD'), -16)
+    expect(player.x).toBe(SAFE_X)
+    expect(player.y).toBe(SAFE_Y)
+    expect(player.animTime).toBe(0)
   })
 })
 

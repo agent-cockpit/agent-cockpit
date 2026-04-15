@@ -82,6 +82,22 @@ describe('GameEngine', () => {
     expect(updateSpy).toHaveBeenCalledWith(100)
   })
 
+  it('update() receives deltaMs = 0 when timestamp goes backwards', () => {
+    const updateSpy = vi.spyOn(engine, 'update')
+    engine.start()
+    triggerFrame(1000)
+    triggerFrame(900)
+    expect(updateSpy).toHaveBeenNthCalledWith(2, 0)
+  })
+
+  it('update() receives deltaMs = 0 when timestamp is non-finite', () => {
+    const updateSpy = vi.spyOn(engine, 'update')
+    engine.start()
+    triggerFrame(1000)
+    triggerFrame(Number.NaN)
+    expect(updateSpy).toHaveBeenNthCalledWith(2, 0)
+  })
+
   it('after stop(), update() is not called on subsequent rAF ticks', () => {
     const updateSpy = vi.spyOn(engine, 'update')
     engine.start()
