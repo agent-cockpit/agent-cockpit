@@ -4,6 +4,8 @@ import type { NormalizedEvent } from '@cockpit/shared'
 import {
   CHARACTER_TYPES,
   type CharacterType,
+  newCharacterBag,
+  drawFromBag,
 } from '../components/office/characterMapping.js'
 import { applyEventToSessions } from './sessionsSlice.js'
 import { applyEventToEvents } from './eventsSlice.js'
@@ -59,6 +61,7 @@ export interface SessionRecord {
   status: SessionStatus
   lastEventAt: string
   pendingApprovals: number
+  character: CharacterType
   managedByDaemon?: boolean
   canSendMessage?: boolean
   canTerminateSession?: boolean
@@ -70,6 +73,7 @@ export type PopupTabId = PanelId | 'chat'
 
 interface SessionsSlice {
   sessions: Record<string, SessionRecord>
+  characterBag: CharacterType[]
   applyEvent: (event: NormalizedEvent) => void
 }
 
@@ -115,12 +119,18 @@ export const useStore = create<AppStore>()(
   subscribeWithSelector((set) => ({
     // sessionsSlice
     sessions: {},
+    characterBag: newCharacterBag(),
     applyEvent: (event) =>
       set((state) => {
-        const sessionsPatch = applyEventToSessions(state, event)
+        let characterBag = state.characterBag
+        let character: CharacterType | undefined
+        if (event.type === 'session_start' && !state.sessions[event.sessionId]) {
+          ;[character, characterBag] = drawFromBag(characterBag)
+        }
+        const sessionsPatch = applyEventToSessions(state, event, character)
         const eventsPatch = applyEventToEvents(state, event)
         const { pendingApprovalsBySession } = applyEventToApprovals(state, event)
-        return { ...sessionsPatch, ...eventsPatch, pendingApprovalsBySession }
+        return { ...sessionsPatch, ...eventsPatch, pendingApprovalsBySession, characterBag }
       }),
 
     // eventsSlice

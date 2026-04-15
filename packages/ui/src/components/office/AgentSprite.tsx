@@ -10,7 +10,6 @@ import {
   deriveAgentState,
 } from './spriteStates.js'
 import type { Direction } from './spriteStates.js'
-import { sessionToCharacter } from './characterMapping.js'
 
 export interface DrawAgentSpriteOptions {
   ctx: CanvasRenderingContext2D
@@ -31,7 +30,7 @@ export function drawAgentSprite({
   imageCache,
   tick,
 }: DrawAgentSpriteOptions): void {
-  const characterType = sessionToCharacter(session.sessionId)
+  const characterType = session.character
   const agentState = deriveAgentState(session, lastEvent)
   const animState = COLOR_STATE_TO_ANIMATION[agentState]
   const row = DIRECTION_ROWS[direction] + STATE_ROW_OFFSET[animState]
