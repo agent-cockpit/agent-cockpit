@@ -6,9 +6,11 @@ import { sendWsMessage } from '../../hooks/useSessionEvents.js'
 import { SessionFilters } from '../sessions/SessionFilters.js'
 import { SessionCard } from '../sessions/SessionCard.js'
 import { LaunchSessionModal } from '../sessions/LaunchSessionModal.js'
+import { TerminateSessionDialog } from '../sessions/TerminateSessionDialog.js'
 import { LoadingSpinner } from '../LoadingSpinner.js'
 
 export function SessionListPanel() {
+  const wsUnavailableReason = 'Daemon connection is not open. Reconnect and try again.'
   const navigate = useNavigate()
   const sessions = useFilteredSessions()
   const selectedSessionId = useStore((s) => s.selectedSessionId)
@@ -17,6 +19,7 @@ export function SessionListPanel() {
   console.log('[DEBUG] sessions:', sessions, 'store sessions:', useStore.getState().sessions, 'wsStatus:', useStore.getState().wsStatus, 'lastSeenSequence:', useStore.getState().lastSeenSequence)
   const [launchOpen, setLaunchOpen] = useState(false)
   const [terminatingSessionId, setTerminatingSessionId] = useState<string | null>(null)
+  const [confirmTerminateSessionId, setConfirmTerminateSessionId] = useState<string | null>(null)
   const [terminateErrors, setTerminateErrors] = useState<Record<string, string>>({})
 
   function handleCardClick(sessionId: string) {
@@ -35,17 +38,49 @@ export function SessionListPanel() {
       }))
       return
     }
+    if (wsStatus !== 'connected') {
+      setTerminateErrors((prev) => ({
+        ...prev,
+        [sessionId]: wsUnavailableReason,
+      }))
+      return
+    }
+    setConfirmTerminateSessionId(sessionId)
+  }
 
-    const projectName = session.workspacePath.split('/').at(-1) ?? session.workspacePath
-    if (!window.confirm(`Terminate session "${projectName}"?`)) return
+  function confirmTerminate(): void {
+    if (!confirmTerminateSessionId) return
+
+    const session = sessionsById[confirmTerminateSessionId]
+    if (!session) {
+      setConfirmTerminateSessionId(null)
+      return
+    }
+    if (session.canTerminateSession !== true) {
+      setTerminateErrors((prev) => ({
+        ...prev,
+        [confirmTerminateSessionId]:
+          session.reason ?? 'Session termination is unavailable for this session.',
+      }))
+      setConfirmTerminateSessionId(null)
+      return
+    }
 
     setTerminateErrors((prev) => {
       const next = { ...prev }
-      delete next[sessionId]
+      delete next[confirmTerminateSessionId]
       return next
     })
-    setTerminatingSessionId(sessionId)
-    sendWsMessage({ type: 'session_terminate', sessionId })
+    setTerminatingSessionId(confirmTerminateSessionId)
+    const queued = sendWsMessage({ type: 'session_terminate', sessionId: confirmTerminateSessionId })
+    if (!queued) {
+      setTerminateErrors((prev) => ({
+        ...prev,
+        [confirmTerminateSessionId]: wsUnavailableReason,
+      }))
+      setTerminatingSessionId(null)
+    }
+    setConfirmTerminateSessionId(null)
   }
 
   useEffect(() => {
@@ -67,6 +102,21 @@ export function SessionListPanel() {
       setTerminatingSessionId(null)
     }
   }, [sessionsById, terminatingSessionId])
+
+  useEffect(() => {
+    if (!confirmTerminateSessionId) return
+    const session = sessionsById[confirmTerminateSessionId]
+    if (!session || session.status !== 'active' || session.canTerminateSession !== true) {
+      setConfirmTerminateSessionId(null)
+    }
+  }, [confirmTerminateSessionId, sessionsById])
+
+  const confirmSession =
+    confirmTerminateSessionId ? sessionsById[confirmTerminateSessionId] : undefined
+  const confirmSessionName = confirmSession
+    ? confirmSession.workspacePath.split('/').at(-1) ?? confirmSession.workspacePath
+    : 'session'
+  const confirmProvider = confirmSession?.provider ?? 'claude'
 
   return (
     <div className="flex flex-col flex-1 overflow-hidden">
@@ -107,6 +157,14 @@ export function SessionListPanel() {
       </div>
 
       <LaunchSessionModal open={launchOpen} onClose={() => setLaunchOpen(false)} />
+      <TerminateSessionDialog
+        open={confirmSession !== undefined}
+        sessionName={confirmSessionName}
+        provider={confirmProvider}
+        isProcessing={confirmTerminateSessionId !== null && terminatingSessionId === confirmTerminateSessionId}
+        onCancel={() => setConfirmTerminateSessionId(null)}
+        onConfirm={confirmTerminate}
+      />
     </div>
   )
 }

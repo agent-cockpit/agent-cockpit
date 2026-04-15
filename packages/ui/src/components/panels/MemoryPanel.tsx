@@ -168,7 +168,7 @@ export function MemoryPanel() {
     <div className="flex flex-col gap-0 p-4 overflow-y-auto h-full">
       {historyMode && (
         <div
-          className="[font-family:var(--font-mono-data)] text-xs text-[var(--color-cockpit-cyan)] bg-[var(--color-cockpit-cyan)]/10 border border-[var(--color-cockpit-cyan)]/30 px-3 py-2 mb-3"
+          className="[font-family:var(--font-mono-data)] text-xs text-[var(--color-cockpit-accent)] bg-[color-mix(in_srgb,var(--color-cockpit-accent)_10%,transparent)] border border-[color-mix(in_srgb,var(--color-cockpit-accent)_30%,transparent)] px-3 py-2 mb-3"
           data-testid="history-mode-banner"
         >
           READ-ONLY — viewing a past session
@@ -190,7 +190,7 @@ export function MemoryPanel() {
             {!historyMode && (
               <button
                 onClick={createClaudeMd}
-                className="text-[var(--color-cockpit-cyan)] underline underline-offset-2"
+                className="text-[var(--color-cockpit-accent)] underline underline-offset-2"
               >
                 Create one
               </button>
@@ -202,7 +202,7 @@ export function MemoryPanel() {
               <textarea
                 value={editContent}
                 onChange={(e) => setEditContent(e.target.value)}
-                className="w-full h-64 [font-family:var(--font-mono-data)] text-xs border border-border/80 bg-background/50 text-foreground rounded-none p-2 resize-y focus:border-[var(--color-cockpit-cyan)]/60 focus:outline-none"
+                className="w-full h-64 [font-family:var(--font-mono-data)] text-xs border border-border/80 bg-background/50 text-foreground rounded-none p-2 resize-y focus:border-[color-mix(in_srgb,var(--color-cockpit-accent)_60%,transparent)] focus:outline-none"
                 aria-label="CLAUDE.md content"
               />
             )}
@@ -260,7 +260,7 @@ export function MemoryPanel() {
                 value={newNoteText}
                 onChange={(e) => setNewNoteText(e.target.value)}
                 placeholder="Note content…"
-                className="w-full h-24 text-xs [font-family:var(--font-mono-data)] border border-border/80 bg-background/50 text-foreground rounded-none p-2 focus:border-[var(--color-cockpit-cyan)]/60 focus:outline-none"
+                className="w-full h-24 text-xs [font-family:var(--font-mono-data)] border border-border/80 bg-background/50 text-foreground rounded-none p-2 focus:border-[color-mix(in_srgb,var(--color-cockpit-accent)_60%,transparent)] focus:outline-none"
                 aria-label="New note content"
               />
               <button
@@ -274,7 +274,7 @@ export function MemoryPanel() {
           ) : (
             <button
               onClick={() => setShowNewNoteForm(true)}
-              className="[font-family:var(--font-mono-data)] text-[10px] text-[var(--color-cockpit-cyan)] mt-1 hover:underline underline-offset-2"
+              className="[font-family:var(--font-mono-data)] text-[10px] text-[var(--color-cockpit-accent)] mt-1 hover:underline underline-offset-2"
             >
               + New Note
             </button>
@@ -298,7 +298,7 @@ export function MemoryPanel() {
               >
                 <span className="cockpit-corner cockpit-corner-tl" aria-hidden />
                 <span className="cockpit-corner cockpit-corner-br" aria-hidden />
-                <p className="[font-family:var(--font-mono-data)] text-xs font-semibold text-[var(--color-cockpit-cyan)]">{ev.memoryKey}</p>
+                <p className="[font-family:var(--font-mono-data)] text-xs font-semibold text-[var(--color-cockpit-accent)]">{ev.memoryKey}</p>
                 <p className="text-xs mt-1 whitespace-pre-wrap text-muted-foreground [font-family:var(--font-mono-data)]">{ev.value}</p>
                 {!historyMode && (
                   <div className="flex gap-2 mt-2">

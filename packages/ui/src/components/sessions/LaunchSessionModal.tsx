@@ -1,5 +1,5 @@
-import { useState, useEffect } from 'react'
-import { useStore } from '../../store/index.js'
+import { useState } from 'react'
+import { getProviderAccentStyle } from '../providerAccent.js'
 
 const DAEMON_URL = import.meta.env['VITE_DAEMON_URL'] ?? 'http://localhost:3001'
 
@@ -11,7 +11,6 @@ interface LaunchSessionModalProps {
 type SubmitState =
   | { type: 'idle' }
   | { type: 'loading' }
-  | { type: 'waiting_for_session_start'; sessionId: string }
   | { type: 'error'; message: string }
 
 interface BrowseEntry { name: string; fullPath: string }
@@ -47,31 +46,6 @@ export function LaunchSessionModal({ open, onClose }: LaunchSessionModalProps) {
     setBrowse(null)
   }
 
-  // Watch Zustand store for the launched session to appear (set by session_start WebSocket event)
-  useEffect(() => {
-    if (state.type !== 'waiting_for_session_start') return
-    const { sessionId } = state
-
-    const unsubscribe = useStore.subscribe(
-      (s) => s.sessions[sessionId],
-      (session) => {
-        if (session) {
-          handleClose()
-        }
-      },
-    )
-
-    const timer = setTimeout(() => {
-      setState({ type: 'error', message: 'Session launch timed out. Check daemon logs and try again.' })
-    }, 30_000)
-
-    return () => {
-      unsubscribe()
-      clearTimeout(timer)
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [state.type === 'waiting_for_session_start' ? (state as { type: 'waiting_for_session_start'; sessionId: string }).sessionId : null])
-
   if (!open) return null
 
   async function handleSubmit(e: React.FormEvent) {
@@ -102,7 +76,7 @@ export function LaunchSessionModal({ open, onClose }: LaunchSessionModalProps) {
         setState({ type: 'error', message: data.error ?? 'Request failed' })
         return
       }
-      setState({ type: 'waiting_for_session_start', sessionId: data.sessionId })
+      handleClose()
     } catch (err) {
       setState({ type: 'error', message: String(err) })
     }
@@ -122,7 +96,10 @@ export function LaunchSessionModal({ open, onClose }: LaunchSessionModalProps) {
       aria-label="Launch Session"
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/60"
     >
-      <div className="cockpit-frame-full w-full max-w-md bg-background border border-border/80 p-6 shadow-[0_0_40px_rgba(34,211,238,0.08),0_20px_60px_rgba(0,0,0,0.6)]">
+      <div
+        className="cockpit-frame-full w-full max-w-md bg-background border border-border/80 p-6 shadow-[0_0_40px_color-mix(in_srgb,var(--color-cockpit-accent)_16%,transparent),0_20px_60px_rgba(0,0,0,0.6)]"
+        style={getProviderAccentStyle(provider)}
+      >
         <span className="cockpit-corner cockpit-corner-tl" aria-hidden />
         <span className="cockpit-corner cockpit-corner-tr" aria-hidden />
         <span className="cockpit-corner cockpit-corner-bl" aria-hidden />
@@ -140,8 +117,7 @@ export function LaunchSessionModal({ open, onClose }: LaunchSessionModalProps) {
           </button>
         </div>
 
-        {state.type !== 'waiting_for_session_start' && (
-          <form onSubmit={handleSubmit} className="space-y-4">
+        <form onSubmit={handleSubmit} className="space-y-4">
             <div>
               <label htmlFor="launch-provider" className="cockpit-label block mb-1.5">
                 Provider
@@ -150,7 +126,7 @@ export function LaunchSessionModal({ open, onClose }: LaunchSessionModalProps) {
                 id="launch-provider"
                 value={provider}
                 onChange={(e) => setProvider(e.target.value as 'claude' | 'codex')}
-                className="block w-full rounded-none border border-border/80 bg-[var(--color-panel-surface)] px-3 py-2 [font-family:var(--font-mono-data)] text-xs text-foreground focus:outline-none focus:border-[var(--color-cockpit-cyan)]/60"
+                className="block w-full rounded-none border border-border/80 bg-[var(--color-panel-surface)] px-3 py-2 [font-family:var(--font-mono-data)] text-xs text-foreground focus:outline-none focus:border-[color-mix(in_srgb,var(--color-cockpit-accent)_60%,transparent)]"
               >
                 <option value="claude">claude</option>
                 <option value="codex">codex</option>
@@ -169,7 +145,7 @@ export function LaunchSessionModal({ open, onClose }: LaunchSessionModalProps) {
                   onChange={(e) => { setWorkspacePath(e.target.value); setBrowseOpen(false) }}
                   placeholder="/path/to/project"
                   required
-                  className="block min-w-0 flex-1 rounded-none border border-border/80 bg-[var(--color-panel-surface)] px-3 py-2 [font-family:var(--font-mono-data)] text-xs text-foreground placeholder:text-[var(--color-cockpit-dim)] focus:outline-none focus:border-[var(--color-cockpit-cyan)]/60"
+                  className="block min-w-0 flex-1 rounded-none border border-border/80 bg-[var(--color-panel-surface)] px-3 py-2 [font-family:var(--font-mono-data)] text-xs text-foreground placeholder:text-[var(--color-cockpit-dim)] focus:outline-none focus:border-[color-mix(in_srgb,var(--color-cockpit-accent)_60%,transparent)]"
                 />
                 <button
                   type="button"
@@ -182,7 +158,7 @@ export function LaunchSessionModal({ open, onClose }: LaunchSessionModalProps) {
               </div>
 
               {browseOpen && browse && (
-                <div className="mt-1 border border-[var(--color-cockpit-cyan)]/30 bg-[var(--color-panel-surface)] max-h-48 overflow-y-auto">
+                <div className="mt-1 border border-[color-mix(in_srgb,var(--color-cockpit-accent)_30%,transparent)] bg-[var(--color-panel-surface)] max-h-48 overflow-y-auto">
                   {/* current path breadcrumb */}
                   <div className="flex items-center gap-1 border-b border-border/40 px-2 py-1">
                     {browse.parent !== null && (
@@ -209,7 +185,7 @@ export function LaunchSessionModal({ open, onClose }: LaunchSessionModalProps) {
                       <button
                         type="button"
                         onClick={() => browseInto(entry.fullPath)}
-                        className="flex-1 px-3 py-1.5 text-left [font-family:var(--font-mono-data)] text-xs text-foreground hover:bg-[var(--color-cockpit-cyan)]/10 truncate"
+                        className="flex-1 px-3 py-1.5 text-left [font-family:var(--font-mono-data)] text-xs text-foreground hover:bg-[color-mix(in_srgb,var(--color-cockpit-accent)_10%,transparent)] truncate"
                       >
                         📁 {entry.name}
                       </button>
@@ -250,22 +226,7 @@ export function LaunchSessionModal({ open, onClose }: LaunchSessionModalProps) {
                 {state.type === 'loading' ? 'Launching…' : 'Launch'}
               </button>
             </div>
-          </form>
-        )}
-
-        {state.type === 'waiting_for_session_start' && (
-          <div className="space-y-4">
-            <p className="[font-family:var(--font-mono-data)] text-xs text-muted-foreground">
-              Waiting for session to start…
-            </p>
-            <p className="cockpit-label text-[0.65rem]">Session ID: {state.sessionId}</p>
-            <div className="flex justify-end">
-              <button type="button" onClick={handleClose} className="cockpit-btn">
-                Cancel
-              </button>
-            </div>
-          </div>
-        )}
+        </form>
       </div>
     </div>
   )

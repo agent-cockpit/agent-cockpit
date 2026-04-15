@@ -9,6 +9,8 @@ import { TimelinePanel } from '../panels/TimelinePanel.js'
 import { DiffPanel } from '../panels/DiffPanel.js'
 import { MemoryPanel } from '../panels/MemoryPanel.js'
 import { ArtifactsPanel } from '../panels/ArtifactsPanel.js'
+import { getProviderAccentStyle } from '../providerAccent.js'
+import { TerminateSessionDialog } from '../sessions/TerminateSessionDialog.js'
 
 interface Props {
   open: boolean
@@ -28,15 +30,18 @@ const TAB_LABELS: Record<TabId, string> = {
 }
 
 export function InstancePopupHub({ open, onClose }: Props) {
+  const wsUnavailableReason = 'Daemon connection is not open. Reconnect and try again.'
   const selectedSessionId = useStore((s) => s.selectedSessionId)
   const popupPreferredTab = useStore((s) => s.popupPreferredTab)
   const setPopupPreferredTab = useStore((s) => s.setPopupPreferredTab)
+  const wsStatus = useStore((s) => s.wsStatus)
   const session = useStore((s) =>
     selectedSessionId ? s.sessions[selectedSessionId] : undefined
   )
   const [activeTab, setActiveTab] = useState<TabId>('approvals')
   const [isTerminating, setIsTerminating] = useState(false)
   const [terminateError, setTerminateError] = useState<string | null>(null)
+  const [confirmTerminateOpen, setConfirmTerminateOpen] = useState(false)
 
   const projectName = session?.workspacePath.split('/').at(-1) ?? 'Session'
 
@@ -54,10 +59,12 @@ export function InstancePopupHub({ open, onClose }: Props) {
     if (!open) {
       setIsTerminating(false)
       setTerminateError(null)
+      setConfirmTerminateOpen(false)
       return
     }
     setIsTerminating(false)
     setTerminateError(null)
+    setConfirmTerminateOpen(false)
   }, [open, selectedSessionId])
 
   useEffect(() => {
@@ -80,12 +87,34 @@ export function InstancePopupHub({ open, onClose }: Props) {
       )
       return
     }
-    if (!window.confirm(`Terminate session "${projectName}"?`)) {
+    if (wsStatus !== 'connected') {
+      setTerminateError(wsUnavailableReason)
       return
     }
+    setConfirmTerminateOpen(true)
+  }
+
+  function confirmTerminate(): void {
+    if (!session || !selectedSessionId) {
+      setConfirmTerminateOpen(false)
+      return
+    }
+    if (session.canTerminateSession !== true) {
+      setTerminateError(
+        session.reason ?? 'Session termination is unavailable for this session.',
+      )
+      setConfirmTerminateOpen(false)
+      return
+    }
+
     setTerminateError(null)
     setIsTerminating(true)
-    sendWsMessage({ type: 'session_terminate', sessionId: selectedSessionId })
+    const queued = sendWsMessage({ type: 'session_terminate', sessionId: selectedSessionId })
+    if (!queued) {
+      setTerminateError(wsUnavailableReason)
+      setIsTerminating(false)
+    }
+    setConfirmTerminateOpen(false)
   }
 
   return (
@@ -96,8 +125,9 @@ export function InstancePopupHub({ open, onClose }: Props) {
           className="fixed z-50 top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2
                      w-[82vw] max-w-5xl h-[80vh] bg-background rounded-none
                      flex flex-col overflow-hidden border border-border/80
-                     shadow-[0_0_40px_rgba(34,211,238,0.08),0_20px_60px_rgba(0,0,0,0.6)]"
+                     shadow-[0_0_40px_color-mix(in_srgb,var(--color-cockpit-accent)_16%,transparent),0_20px_60px_rgba(0,0,0,0.6)]"
           aria-label={`Session: ${projectName}`}
+          style={session ? getProviderAccentStyle(session.provider) : undefined}
         >
           {/* Header */}
           <div className="cockpit-frame-full flex items-center gap-3 px-4 py-3 border-b border-border shrink-0 bg-[var(--color-panel-surface)]">
@@ -150,7 +180,7 @@ export function InstancePopupHub({ open, onClose }: Props) {
                 <Tabs.Trigger
                   key={id}
                   value={id}
-                  className="cockpit-tab -mb-px data-[state=active]:text-[color:var(--color-cockpit-cyan)] data-[state=active]:border-b-[color:var(--color-cockpit-cyan)] data-[state=active]:[text-shadow:0_0_4px_var(--color-cockpit-cyan)]"
+                  className="cockpit-tab -mb-px data-[state=active]:text-[color:var(--color-cockpit-accent)] data-[state=active]:border-b-[color:var(--color-cockpit-accent)] data-[state=active]:[text-shadow:0_0_4px_var(--color-cockpit-accent)]"
                 >
                   {TAB_LABELS[id]}
                 </Tabs.Trigger>
@@ -177,6 +207,14 @@ export function InstancePopupHub({ open, onClose }: Props) {
               </Tabs.Content>
             </div>
           </Tabs.Root>
+          <TerminateSessionDialog
+            open={open && confirmTerminateOpen && !!session}
+            sessionName={projectName}
+            provider={session?.provider ?? 'claude'}
+            isProcessing={isTerminating}
+            onCancel={() => setConfirmTerminateOpen(false)}
+            onConfirm={confirmTerminate}
+          />
         </Dialog.Content>
       </Dialog.Portal>
     </Dialog.Root>

@@ -2,6 +2,7 @@ import { useEffect } from 'react'
 import { useParams, NavLink, Outlet } from 'react-router'
 import { useStore } from '../../store/index.js'
 import type { PanelId } from '../../store/index.js'
+import { getProviderAccentStyle } from '../providerAccent.js'
 
 const TABS: { id: PanelId; label: string }[] = [
   { id: 'approvals', label: 'Approvals' },
@@ -49,7 +50,7 @@ export function SessionDetailPanel() {
   const projectName = session.workspacePath.split('/').at(-1) ?? session.workspacePath
 
   return (
-    <div className="flex flex-col h-full">
+    <div className="flex flex-col h-full" style={getProviderAccentStyle(session.provider)}>
       {/* Header */}
       <div className="cockpit-frame-full flex items-center gap-3 px-4 py-3 border-b border-border shrink-0 bg-[var(--color-panel-surface)]">
         <span className="cockpit-corner cockpit-corner-bl" aria-hidden />

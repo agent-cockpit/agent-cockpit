@@ -60,17 +60,16 @@ describe('ChatPanel', () => {
 
     expect(screen.getByText('Welcome to the chat.')).toBeInTheDocument()
 
-    const input = screen.getByPlaceholderText(/send a message/i)
+    const input = screen.getByRole('textbox', { name: /chat message/i })
     fireEvent.change(input, { target: { value: 'Run tests now' } })
-
-    const sendButton = screen.getByRole('button', { name: /send/i })
-    fireEvent.click(sendButton)
+    fireEvent.keyDown(input, { key: 'Enter', code: 'Enter' })
 
     expect(mockSendWsMessage).toHaveBeenCalledWith({
       type: 'session_chat',
       sessionId: SESSION_ID,
       content: 'Run tests now',
     })
+    expect(screen.queryByRole('button', { name: /send/i })).not.toBeInTheDocument()
   })
 
   it('shows explicit approval-only disabled state for external sessions', () => {
@@ -95,8 +94,8 @@ describe('ChatPanel', () => {
     render(<ChatPanel />)
 
     expect(screen.getByText('This session is approval-only and does not support chat sends.')).toBeInTheDocument()
-    expect(screen.getByText('External session is approval-only; chat send and terminate are disabled.')).toBeInTheDocument()
-    expect(screen.queryByPlaceholderText(/send a message/i)).not.toBeInTheDocument()
+    expect(screen.getByText('External session is approval-only; chat send is disabled.')).toBeInTheDocument()
+    expect(screen.queryByRole('textbox', { name: /chat message/i })).not.toBeInTheDocument()
   })
 
   it('surfaces daemon rejection reason from session_chat_error events', () => {
@@ -124,13 +123,13 @@ describe('ChatPanel', () => {
   it('locks composer and shows typing status until assistant reply arrives', async () => {
     render(<ChatPanel />)
 
-    const input = screen.getByPlaceholderText(/send a message/i) as HTMLInputElement
+    const input = screen.getByRole('textbox', { name: /chat message/i }) as HTMLInputElement
     fireEvent.change(input, { target: { value: 'Ping provider' } })
-    fireEvent.click(screen.getByRole('button', { name: /send/i }))
+    fireEvent.keyDown(input, { key: 'Enter', code: 'Enter' })
 
     expect(screen.getByText('Codex is typing...')).toBeInTheDocument()
     expect(input).toBeDisabled()
-    expect(screen.getByRole('button', { name: /send/i })).toBeDisabled()
+    expect(input).toHaveAttribute('placeholder', 'Waiting for reply')
 
     act(() => {
       useStore.setState((state) => ({
@@ -156,5 +155,39 @@ describe('ChatPanel', () => {
       expect(screen.queryByText('Codex is typing...')).not.toBeInTheDocument()
       expect(input).not.toBeDisabled()
     })
+  })
+
+  it('renders terminal-style message markers for user and assistant roles', () => {
+    seedStore({
+      events: {
+        [SESSION_ID]: [
+          {
+            schemaVersion: 1,
+            sessionId: SESSION_ID,
+            timestamp: '2026-04-14T00:00:00.000Z',
+            type: 'session_chat_message',
+            provider: 'codex',
+            role: 'user',
+            content: 'Hello chat',
+          },
+          {
+            schemaVersion: 1,
+            sessionId: SESSION_ID,
+            timestamp: '2026-04-14T00:00:01.000Z',
+            type: 'session_chat_message',
+            provider: 'claude',
+            role: 'assistant',
+            content: 'Reply here',
+          },
+        ],
+      },
+    })
+
+    render(<ChatPanel />)
+
+    expect(screen.getByText('Hello chat')).toBeInTheDocument()
+    expect(screen.getByText('Reply here')).toBeInTheDocument()
+    expect(screen.getAllByText((_, node) => node?.textContent === '>').length).toBeGreaterThan(0)
+    expect(screen.getAllByText((_, node) => node?.textContent === '•').length).toBeGreaterThan(0)
   })
 })

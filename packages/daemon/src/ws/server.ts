@@ -9,6 +9,7 @@ import type { NormalizedEvent } from '@cockpit/shared';
 import { handleConnection } from './handlers.js';
 import { CodexAdapter } from '../adapters/codex/codexAdapter.js';
 import { ClaudeLauncher, LaunchError } from '../adapters/claude/claudeLauncher.js';
+import { markSessionStarted } from '../adapters/claude/hookServer.js';
 import { eventBus } from '../eventBus.js';
 import { getEventsBySession, searchAll, getAllSessions, getSessionSummary, persistEvent, type SessionSummary } from '../db/queries.js';
 import { resolveClaudeMdPath, resolveAutoMemoryPath, readFileSafe, writeFileSafe, getWorkspacePath } from '../memory/memoryReader.js';
@@ -118,6 +119,20 @@ function handleLaunchSession(
             sendMessage: (message) => runtime.sendMessage(message),
             terminateSession: () => runtime.terminateSession(),
           });
+          // Emit session_start immediately for daemon-launched Claude sessions so
+          // the UI does not depend on a later hook that may never arrive while idle.
+          markSessionStarted(sessionId);
+          eventBus.emit('event', {
+            schemaVersion: 1,
+            sessionId,
+            type: 'session_start',
+            provider: 'claude',
+            timestamp: new Date().toISOString(),
+            workspacePath,
+            managedByDaemon: true,
+            canSendMessage: true,
+            canTerminateSession: true,
+          } as NormalizedEvent);
           logger.info('launch', 'Claude session spawned', { sessionId });
           res.writeHead(200, { 'Content-Type': 'application/json' });
           res.end(JSON.stringify({ sessionId, mode: 'initiated' }));

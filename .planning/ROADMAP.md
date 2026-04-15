@@ -456,3 +456,19 @@ Plans:
 - [x] 27-01-PLAN.md — Add selectedPlayerCharacter to Zustand store + localStorage persistence, TDD (character-selection)
 - [x] 27-02-PLAN.md — CharacterPicker component: face preview, left/right arrows, confirm button (character-selection)
 - [x] 27-03-PLAN.md — Wire picker into MenuPopup and OfficePage sprite loading, visual QA checkpoint (character-selection)
+
+### Phase 30: Real Terminal Session Integration (PTY Streaming)
+**Goal:** Replace the deaf-mute `expect`+`interact` process model with a real PTY-backed terminal channel: the daemon captures all stdout/stderr from a running Claude/Codex session via `node-pty`, streams it to the UI over WebSocket as `terminal_output` events, and accepts `terminal_input` messages from the UI to write to the PTY's stdin. The result is a fully bidirectional terminal embedded in the agent popup — characters see what the agent is thinking and typing in real time.
+**Depends on:** Phase 27
+**Requirements:** PTY-01, PTY-02, PTY-03, PTY-04, PTY-05
+**Success Criteria** (what must be TRUE):
+  1. `node-pty` (or equivalent) is used to spawn Claude/Codex sessions — the process receives a real TTY and stdout/stderr is captured
+  2. All terminal output (stdout + stderr) is streamed to connected UI clients as `terminal_output` WebSocket events within 100ms of emission
+  3. UI sends `terminal_input` WebSocket messages that are written directly to the PTY stdin — the process receives them exactly as if typed in a shell
+  4. A `TerminalPanel` component in the popup renders the streamed output using `xterm.js` (or equivalent) with correct ANSI/color support
+  5. Terminal state (last N lines) is buffered in the daemon so late-joining UI clients receive a catch-up snapshot on connect
+  6. Existing `session_chat` (`sendMessage`) flow continues working as a higher-level overlay on top of the raw PTY channel
+**Plans:** TBD
+
+Plans:
+- [ ] TBD (run /gsd-plan-phase 30 to break down)

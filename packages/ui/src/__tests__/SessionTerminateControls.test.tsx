@@ -74,7 +74,7 @@ describe('Session terminate controls', () => {
   beforeEach(() => {
     mockNavigate.mockReset()
     mockSendWsMessage.mockReset()
-    vi.spyOn(window, 'confirm').mockReturnValue(true)
+    mockSendWsMessage.mockReturnValue(true)
     useStore.setState({
       sessions: {},
       selectedSessionId: null,
@@ -97,6 +97,7 @@ describe('Session terminate controls', () => {
 
     render(<SessionListPanel />)
     fireEvent.click(screen.getByRole('button', { name: /terminate alpha/i }))
+    fireEvent.click(screen.getByRole('button', { name: /terminate session/i }))
 
     expect(mockSendWsMessage).toHaveBeenCalledWith({
       type: 'session_terminate',
@@ -135,6 +136,7 @@ describe('Session terminate controls', () => {
 
     render(<InstancePopupHub open={true} onClose={vi.fn()} />)
     fireEvent.click(screen.getByRole('button', { name: /terminate/i }))
+    fireEvent.click(screen.getByRole('button', { name: /terminate session/i }))
 
     expect(mockSendWsMessage).toHaveBeenCalledWith({
       type: 'session_terminate',
@@ -160,5 +162,20 @@ describe('Session terminate controls', () => {
 
     expect(screen.queryByRole('button', { name: /terminate/i })).not.toBeInTheDocument()
     expect(screen.getByText('External session is approval-only; chat send and terminate are disabled.')).toBeInTheDocument()
+  })
+
+  it('shows daemon-connection error when terminate is clicked while disconnected', () => {
+    useStore.setState({
+      wsStatus: 'disconnected',
+      sessions: {
+        'session-1': makeSessionRecord({}),
+      },
+    })
+
+    render(<SessionListPanel />)
+    fireEvent.click(screen.getByRole('button', { name: /terminate alpha/i }))
+
+    expect(screen.getByText('Daemon connection is not open. Reconnect and try again.')).toBeInTheDocument()
+    expect(mockSendWsMessage).not.toHaveBeenCalled()
   })
 })
