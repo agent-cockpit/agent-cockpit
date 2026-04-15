@@ -19,6 +19,7 @@ function makeMockProc(): {
 } {
   const proc = new EventEmitter() as EventEmitter & {
     killed: boolean;
+    kill: ReturnType<typeof vi.fn>;
     stdin: Pick<Writable, 'write' | 'writable'> & { calls: string[] };
     stderr: EventEmitter | null;
     stdout: null;
@@ -30,6 +31,10 @@ function makeMockProc(): {
   proc.pid = 1234;
   proc.stderr = null;
   proc.stdout = null;
+  proc.kill = vi.fn(() => {
+    proc.killed = true;
+    return true;
+  });
   proc.stdin = {
     writable: true,
     calls: stdinCalls,
@@ -387,5 +392,43 @@ describe('CodexAdapter', () => {
     }));
 
     await sendPromise;
+  });
+
+  it('stop is resilient when process kill throws after process already exited', async () => {
+    const adapter = new CodexAdapter(
+      'session-stop-throws',
+      '/workspace',
+      mockDb as unknown as import('better-sqlite3').Database,
+      onEvent,
+      undefined,
+      () => mockProc as unknown as import('node:child_process').ChildProcess,
+    );
+
+    await startAdapter(adapter, mockProc, emitLine);
+
+    mockProc.kill.mockImplementationOnce(() => {
+      throw new Error('kill ESRCH');
+    });
+
+    expect(() => adapter.stop()).not.toThrow();
+    expect(mockProc.kill).toHaveBeenCalledTimes(1);
+  });
+
+  it('stop is idempotent and does not issue duplicate kill calls', async () => {
+    const adapter = new CodexAdapter(
+      'session-stop-idempotent',
+      '/workspace',
+      mockDb as unknown as import('better-sqlite3').Database,
+      onEvent,
+      undefined,
+      () => mockProc as unknown as import('node:child_process').ChildProcess,
+    );
+
+    await startAdapter(adapter, mockProc, emitLine);
+
+    adapter.stop();
+    adapter.stop();
+
+    expect(mockProc.kill).toHaveBeenCalledTimes(1);
   });
 });
