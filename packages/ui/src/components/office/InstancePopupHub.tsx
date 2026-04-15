@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import * as Dialog from '@radix-ui/react-dialog'
 import * as Tabs from '@radix-ui/react-tabs'
 import { useStore } from '../../store/index.js'
+import { sendWsMessage } from '../../hooks/useSessionEvents.js'
 import { ApprovalInbox } from '../panels/ApprovalInbox.js'
 import { ChatPanel } from '../panels/ChatPanel.js'
 import { TimelinePanel } from '../panels/TimelinePanel.js'
@@ -34,6 +35,8 @@ export function InstancePopupHub({ open, onClose }: Props) {
     selectedSessionId ? s.sessions[selectedSessionId] : undefined
   )
   const [activeTab, setActiveTab] = useState<TabId>('approvals')
+  const [isTerminating, setIsTerminating] = useState(false)
+  const [terminateError, setTerminateError] = useState<string | null>(null)
 
   const projectName = session?.workspacePath.split('/').at(-1) ?? 'Session'
 
@@ -46,6 +49,44 @@ export function InstancePopupHub({ open, onClose }: Props) {
     }
     setActiveTab('approvals')
   }, [open, popupPreferredTab, setPopupPreferredTab])
+
+  useEffect(() => {
+    if (!open) {
+      setIsTerminating(false)
+      setTerminateError(null)
+      return
+    }
+    setIsTerminating(false)
+    setTerminateError(null)
+  }, [open, selectedSessionId])
+
+  useEffect(() => {
+    if (!isTerminating || !session) return
+    if (session.status !== 'active') {
+      setIsTerminating(false)
+      return
+    }
+    if (session.reason) {
+      setTerminateError(session.reason)
+      setIsTerminating(false)
+    }
+  }, [isTerminating, session])
+
+  function handleTerminate(): void {
+    if (!session || !selectedSessionId) return
+    if (session.canTerminateSession !== true) {
+      setTerminateError(
+        session.reason ?? 'Session termination is unavailable for this session.',
+      )
+      return
+    }
+    if (!window.confirm(`Terminate session "${projectName}"?`)) {
+      return
+    }
+    setTerminateError(null)
+    setIsTerminating(true)
+    sendWsMessage({ type: 'session_terminate', sessionId: selectedSessionId })
+  }
 
   return (
     <Dialog.Root open={open} onOpenChange={(o) => { if (!o) onClose() }}>
@@ -70,6 +111,21 @@ export function InstancePopupHub({ open, onClose }: Props) {
                 {session.provider}
               </span>
             )}
+            {session?.status === 'active' && session.canTerminateSession === true && (
+              <button
+                type="button"
+                onClick={handleTerminate}
+                disabled={isTerminating}
+                className="rounded border border-red-500/60 px-2 py-1 text-[10px] font-semibold uppercase tracking-wider text-red-400 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {isTerminating ? 'Terminating...' : 'Terminate'}
+              </button>
+            )}
+            {session?.status === 'active' && session.canTerminateSession === false && (
+              <span className="text-[10px] text-muted-foreground">
+                {session.reason ?? 'Session termination is unavailable for this session.'}
+              </span>
+            )}
             <Dialog.Close
               className="ml-auto cockpit-label hover:text-foreground transition-colors px-2 py-1"
               aria-label="Close"
@@ -77,6 +133,11 @@ export function InstancePopupHub({ open, onClose }: Props) {
               [X]
             </Dialog.Close>
           </div>
+          {terminateError && (
+            <div className="px-4 py-2 text-xs text-red-500 border-b border-border">
+              {terminateError}
+            </div>
+          )}
 
           {/* Tabs */}
           <Tabs.Root

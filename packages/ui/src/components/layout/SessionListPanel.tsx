@@ -1,7 +1,8 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router'
 import { useStore } from '../../store/index.js'
 import { useFilteredSessions } from '../../store/selectors.js'
+import { sendWsMessage } from '../../hooks/useSessionEvents.js'
 import { SessionFilters } from '../sessions/SessionFilters.js'
 import { SessionCard } from '../sessions/SessionCard.js'
 import { LaunchSessionModal } from '../sessions/LaunchSessionModal.js'
@@ -11,14 +12,61 @@ export function SessionListPanel() {
   const navigate = useNavigate()
   const sessions = useFilteredSessions()
   const selectedSessionId = useStore((s) => s.selectedSessionId)
+  const sessionsById = useStore((s) => s.sessions)
   const wsStatus = useStore((s) => s.wsStatus)
   console.log('[DEBUG] sessions:', sessions, 'store sessions:', useStore.getState().sessions, 'wsStatus:', useStore.getState().wsStatus, 'lastSeenSequence:', useStore.getState().lastSeenSequence)
   const [launchOpen, setLaunchOpen] = useState(false)
+  const [terminatingSessionId, setTerminatingSessionId] = useState<string | null>(null)
+  const [terminateErrors, setTerminateErrors] = useState<Record<string, string>>({})
 
   function handleCardClick(sessionId: string) {
     useStore.getState().selectSession(sessionId)
     navigate('/session/' + sessionId + '/approvals')
   }
+
+  function handleTerminate(sessionId: string): void {
+    const session = sessionsById[sessionId]
+    if (!session) return
+
+    if (session.canTerminateSession !== true) {
+      setTerminateErrors((prev) => ({
+        ...prev,
+        [sessionId]: session.reason ?? 'Session termination is unavailable for this session.',
+      }))
+      return
+    }
+
+    const projectName = session.workspacePath.split('/').at(-1) ?? session.workspacePath
+    if (!window.confirm(`Terminate session "${projectName}"?`)) return
+
+    setTerminateErrors((prev) => {
+      const next = { ...prev }
+      delete next[sessionId]
+      return next
+    })
+    setTerminatingSessionId(sessionId)
+    sendWsMessage({ type: 'session_terminate', sessionId })
+  }
+
+  useEffect(() => {
+    if (!terminatingSessionId) return
+    const session = sessionsById[terminatingSessionId]
+    if (!session) {
+      setTerminatingSessionId(null)
+      return
+    }
+    if (session.status !== 'active') {
+      setTerminatingSessionId(null)
+      return
+    }
+    if (session.reason) {
+      setTerminateErrors((prev) => ({
+        ...prev,
+        [terminatingSessionId]: session.reason ?? 'Failed to terminate session.',
+      }))
+      setTerminatingSessionId(null)
+    }
+  }, [sessionsById, terminatingSessionId])
 
   return (
     <div className="flex flex-col flex-1 overflow-hidden">
@@ -50,6 +98,9 @@ export function SessionListPanel() {
               session={session}
               selected={session.sessionId === selectedSessionId}
               onClick={() => handleCardClick(session.sessionId)}
+              onTerminate={() => handleTerminate(session.sessionId)}
+              isTerminating={terminatingSessionId === session.sessionId}
+              terminateError={terminateErrors[session.sessionId]}
             />
           ))
         )}
