@@ -1,0 +1,212 @@
+@import "tailwindcss";
+
+@theme {
+  --color-background: oklch(0.2 0.02 255);
+  --color-foreground: oklch(0.96 0.01 255);
+  --color-sidebar: oklch(0.24 0.03 250);
+  --color-border: oklch(0.4 0.02 252);
+  --color-muted: oklch(0.31 0.02 252);
+  --color-muted-foreground: oklch(0.8 0.02 250);
+  --color-accent: oklch(0.65 0.12 215);
+  --color-accent-foreground: oklch(0.98 0.01 255);
+
+  /* Cockpit phosphor palette */
+  --color-cockpit-cyan:   oklch(0.75 0.18 195);
+  --color-cockpit-green:  oklch(0.68 0.20 155);
+  --color-cockpit-amber:  oklch(0.75 0.16 75);
+  --color-cockpit-red:    oklch(0.60 0.22 25);
+  --color-cockpit-dim:    oklch(0.35 0.04 220);
+  --color-panel-surface:  oklch(0.185 0.025 250);
+  --color-provider-claude:            #c15f3c;
+  --color-provider-codex:             #605de6;
+  /* Phase 29 - Sidebar/Menu design tokens */
+  --color-cockpit-blue-claude-bg:    color-mix(in srgb, var(--color-provider-claude) 20%, transparent);
+  --color-cockpit-blue-claude-text:  var(--color-provider-claude);
+  --color-cockpit-purple-codex-bg:   color-mix(in srgb, var(--color-provider-codex) 20%, transparent);
+  --color-cockpit-purple-codex-text: var(--color-provider-codex);
+  --color-approval-bg:               oklch(0.75 0.16 75 / 0.2);
+  --color-approval-border:           oklch(0.75 0.16 75 / 0.5);
+  --color-approval-text:             oklch(0.92 0.04 75);
+  --color-menu-overlay:              rgba(0, 0, 0, 0.45);
+}
+
+:root {
+  --font-sidebar-display: "Press Start 2P", "VT323", "Courier New", monospace;
+  --font-sidebar-body: "IBM Plex Sans", "Inter", "Segoe UI", sans-serif;
+  --font-mono-data: "IBM Plex Mono", "JetBrains Mono", "Courier New", monospace;
+  --color-cockpit-accent: var(--color-cockpit-cyan);
+
+  /* Corner bracket sizing */
+  --bracket-size: 10px;
+  --bracket-weight: 1.5px;
+}
+
+/* ─── Animations ──────────────────────────────────────────────────────────── */
+
+@keyframes radar-pulse {
+  0%   { box-shadow: 0 0 0 0 color-mix(in oklch, var(--ping-color, #34D399) 70%, transparent); }
+  70%  { box-shadow: 0 0 0 7px color-mix(in oklch, var(--ping-color, #34D399) 0%, transparent); }
+  100% { box-shadow: 0 0 0 0 color-mix(in oklch, var(--ping-color, #34D399) 0%, transparent); }
+}
+
+@keyframes terminal-caret-blink {
+  0%, 49% { opacity: 1; }
+  50%, 100% { opacity: 0; }
+}
+
+/* ─── Corner bracket frames ───────────────────────────────────────────────── */
+
+.cockpit-frame-full {
+  position: relative;
+}
+
+.cockpit-corner {
+  position: absolute;
+  width: var(--bracket-size);
+  height: var(--bracket-size);
+  border-color: var(--color-cockpit-accent);
+  border-style: solid;
+  pointer-events: none;
+  opacity: 0.7;
+  z-index: 1;
+}
+.cockpit-corner-tl { top: 0;    left: 0;  border-width: var(--bracket-weight) 0 0 var(--bracket-weight); }
+.cockpit-corner-tr { top: 0;    right: 0; border-width: var(--bracket-weight) var(--bracket-weight) 0 0; }
+.cockpit-corner-bl { bottom: 0; left: 0;  border-width: 0 0 var(--bracket-weight) var(--bracket-weight); }
+.cockpit-corner-br { bottom: 0; right: 0; border-width: 0 var(--bracket-weight) var(--bracket-weight) 0; }
+
+/* ─── Typography ──────────────────────────────────────────────────────────── */
+
+/* Instrument section label: "FUEL LEVEL" style */
+.cockpit-label {
+  font-family: var(--font-sidebar-display);
+  font-size: 0.55rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--color-cockpit-accent);
+  line-height: 1.4;
+}
+
+/* Monospace data readout with phosphor glow */
+.data-readout {
+  font-family: var(--font-mono-data);
+  font-size: 0.7rem;
+  color: var(--color-cockpit-accent);
+  text-shadow: 0 0 4px var(--color-cockpit-accent);
+}
+
+/* Dim/inactive readout */
+.data-readout-dim {
+  font-family: var(--font-mono-data);
+  font-size: 0.7rem;
+  color: var(--color-cockpit-dim);
+}
+
+/* ─── Status indicators ───────────────────────────────────────────────────── */
+
+.status-ping {
+  display: inline-block;
+  border-radius: 9999px;
+  animation: radar-pulse 1.8s ease-out infinite;
+}
+.status-ping-active { --ping-color: #34D399; background-color: #34D399; }
+.status-ping-error  { --ping-color: var(--color-cockpit-red); background-color: var(--color-cockpit-red); }
+.status-ping-ended  { background-color: oklch(0.5 0.01 250); animation: none; }
+
+/* ─── Provider badges ─────────────────────────────────────────────────────── */
+
+.badge-provider-claude {
+  background: var(--color-cockpit-blue-claude-bg);
+  color: var(--color-cockpit-blue-claude-text);
+  border: 1px solid color-mix(in srgb, var(--color-provider-claude) 50%, transparent);
+}
+.badge-provider-codex {
+  background: var(--color-cockpit-purple-codex-bg);
+  color: var(--color-cockpit-purple-codex-text);
+  border: 1px solid color-mix(in srgb, var(--color-provider-codex) 50%, transparent);
+}
+
+/* ─── Interactive elements ────────────────────────────────────────────────── */
+
+.cockpit-btn {
+  font-family: var(--font-sidebar-display);
+  font-size: 0.5rem;
+  letter-spacing: 0.10em;
+  text-transform: uppercase;
+  color: var(--color-cockpit-accent);
+  background: transparent;
+  border: 1px solid color-mix(in srgb, var(--color-cockpit-accent) 60%, transparent);
+  padding: 0.35rem 0.7rem;
+  transition: background 150ms, box-shadow 150ms, border-color 150ms;
+  cursor: pointer;
+}
+.cockpit-btn:hover {
+  background: color-mix(in srgb, var(--color-cockpit-accent) 12%, transparent);
+  border-color: var(--color-cockpit-accent);
+  box-shadow: 0 0 8px var(--color-cockpit-accent);
+}
+.cockpit-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+/* Dark-blue variant used for in-world overlay controls (Menu / Interact). */
+.office-overlay-btn {
+  background: oklch(0.34 0.09 245 / 0.92);
+  color: oklch(0.93 0.03 220);
+  border-color: oklch(0.70 0.14 210 / 0.72);
+  box-shadow: 0 0 0 1px oklch(0.65 0.12 210 / 0.45), 0 0 14px oklch(0.44 0.12 225 / 0.55);
+}
+.office-overlay-btn:hover {
+  background: oklch(0.38 0.10 240 / 0.95);
+}
+
+/* ─── Tab strip ───────────────────────────────────────────────────────────── */
+
+.cockpit-tab {
+  font-family: var(--font-mono-data);
+  font-size: 0.68rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--color-muted-foreground);
+  border-bottom: 2px solid transparent;
+  transition: color 120ms, border-color 120ms;
+  padding: 0.4rem 0.75rem;
+}
+.cockpit-tab.active,
+.cockpit-tab[data-active="true"] {
+  color: var(--color-cockpit-accent);
+  border-bottom-color: var(--color-cockpit-accent);
+  text-shadow: 0 0 4px var(--color-cockpit-accent);
+}
+.cockpit-tab:hover:not(.active):not([data-active="true"]) {
+  color: var(--color-foreground);
+}
+
+.chat-terminal-caret {
+  width: 0.62em;
+  height: 1.02em;
+  background: var(--color-cockpit-accent);
+  box-shadow: 0 0 6px color-mix(in srgb, var(--color-cockpit-accent) 55%, transparent);
+  animation: terminal-caret-blink 1s steps(1, end) infinite;
+}
+
+.chat-terminal-caret-solid {
+  animation: none;
+  opacity: 1;
+}
+
+/* Agent sprite glow states */
+.sprite-planning  { --glow-color: #A371F7; }
+.sprite-coding    { --glow-color: #58A6FF; }
+.sprite-reading   { --glow-color: #39D353; }
+.sprite-testing   { --glow-color: #E3B341; }
+.sprite-waiting   { --glow-color: #6E7681; }
+.sprite-blocked   { --glow-color: #FF4444; }
+.sprite-completed { --glow-color: #2EA043; }
+.sprite-failed    { --glow-color: #8B1E1E; }
+
+.agent-sprite {
+  filter: drop-shadow(0 0 4px var(--glow-color, transparent));
+  image-rendering: pixelated;
+}

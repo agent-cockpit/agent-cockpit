@@ -1,0 +1,15 @@
+{
+  "version": "1.0.0",
+  "maps": [
+    {
+      "id": "map1",
+      "dir": "/map",
+      "worldOriginX": 0,
+      "worldOriginY": 0,
+      "widthPx": 3232,
+      "heightPx": 3232,
+      "tileOriginX": -46,
+      "tileOriginY": -43
+    }
+  ]
+}
