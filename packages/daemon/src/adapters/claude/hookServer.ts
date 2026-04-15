@@ -32,6 +32,10 @@ export function initStartedSessions(sessionIds: string[]): void {
   for (const id of sessionIds) startedSessions.add(id);
 }
 
+export function markSessionStarted(sessionId: string): void {
+  startedSessions.add(sessionId);
+}
+
 function buildPreToolUseEnvelope(decision: 'allow' | 'deny', reason?: string): string {
   return JSON.stringify({
     hookSpecificOutput: {
