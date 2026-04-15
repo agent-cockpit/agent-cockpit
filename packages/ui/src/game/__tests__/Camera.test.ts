@@ -55,4 +55,22 @@ describe('updateCamera', () => {
     updateCamera(cam, DEFAULT_BOUNDS, 16)
     expect(cam.y).toBeLessThanOrEqual(DEFAULT_BOUNDS.maxY - cam.viewportH)
   })
+
+  it('sanitizes non-finite camera values so state remains usable', () => {
+    const cam = makeCam({
+      x: Number.NaN,
+      y: Number.NaN,
+      targetX: Number.NaN,
+      targetY: Number.POSITIVE_INFINITY,
+      viewportW: Number.NaN,
+      viewportH: Number.NaN,
+    })
+
+    updateCamera(cam, DEFAULT_BOUNDS, 16)
+
+    expect(Number.isFinite(cam.x)).toBe(true)
+    expect(Number.isFinite(cam.y)).toBe(true)
+    expect(cam.x).toBeGreaterThanOrEqual(DEFAULT_BOUNDS.minX)
+    expect(cam.y).toBeGreaterThanOrEqual(DEFAULT_BOUNDS.minY)
+  })
 })
