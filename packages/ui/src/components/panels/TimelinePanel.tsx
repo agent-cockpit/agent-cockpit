@@ -25,7 +25,7 @@ function InlineDetail({ event }: { event: NormalizedEvent }) {
   if (event.type === 'tool_call') {
     return (
       <div className={base}>
-        <div className="[font-family:var(--font-mono-data)] font-medium text-[var(--color-cockpit-cyan)]">{event.toolName}</div>
+        <div className="[font-family:var(--font-mono-data)] font-medium text-[var(--color-cockpit-accent)]">{event.toolName}</div>
         <pre className="mt-1 whitespace-pre-wrap text-muted-foreground [font-family:var(--font-mono-data)]">
           {JSON.stringify(event.input, null, 2)}
         </pre>
@@ -35,7 +35,7 @@ function InlineDetail({ event }: { event: NormalizedEvent }) {
   if (event.type === 'file_change') {
     return (
       <div className={base}>
-        <div className="[font-family:var(--font-mono-data)] text-[var(--color-cockpit-cyan)]">
+        <div className="[font-family:var(--font-mono-data)] text-[var(--color-cockpit-accent)]">
           {event.filePath}{' '}
           <span className="text-muted-foreground">({event.changeType})</span>
         </div>
@@ -137,7 +137,7 @@ export function TimelinePanel() {
           onClick={() => setFilterType(null)}
           className={`px-2 py-0.5 text-[10px] [font-family:var(--font-mono-data)] uppercase tracking-wide transition-colors ${
             filterType === null
-              ? 'border border-[var(--color-cockpit-cyan)]/60 text-[var(--color-cockpit-cyan)] bg-[var(--color-cockpit-cyan)]/10'
+              ? 'border border-[color-mix(in_srgb,var(--color-cockpit-accent)_60%,transparent)] text-[var(--color-cockpit-accent)] bg-[color-mix(in_srgb,var(--color-cockpit-accent)_10%,transparent)]'
               : 'border border-border/60 text-muted-foreground hover:text-foreground hover:border-border'
           }`}
         >
@@ -149,7 +149,7 @@ export function TimelinePanel() {
             onClick={() => setFilterType(filterType === t ? null : t)}
             className={`px-2 py-0.5 text-[10px] [font-family:var(--font-mono-data)] uppercase tracking-wide transition-colors ${
               filterType === t
-                ? 'border border-[var(--color-cockpit-cyan)]/60 text-[var(--color-cockpit-cyan)] bg-[var(--color-cockpit-cyan)]/10'
+                ? 'border border-[color-mix(in_srgb,var(--color-cockpit-accent)_60%,transparent)] text-[var(--color-cockpit-accent)] bg-[color-mix(in_srgb,var(--color-cockpit-accent)_10%,transparent)]'
                 : 'border border-border/60 text-muted-foreground hover:text-foreground hover:border-border'
             }`}
           >
@@ -212,7 +212,7 @@ export function TimelinePanel() {
                 }}
                 onClick={() => setSelectedSeq(isSelected ? null : rowKey)}
                 className={`flex items-start gap-2 px-3 py-2 cursor-pointer border-b border-border/40 transition-colors ${
-                  isSelected ? 'bg-[var(--color-panel-surface)] border-l-2 border-l-[var(--color-cockpit-cyan)]/50' : 'hover:bg-[var(--color-panel-surface)]/60'
+                  isSelected ? 'bg-[var(--color-panel-surface)] border-l-2 border-l-[color-mix(in_srgb,var(--color-cockpit-accent)_50%,transparent)]' : 'hover:bg-[var(--color-panel-surface)]/60'
                 }`}
               >
                 <span className="data-readout-dim text-[10px] w-16 shrink-0 tabular-nums">

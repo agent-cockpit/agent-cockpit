@@ -8,6 +8,7 @@ import { TimelinePanel } from '../panels/TimelinePanel.js'
 import { DiffPanel } from '../panels/DiffPanel.js'
 import { MemoryPanel } from '../panels/MemoryPanel.js'
 import { ArtifactsPanel } from '../panels/ArtifactsPanel.js'
+import { getProviderAccentStyle } from '../providerAccent.js'
 
 interface Props {
   open: boolean
@@ -55,8 +56,9 @@ export function InstancePopupHub({ open, onClose }: Props) {
           className="fixed z-50 top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2
                      w-[82vw] max-w-5xl h-[80vh] bg-background rounded-none
                      flex flex-col overflow-hidden border border-border/80
-                     shadow-[0_0_40px_rgba(34,211,238,0.08),0_20px_60px_rgba(0,0,0,0.6)]"
+                     shadow-[0_0_40px_color-mix(in_srgb,var(--color-cockpit-accent)_16%,transparent),0_20px_60px_rgba(0,0,0,0.6)]"
           aria-label={`Session: ${projectName}`}
+          style={session ? getProviderAccentStyle(session.provider) : undefined}
         >
           {/* Header */}
           <div className="cockpit-frame-full flex items-center gap-3 px-4 py-3 border-b border-border shrink-0 bg-[var(--color-panel-surface)]">
@@ -89,7 +91,7 @@ export function InstancePopupHub({ open, onClose }: Props) {
                 <Tabs.Trigger
                   key={id}
                   value={id}
-                  className="cockpit-tab -mb-px data-[state=active]:text-[color:var(--color-cockpit-cyan)] data-[state=active]:border-b-[color:var(--color-cockpit-cyan)] data-[state=active]:[text-shadow:0_0_4px_var(--color-cockpit-cyan)]"
+                  className="cockpit-tab -mb-px data-[state=active]:text-[color:var(--color-cockpit-accent)] data-[state=active]:border-b-[color:var(--color-cockpit-accent)] data-[state=active]:[text-shadow:0_0_4px_var(--color-cockpit-accent)]"
                 >
                   {TAB_LABELS[id]}
                 </Tabs.Trigger>

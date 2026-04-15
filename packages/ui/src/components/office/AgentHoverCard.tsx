@@ -1,5 +1,6 @@
 import React from 'react'
 import type { SessionRecord } from '../../store/index.js'
+import { getProviderAccentStyle } from '../providerAccent.js'
 
 interface AgentHoverCardProps {
   session: SessionRecord
@@ -25,7 +26,8 @@ export function AgentHoverCard({ session, lastToolUsed, elapsedMs }: AgentHoverC
 
   return (
     <div
-      className="cockpit-frame-full agent-hover-card p-3 bg-background/95 border border-[var(--color-cockpit-cyan)]/40 min-w-[180px] shadow-[0_0_16px_rgba(34,211,238,0.15)] backdrop-blur-sm"
+      className="cockpit-frame-full agent-hover-card p-3 bg-background/95 border border-[color-mix(in_srgb,var(--color-cockpit-accent)_40%,transparent)] min-w-[180px] shadow-[0_0_16px_color-mix(in_srgb,var(--color-cockpit-accent)_15%,transparent)] backdrop-blur-sm"
+      style={getProviderAccentStyle(session.provider)}
     >
       <span className="cockpit-corner cockpit-corner-tl" aria-hidden />
       <span className="cockpit-corner cockpit-corner-tr" aria-hidden />
