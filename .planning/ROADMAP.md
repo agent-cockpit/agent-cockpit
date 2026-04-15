@@ -419,7 +419,7 @@ Plans:
   3. Externally attached sessions are marked non-killable and UI explains why
   4. Kill failures surface actionable errors and do not corrupt session state
   5. Termination behavior is covered by daemon + UI tests
-**Plans:** 1 plan
+**Plans:** 1/1 plans complete
 
 Plans:
 - [ ] 25-01-PLAN.md — Managed-session registry + terminate API + UI controls and capability gating

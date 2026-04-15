@@ -2,15 +2,15 @@
 gsd_state_version: 1.0
 milestone: v1.1
 milestone_name: — 2D Pixel Art Game Experience
-status: executing
-stopped_at: Phase 29 UI-SPEC approved
-last_updated: "2026-04-14T21:30:04.764Z"
-last_activity: 2026-04-14
+status: completed
+stopped_at: Completed 25-01-PLAN.md
+last_updated: "2026-04-15T12:59:36.505Z"
+last_activity: 2026-04-14 -- Phase 28 completed
 progress:
-  total_phases: 29
-  completed_phases: 18
-  total_plans: 60
-  completed_plans: 53
+  total_phases: 31
+  completed_phases: 20
+  total_plans: 65
+  completed_plans: 57
   percent: 91
 ---
 
@@ -166,6 +166,8 @@ All v1.0 decisions remain active and respected.
 - [Phase 22]: WebSocket handlers dispatch through runtime registry keyed by sessionId to keep provider routing server-side.
 - [Phase 23]: applyEventToApprovals must return same state reference on unrelated events — preserves Zustand selector memoization
 - [Phase 24]: Use one-shot popupPreferredTab in Zustand so avatar clicks open Chat without changing non-avatar default tab behavior
+- [Phase 25]: Structured terminate failures emit session_chat_error so existing UI error plumbing surfaces failures immediately.
+- [Phase 25]: Successful session_terminate emits session_end directly and unregisters runtime for deterministic lifecycle closure.
 
 ### Roadmap Evolution
 
@@ -198,8 +200,8 @@ None yet — requirements phase will surface tasks.
 
 ## Session Continuity
 
-Last session: 2026-04-14T21:13:04.937Z
-Stopped at: Phase 29 UI-SPEC approved
-Resume file: .planning/phases/29-sidebar-menu-design-overhaul/29-UI-SPEC.md
+Last session: 2026-04-15T12:59:36.500Z
+Stopped at: Completed 25-01-PLAN.md
+Resume file: None
 
 *Updated after each plan completion*
