@@ -37,6 +37,17 @@ interface SceneFxPatterns {
   scanlines: CanvasPattern | null
 }
 
+interface AxisAlignedRect {
+  x: number
+  y: number
+  w: number
+  h: number
+}
+
+interface CollisionProbe {
+  overlaps: CollisionMap['overlaps']
+}
+
 /** Verified walkable spawn positions for NPC agents (world pixel coords).
  * Slots are validated against terrain + object collisions using PLAYER_HITBOX.
  * Coordinates stay on open floor around map center to avoid wall/object edge spawns.
@@ -51,8 +62,11 @@ const SPAWN_SLOTS: ReadonlyArray<{ x: number; y: number }> = [
 /** Pixel offset applied per cycle to prevent exact NPC stacking when sessions > 12. */
 const SPAWN_JITTER = 16
 const SPRITE_SIZE = 42
+const PLAYER_SPRITE_SIZE_PX = 64
 const INTERACT_RADIUS_PX = 64
 const FOOTSTEP_CONTACT_FRAMES = [0, 4] as const
+const TELEPORT_SEARCH_STEP_PX = 16
+const TELEPORT_SEARCH_RADIUS_PX = 512
 const NPC_POSITION_STORAGE_KEY = 'cockpit.npc.positions.v1'
 const PLAYER_STATE_STORAGE_KEY = 'cockpit.player.state.v1'
 const OFFICE_RUNTIME_TEARDOWN_KEY = '__cockpitOfficeRuntimeTeardown__'
@@ -316,6 +330,95 @@ function drawScreenOverlays(
   }
 }
 
+function rectsOverlap(a: AxisAlignedRect, b: AxisAlignedRect): boolean {
+  return a.x < b.x + b.w && a.x + a.w > b.x && a.y < b.y + b.h && a.y + a.h > b.y
+}
+
+function clampPlayerPositionToWorld(pos: WorldPosition): WorldPosition {
+  return {
+    x: Math.max(0, Math.min(pos.x, Math.max(0, WORLD_W - PLAYER_SPRITE_SIZE_PX))),
+    y: Math.max(0, Math.min(pos.y, Math.max(0, WORLD_H - PLAYER_SPRITE_SIZE_PX))),
+  }
+}
+
+function playerHitboxAt(pos: WorldPosition): AxisAlignedRect {
+  return {
+    x: pos.x + PLAYER_HITBOX.offsetX,
+    y: pos.y + PLAYER_HITBOX.offsetY,
+    w: PLAYER_HITBOX.w,
+    h: PLAYER_HITBOX.h,
+  }
+}
+
+function playerSpriteRectAt(pos: WorldPosition): AxisAlignedRect {
+  return {
+    x: pos.x,
+    y: pos.y,
+    w: PLAYER_SPRITE_SIZE_PX,
+    h: PLAYER_SPRITE_SIZE_PX,
+  }
+}
+
+function isTeleportSpotFree(
+  pos: WorldPosition,
+  occupiedSpriteRects: ReadonlyArray<AxisAlignedRect>,
+  collisionProbe: CollisionProbe | null,
+): boolean {
+  const candidateHitbox = playerHitboxAt(pos)
+  const candidateSpriteRect = playerSpriteRectAt(pos)
+  if (collisionProbe?.overlaps(candidateHitbox.x, candidateHitbox.y, candidateHitbox.w, candidateHitbox.h)) {
+    return false
+  }
+  return occupiedSpriteRects.every((rect) => !rectsOverlap(candidateSpriteRect, rect))
+}
+
+function findNearestFreeTeleportPosition(
+  targetPos: WorldPosition,
+  occupiedSpriteRects: ReadonlyArray<AxisAlignedRect>,
+  collisionProbe: CollisionProbe | null,
+): WorldPosition {
+  const clampedTarget = clampPlayerPositionToWorld(targetPos)
+  const candidates: Array<{ pos: WorldPosition; distanceSq: number; absDx: number; absDy: number }> = []
+  const seen = new Set<string>()
+
+  for (let dy = -TELEPORT_SEARCH_RADIUS_PX; dy <= TELEPORT_SEARCH_RADIUS_PX; dy += TELEPORT_SEARCH_STEP_PX) {
+    for (let dx = -TELEPORT_SEARCH_RADIUS_PX; dx <= TELEPORT_SEARCH_RADIUS_PX; dx += TELEPORT_SEARCH_STEP_PX) {
+      const candidate = clampPlayerPositionToWorld({
+        x: clampedTarget.x + dx,
+        y: clampedTarget.y + dy,
+      })
+      const key = `${candidate.x},${candidate.y}`
+      if (seen.has(key)) continue
+      seen.add(key)
+
+      const deltaX = candidate.x - clampedTarget.x
+      const deltaY = candidate.y - clampedTarget.y
+      candidates.push({
+        pos: candidate,
+        distanceSq: deltaX * deltaX + deltaY * deltaY,
+        absDx: Math.abs(deltaX),
+        absDy: Math.abs(deltaY),
+      })
+    }
+  }
+
+  candidates.sort((a, b) => {
+    if (a.distanceSq !== b.distanceSq) return a.distanceSq - b.distanceSq
+    if (a.absDx !== b.absDx) return a.absDx - b.absDx
+    if (a.absDy !== b.absDy) return a.absDy - b.absDy
+    if (a.pos.y !== b.pos.y) return a.pos.y - b.pos.y
+    return a.pos.x - b.pos.x
+  })
+
+  for (const candidate of candidates) {
+    if (isTeleportSpotFree(candidate.pos, occupiedSpriteRects, collisionProbe)) {
+      return candidate.pos
+    }
+  }
+
+  return clampedTarget
+}
+
 export function OfficePage() {
   const sessions = useActiveSessions()
   const sessionDetailOpen = useStore((s) => s.sessionDetailOpen)
@@ -331,6 +434,7 @@ export function OfficePage() {
   const interactableSessionRef = useRef<string | null>(null)
   const interactButtonAnchorRef = useRef<HTMLDivElement | null>(null)
   const balloonRefsMap = useRef<Map<string, HTMLDivElement | null>>(new Map())
+  const collisionMapRef = useRef<CollisionMap | null>(null)
   const persistedNpcPositionsRef = useRef<StoredNpcPositions>(readStoredNpcPositions())
   const persistedPlayerStateRef = useRef<StoredPlayerState | null>(null)
   const lastPlayerPersistAtRef = useRef<number>(0)
@@ -362,11 +466,23 @@ export function OfficePage() {
   function focusSessionInWorld(sessionId: string): void {
     const pos = gameState.npcs[sessionId]
     if (!pos) return
-    // Teleport player AND camera to centre on clicked NPC (instant — no lerp)
-    // Player position must also move so update()'s cam.targetX = player.x - vw/2 keeps
-    // the camera centred here on the next tick (otherwise update() overwrites targetX).
-    gameState.player.x = pos.x
-    gameState.player.y = pos.y
+
+    const occupiedNpcSpriteRects = Object.values(gameState.npcs).map((npcPos) => ({
+      x: npcPos.x,
+      y: npcPos.y,
+      w: PLAYER_SPRITE_SIZE_PX,
+      h: PLAYER_SPRITE_SIZE_PX,
+    }))
+    const safeTeleportPos = findNearestFreeTeleportPosition(
+      pos,
+      occupiedNpcSpriteRects,
+      collisionMapRef.current,
+    )
+
+    // Teleport player to the closest free world position near the NPC and
+    // snap camera instantly to keep focus interaction responsive.
+    gameState.player.x = safeTeleportPos.x
+    gameState.player.y = safeTeleportPos.y
     const cam = gameState.camera
     cam.targetX = Math.max(0, Math.min(pos.x - cam.viewportW / 2, WORLD_W - cam.viewportW))
     cam.targetY = Math.max(0, Math.min(pos.y - cam.viewportH / 2, WORLD_H - cam.viewportH))
@@ -542,6 +658,7 @@ export function OfficePage() {
       .catch(err => console.error('[TilemapRenderer] load failed:', err))
 
     const collisionMap = new CollisionMap()
+    collisionMapRef.current = collisionMap
 
     const engine = new class extends GameEngine {
       update(deltaMs: number) {
@@ -677,23 +794,31 @@ export function OfficePage() {
           1,
         )
 
-        // Layer 2: NPC sprites (existing code, coordinates unchanged)
+        // Layer 2: depth-sorted character sprites. For this top-down scene,
+        // larger Y (feet lower on screen) should render in front.
+        const spriteQueue: Array<{ depth: number; priority: number; draw: () => void }> = []
+
         Object.values(liveSessions ?? {}).forEach((session) => {
           const pos = gameState.npcs[session.sessionId]
           if (!pos) return
-          const sessionEvents = liveEvents[session.sessionId] ?? []
-          const lastEvent = sessionEvents.at(-1)
-          drawAgentSprite({
-            ctx,
-            session,
-            lastEvent,
-            position: { x: pos.x - gameState.camera.x, y: pos.y - gameState.camera.y },
-            imageCache: imageCacheRef.current,
-            tick: gameState.tick,
+          spriteQueue.push({
+            depth: pos.y + PLAYER_HITBOX.offsetY + PLAYER_HITBOX.h,
+            priority: 1,
+            draw: () => {
+              const sessionEvents = liveEvents[session.sessionId] ?? []
+              const lastEvent = sessionEvents.at(-1)
+              drawAgentSprite({
+                ctx,
+                session,
+                lastEvent,
+                position: { x: pos.x - gameState.camera.x, y: pos.y - gameState.camera.y },
+                imageCache: imageCacheRef.current,
+                tick: gameState.tick,
+              })
+            },
           })
         })
 
-        // Layer 3: Player sprite (existing code, coordinates unchanged)
         const pImg = playerImgRef.current
         if (pImg?.complete && pImg.naturalWidth > 0) {
           const px = gameState.player.x - gameState.camera.x
@@ -702,8 +827,20 @@ export function OfficePage() {
           const stateOffset = gameState.player.animTime > 0 ? STATE_ROW_OFFSET.walk : STATE_ROW_OFFSET.idle
           const row = dirRow + stateOffset
           const col = Math.floor(gameState.player.animTime / WALK_FRAME_DURATION_MS) % WALK_FRAME_COUNT
-          ctx.drawImage(pImg, col * 64, row * 64, 64, 64, px, py, 64, 64)
+          spriteQueue.push({
+            depth: gameState.player.y + PLAYER_HITBOX.offsetY + PLAYER_HITBOX.h,
+            // Keep player behind NPC when they share the same depth line.
+            priority: 0,
+            draw: () => ctx.drawImage(pImg, col * 64, row * 64, 64, 64, px, py, 64, 64),
+          })
         }
+
+        spriteQueue
+          .sort((a, b) => {
+            if (a.depth !== b.depth) return a.depth - b.depth
+            return a.priority - b.priority
+          })
+          .forEach((entry) => entry.draw())
 
         // Layer 4: subtle world lighting/tint
         drawWorldOverlay(ctx, gameState.camera.viewportW, gameState.camera.viewportH)
@@ -762,6 +899,9 @@ export function OfficePage() {
       persistedPlayerStateRef.current = finalPlayerState
       engine.stop()
       detachInput()
+      if (collisionMapRef.current === collisionMap) {
+        collisionMapRef.current = null
+      }
       if (runtimeWindow?.[OFFICE_RUNTIME_TEARDOWN_KEY] === teardownRuntime) {
         delete runtimeWindow[OFFICE_RUNTIME_TEARDOWN_KEY]
       }
