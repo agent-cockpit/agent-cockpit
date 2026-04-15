@@ -40,7 +40,7 @@ const SPAWN_SLOTS: ReadonlyArray<{ x: number; y: number }> = [
 
 /** Pixel offset applied per cycle to prevent exact NPC stacking when sessions > 12. */
 const SPAWN_JITTER = 16
-const SPRITE_SIZE = 64
+const SPRITE_SIZE = 42
 const INTERACT_RADIUS_PX = 64
 
 function isTextInputFocused(active: Element | null): boolean {
