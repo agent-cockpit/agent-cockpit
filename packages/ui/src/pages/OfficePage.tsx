@@ -6,6 +6,7 @@ import { useActiveSessions } from '../store/selectors.js'
 import { audioSystem } from '../audio/audioSystem.js'
 import { InstancePopupHub } from '../components/office/InstancePopupHub.js'
 import { MenuPopup } from '../components/office/MenuPopup.js'
+import { ApprovalBalloonOverlay } from '../components/office/ApprovalBalloonOverlay.js'
 import { drawAgentSprite } from '../components/office/AgentSprite.js'
 import { DIRECTION_ROWS, STATE_ROW_OFFSET } from '../components/office/spriteStates.js'
 import type { Direction } from '../components/office/spriteStates.js'
@@ -224,6 +225,7 @@ export function OfficePage() {
   const sceneFxPatternsRef = useRef<SceneFxPatterns>({ noise: null, scanlines: null })
   const interactableSessionRef = useRef<string | null>(null)
   const interactButtonAnchorRef = useRef<HTMLDivElement | null>(null)
+  const balloonRefsMap = useRef<Map<string, HTMLDivElement | null>>(new Map())
 
   function findNearestInteractableSessionId(): string | null {
     const playerCenterX = gameState.player.x + SPRITE_SIZE / 2
@@ -302,6 +304,34 @@ export function OfficePage() {
     anchor.style.display = 'block'
     anchor.style.left = `${screenX}px`
     anchor.style.top = `${screenY}px`
+  }
+
+  function updateApprovalBalloons(): void {
+    const canvas = canvasRef.current
+    if (!canvas) return
+    const zoom = gameState.camera.zoom
+    for (const [sessionId, el] of balloonRefsMap.current) {
+      if (!el) continue
+      const pos = gameState.npcs[sessionId]
+      if (!pos) {
+        el.style.display = 'none'
+        continue
+      }
+      const screenX = (pos.x - gameState.camera.x + SPRITE_SIZE / 2) * zoom
+      const screenY = (pos.y - gameState.camera.y) * zoom
+      if (
+        screenX < -300 ||
+        screenX > canvas.width + 300 ||
+        screenY < -300 ||
+        screenY > canvas.height + 300
+      ) {
+        el.style.display = 'none'
+        continue
+      }
+      el.style.display = 'block'
+      el.style.left = `${screenX}px`
+      el.style.top = `${screenY}px`
+    }
   }
 
   // Register sidebar focus callback for map/session synchronization.
@@ -385,6 +415,7 @@ export function OfficePage() {
           interactableSessionRef.current = nearestSessionId
         }
         positionInteractButton(nearestSessionId)
+        updateApprovalBalloons()
       }
       render() {
         ctx.fillStyle = '#000000'
@@ -605,6 +636,7 @@ export function OfficePage() {
               Menu
             </button>
           </div>
+          <ApprovalBalloonOverlay balloonRefsMap={balloonRefsMap} />
           <div
             ref={interactButtonAnchorRef}
             className="absolute"
