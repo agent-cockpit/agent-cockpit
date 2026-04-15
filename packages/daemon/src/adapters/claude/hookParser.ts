@@ -139,6 +139,28 @@ function extractChatText(value: unknown): string | null {
   return null;
 }
 
+function getFileChangeDetails(
+  toolName: string,
+  toolInput: Record<string, unknown>,
+): { filePath: string; changeType: 'created' | 'modified' | 'deleted' } | null {
+  if (toolName !== 'Write' && toolName !== 'Edit' && toolName !== 'Update' && toolName !== 'MultiEdit') {
+    return null
+  }
+
+  const filePath =
+    typeof toolInput['path'] === 'string'
+      ? toolInput['path']
+      : typeof toolInput['file_path'] === 'string'
+        ? toolInput['file_path']
+        : null
+  if (!filePath) return null
+
+  return {
+    filePath,
+    changeType: toolName === 'Write' ? 'created' : 'modified',
+  }
+}
+
 export function parseHookPayload(payload: HookPayload): {
   event: NormalizedEvent;
   requiresApproval: boolean;
@@ -202,12 +224,26 @@ export function parseHookPayload(payload: HookPayload): {
     }
 
     case 'PostToolUse': {
+      const toolName = payload.tool_name ?? 'Unknown'
+      const toolInput = payload.tool_input ?? {}
+      const fileChange = getFileChangeDetails(toolName, toolInput)
+      if (fileChange) {
+        return {
+          event: {
+            ...base,
+            type: 'file_change',
+            ...fileChange,
+          },
+          requiresApproval: false,
+        };
+      }
+
       return {
         event: {
           ...base,
           type: 'tool_call',
-          toolName: payload.tool_name ?? 'Unknown',
-          input: payload.tool_input ?? {},
+          toolName,
+          input: toolInput,
         },
         requiresApproval: false,
       };

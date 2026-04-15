@@ -138,6 +138,73 @@ describe('parseHookPayload notification chat mapping', () => {
   });
 });
 
+describe('parseHookPayload file change mapping', () => {
+  let db: BetterSqlite3.Database;
+
+  beforeEach(() => {
+    db = openDatabase(':memory:');
+    setClaudeSessionDb(db);
+    setClaudeSessionCache(new Map());
+  });
+
+  afterEach(() => {
+    setClaudeSessionDb(null);
+    setClaudeSessionCache(new Map());
+    db.close();
+  });
+
+  it('maps PostToolUse Write to file_change created with filePath', () => {
+    const payload: HookPayload = {
+      session_id: 'write-file-1',
+      hook_event_name: 'PostToolUse',
+      tool_name: 'Write',
+      tool_input: { path: '/workspace/src/new-file.ts', content: 'export const x = 1' },
+      cwd: '/workspace',
+    };
+
+    const result = parseHookPayload(payload);
+    expect(result.requiresApproval).toBe(false);
+    expect(result.event.type).toBe('file_change');
+    if (result.event.type !== 'file_change') return;
+    expect(result.event.filePath).toBe('/workspace/src/new-file.ts');
+    expect(result.event.changeType).toBe('created');
+  });
+
+  it('maps PostToolUse Edit to file_change modified with filePath', () => {
+    const payload: HookPayload = {
+      session_id: 'edit-file-1',
+      hook_event_name: 'PostToolUse',
+      tool_name: 'Edit',
+      tool_input: { file_path: '/workspace/src/existing.ts', old_string: 'a', new_string: 'b' },
+      cwd: '/workspace',
+    };
+
+    const result = parseHookPayload(payload);
+    expect(result.requiresApproval).toBe(false);
+    expect(result.event.type).toBe('file_change');
+    if (result.event.type !== 'file_change') return;
+    expect(result.event.filePath).toBe('/workspace/src/existing.ts');
+    expect(result.event.changeType).toBe('modified');
+  });
+
+  it('maps PostToolUse Update with file_path to file_change modified', () => {
+    const payload: HookPayload = {
+      session_id: 'update-file-1',
+      hook_event_name: 'PostToolUse',
+      tool_name: 'Update',
+      tool_input: { file_path: '/workspace/src/update.ts', old_string: 'a', new_string: 'b' },
+      cwd: '/workspace',
+    };
+
+    const result = parseHookPayload(payload);
+    expect(result.requiresApproval).toBe(false);
+    expect(result.event.type).toBe('file_change');
+    if (result.event.type !== 'file_change') return;
+    expect(result.event.filePath).toBe('/workspace/src/update.ts');
+    expect(result.event.changeType).toBe('modified');
+  });
+});
+
 describe('getOrCreateSessionId passthrough (pre-registered sessions)', () => {
   let db: BetterSqlite3.Database;
 

@@ -104,7 +104,7 @@ describe('parseHookPayload', () => {
     expect(result.requiresApproval).toBe(false);
   });
 
-  it('Test 5: PostToolUse → tool_call', () => {
+  it('Test 5: PostToolUse Bash → tool_call', () => {
     const result = parseHookPayload({
       hook_event_name: 'PostToolUse',
       session_id: 'sess-004',
@@ -112,6 +112,19 @@ describe('parseHookPayload', () => {
       tool_input: { command: 'ls' },
     });
     expect(result.event.type).toBe('tool_call');
+  });
+
+  it('Test 5b: PostToolUse Write → file_change', () => {
+    const result = parseHookPayload({
+      hook_event_name: 'PostToolUse',
+      session_id: 'sess-004b',
+      tool_name: 'Write',
+      tool_input: { path: '/tmp/path.ts', content: 'const x = 1' },
+    });
+    expect(result.event.type).toBe('file_change');
+    if (result.event.type !== 'file_change') return;
+    expect(result.event.filePath).toBe('/tmp/path.ts');
+    expect(result.event.changeType).toBe('created');
   });
 
   it('Test 6: SubagentStart → subagent_spawn', () => {
