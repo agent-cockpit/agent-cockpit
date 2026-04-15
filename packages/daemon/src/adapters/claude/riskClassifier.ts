@@ -64,8 +64,13 @@ export function classifyRisk(
     };
   }
 
-  if (toolName === 'Write' || toolName === 'Edit') {
-    const filePath = typeof toolInput['path'] === 'string' ? toolInput['path'] : 'unknown';
+  if (toolName === 'Write' || toolName === 'Edit' || toolName === 'Update' || toolName === 'MultiEdit') {
+    const filePath =
+      typeof toolInput['path'] === 'string'
+        ? toolInput['path']
+        : typeof toolInput['file_path'] === 'string'
+          ? toolInput['file_path']
+          : 'unknown';
     return {
       actionType: 'file_change',
       riskLevel: 'low',
