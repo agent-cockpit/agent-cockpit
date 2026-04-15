@@ -6,6 +6,7 @@ import { setClaudeSessionCache, setClaudeSessionDb } from './adapters/claude/hoo
 import { approvalQueue } from './approvals/approvalQueue.js';
 import { eventBus } from './eventBus.js';
 import { logger } from './logger.js';
+import { ingestExternalCodexCliSessions } from './adapters/codex/externalSessionIngest.js';
 import type { WebSocketServer } from 'ws';
 import type Database from 'better-sqlite3';
 import type http from 'node:http';
@@ -13,6 +14,7 @@ import type http from 'node:http';
 const DB_PATH = process.env['COCKPIT_DB_PATH'] ?? `${process.env['HOME']}/.local/share/agent-cockpit/events.db`;
 const WS_PORT = parseInt(process.env['COCKPIT_WS_PORT'] ?? '3001', 10);
 const HOOK_PORT = parseInt(process.env['COCKPIT_HOOK_PORT'] ?? '3002', 10);
+const CODEX_EXTERNAL_POLL_MS = parseInt(process.env['COCKPIT_CODEX_EXTERNAL_POLL_MS'] ?? '5000', 10);
 
 const db = openDatabase(DB_PATH);
 let shuttingDown = false;
@@ -53,6 +55,26 @@ eventBus.on('event', (rawEvent) => {
   broadcast(wss, JSON.stringify(saved), db);
 });
 
+function importExternalCodexSessions(): void {
+  try {
+    const imported = ingestExternalCodexCliSessions(db, (event) => eventBus.emit('event', event));
+    if (imported > 0) {
+      logger.info('codex-external', 'Imported external Codex CLI sessions', { imported });
+    }
+  } catch (err) {
+    logger.warn('codex-external', 'Failed to import external Codex CLI sessions', { error: String(err) });
+  }
+}
+
+// Prime external Codex CLI sessions once at startup so they appear in UI history/state.
+importExternalCodexSessions();
+
+const codexExternalPollTimer =
+  Number.isFinite(CODEX_EXTERNAL_POLL_MS) && CODEX_EXTERNAL_POLL_MS > 0
+    ? setInterval(importExternalCodexSessions, CODEX_EXTERNAL_POLL_MS)
+    : null;
+codexExternalPollTimer?.unref();
+
 // Close orphaned sessions: sessions with session_start but no session_end and no activity in 2h
 // Runs after eventBus is wired so the emitted events are persisted and broadcast
 const twoHoursAgo = new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString();
@@ -75,6 +97,7 @@ function shutdown(db: Database.Database, wss: WebSocketServer, hookServer: http.
   if (shuttingDown) return;
   shuttingDown = true;
   logger.info('daemon', 'Shutting down...');
+  if (codexExternalPollTimer) clearInterval(codexExternalPollTimer);
   // Terminate all open client connections before closing the server
   wss.clients.forEach((client) => client.terminate());
   wss.close(() => {
