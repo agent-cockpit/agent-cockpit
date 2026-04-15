@@ -50,7 +50,7 @@ describe('session_chat websocket dispatch', () => {
       managedByDaemon: false,
       canSendMessage: false,
       canTerminateSession: false,
-      reason: 'External session is approval-only; chat send is disabled.',
+      reason: 'External session is approval-only; chat send and terminate are disabled.',
     }));
 
     const ws = new FakeWs() as unknown as WebSocket;
@@ -76,7 +76,7 @@ describe('session_chat websocket dispatch', () => {
       type: 'session_chat_error',
       sessionId,
       reasonCode: 'CHAT_SEND_BLOCKED',
-      reason: 'External session is approval-only; chat send is disabled.',
+      reason: 'External session is approval-only; chat send and terminate are disabled.',
     });
 
     db.close();

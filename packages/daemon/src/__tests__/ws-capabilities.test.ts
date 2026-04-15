@@ -58,7 +58,7 @@ describe('Session capability contract', () => {
       managedByDaemon: false,
       canSendMessage: false,
       canTerminateSession: false,
-      reason: 'External session is approval-only; chat send is disabled.',
+      reason: 'External session is approval-only; chat send and terminate are disabled.',
     });
 
     db.close();

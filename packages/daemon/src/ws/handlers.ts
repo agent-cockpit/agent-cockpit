@@ -9,11 +9,13 @@ import { logger } from '../logger.js';
 interface ManagedRuntimeHandle {
   provider: 'claude' | 'codex'
   sendMessage: (message: string) => Promise<string | void>
+  terminateSession?: () => Promise<void> | void
 }
 
 interface ConnectionDeps {
   runtimeRegistry?: {
     get: (sessionId: string) => ManagedRuntimeHandle | undefined
+    unregister?: (sessionId: string) => void
   }
   emitEvent?: (event: NormalizedEvent) => void
 }
@@ -60,6 +62,23 @@ export function handleConnection(
   }
 
   function emitChatError(
+    sessionId: string,
+    provider: 'claude' | 'codex',
+    reasonCode: 'CHAT_INVALID_REQUEST' | 'CHAT_SEND_BLOCKED' | 'CHAT_RUNTIME_UNAVAILABLE' | 'CHAT_SEND_FAILED',
+    reason: string,
+  ): void {
+    emit({
+      schemaVersion: 1,
+      sessionId,
+      timestamp: new Date().toISOString(),
+      type: 'session_chat_error',
+      provider,
+      reasonCode,
+      reason,
+    });
+  }
+
+  function emitTerminateError(
     sessionId: string,
     provider: 'claude' | 'codex',
     reasonCode: 'CHAT_INVALID_REQUEST' | 'CHAT_SEND_BLOCKED' | 'CHAT_RUNTIME_UNAVAILABLE' | 'CHAT_SEND_FAILED',
@@ -186,6 +205,75 @@ export function handleConnection(
             provider,
             'CHAT_SEND_FAILED',
             `Failed to send chat message: ${String(err)}`,
+          );
+        });
+      return;
+    }
+
+    if (m['type'] === 'session_terminate') {
+      const sessionId = m['sessionId'];
+      if (typeof sessionId !== 'string') {
+        emitTerminateError(
+          'unknown-session',
+          'claude',
+          'CHAT_INVALID_REQUEST',
+          'Invalid session_terminate payload: sessionId is required.',
+        );
+        return;
+      }
+
+      const summary = getSessionSummary(db, sessionId);
+      if (!summary) {
+        emitTerminateError(
+          sessionId,
+          'claude',
+          'CHAT_INVALID_REQUEST',
+          'Session not found.',
+        );
+        return;
+      }
+
+      const runtime = deps?.runtimeRegistry?.get(sessionId);
+      const provider = resolveProvider(summary.provider, runtime?.provider);
+
+      if (!summary.capabilities.canTerminateSession) {
+        emitTerminateError(
+          sessionId,
+          provider,
+          'CHAT_SEND_BLOCKED',
+          summary.capabilities.reason ?? 'Session termination is not permitted for this session.',
+        );
+        return;
+      }
+
+      if (!runtime?.terminateSession) {
+        emitTerminateError(
+          sessionId,
+          provider,
+          'CHAT_RUNTIME_UNAVAILABLE',
+          'Managed session runtime is not available for terminate.',
+        );
+        return;
+      }
+
+      void Promise.resolve(runtime.terminateSession())
+        .then(() => {
+          deps?.runtimeRegistry?.unregister?.(sessionId);
+          emit({
+            schemaVersion: 1,
+            sessionId,
+            provider,
+            type: 'session_end',
+            exitCode: 0,
+            timestamp: new Date().toISOString(),
+          });
+        })
+        .catch((err: unknown) => {
+          emitTerminateError(
+            sessionId,
+            provider,
+            'CHAT_SEND_FAILED',
+            `Failed to terminate session: ${String(err)}`,
           );
         });
     }

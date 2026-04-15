@@ -8,7 +8,7 @@ const APPROVAL_TIMEOUT_MS = parseInt(
   process.env['COCKPIT_APPROVAL_TIMEOUT_MS'] ?? '60000',
   10,
 );
-const EXTERNAL_SESSION_REASON = 'External session is approval-only; chat send is disabled.';
+const EXTERNAL_SESSION_REASON = 'External session is approval-only; chat send and terminate are disabled.';
 
 interface PendingApproval {
   res: ServerResponse;

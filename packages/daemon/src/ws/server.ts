@@ -75,7 +75,7 @@ function applyRuntimeCapabilityState(
       ...base,
       canSendMessage: false,
       canTerminateSession: false,
-      reason: 'Managed session runtime is not available for chat send.',
+      reason: 'Managed session runtime is not available for chat send or terminate.',
     },
   }
 }
@@ -129,6 +129,9 @@ function handleLaunchSession(
             db,
             (event) => {
               if (event.type === 'session_end') {
+                if (!runtimeRegistry.has(sessionId)) {
+                  return;
+                }
                 runtimeRegistry.unregister(sessionId);
               }
               eventBus.emit('event', event);
@@ -397,6 +400,7 @@ export function createWsServer(
     handleConnection(ws, req, db, {
       runtimeRegistry: {
         get: (sessionId) => runtimeRegistry.get(sessionId),
+        unregister: (sessionId) => runtimeRegistry.unregister(sessionId),
       },
       emitEvent: (event: NormalizedEvent) => {
         const saved = persistEvent(db, event);

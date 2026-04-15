@@ -27,7 +27,7 @@ export interface SessionCapabilities {
   reason?: string
 }
 
-export const EXTERNAL_SESSION_REASON = 'External session is approval-only; chat send is disabled.'
+export const EXTERNAL_SESSION_REASON = 'External session is approval-only; chat send and terminate are disabled.'
 
 function toBoolean(value: unknown): boolean | null {
   if (value === true || value === 1 || value === '1') return true

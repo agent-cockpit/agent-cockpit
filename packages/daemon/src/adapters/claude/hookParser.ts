@@ -25,7 +25,7 @@ let claudeSessionCache = new Map<string, string>();
 // Module-level DB reference — set by daemon entrypoint at startup
 let claudeSessionDb: Database.Database | null = null;
 
-const EXTERNAL_SESSION_REASON = 'External session is approval-only; chat send is disabled.';
+const EXTERNAL_SESSION_REASON = 'External session is approval-only; chat send and terminate are disabled.';
 
 /** Called by daemon entrypoint to inject the pre-populated cache from claude_sessions table. */
 export function setClaudeSessionCache(newCache: Map<string, string>): void {
