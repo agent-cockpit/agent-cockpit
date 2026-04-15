@@ -10,10 +10,19 @@ import { ApprovalBalloonOverlay } from '../components/office/ApprovalBalloonOver
 import { drawAgentSprite } from '../components/office/AgentSprite.js'
 import { DIRECTION_ROWS, STATE_ROW_OFFSET } from '../components/office/spriteStates.js'
 import type { Direction } from '../components/office/spriteStates.js'
+import type { CharacterType } from '../components/office/characterMapping.js'
 import { GameEngine } from '../game/GameEngine.js'
 import { gameState, setWorldBounds, WORLD_W, WORLD_H } from '../game/GameState.js'
 import { updateCamera } from '../game/Camera.js'
-import { attachInput, detachInput, getKeysDown, movePlayer, WALK_FRAME_DURATION_MS, WALK_FRAME_COUNT } from '../game/PlayerInput.js'
+import {
+  attachInput,
+  detachInput,
+  getKeysDown,
+  movePlayer,
+  PLAYER_SPEED,
+  WALK_FRAME_DURATION_MS,
+  WALK_FRAME_COUNT,
+} from '../game/PlayerInput.js'
 import { TilemapRenderer, type MapsManifest } from '../game/TilemapRenderer.js'
 import { CollisionMap, PLAYER_HITBOX } from '../game/CollisionMap.js'
 
@@ -43,8 +52,10 @@ const SPAWN_SLOTS: ReadonlyArray<{ x: number; y: number }> = [
 const SPAWN_JITTER = 16
 const SPRITE_SIZE = 42
 const INTERACT_RADIUS_PX = 64
+const FOOTSTEP_CONTACT_FRAMES = [0, 4] as const
 const NPC_POSITION_STORAGE_KEY = 'cockpit.npc.positions.v1'
 const PLAYER_STATE_STORAGE_KEY = 'cockpit.player.state.v1'
+const OFFICE_RUNTIME_TEARDOWN_KEY = '__cockpitOfficeRuntimeTeardown__'
 
 interface WorldPosition {
   x: number
@@ -53,6 +64,15 @@ interface WorldPosition {
 
 type StoredNpcPositions = Record<string, WorldPosition>
 type StoredPlayerState = WorldPosition & { direction: Direction }
+
+interface OfficeRuntimeWindow extends Window {
+  __cockpitOfficeRuntimeTeardown__?: () => void
+}
+
+function getOfficeRuntimeWindow(): OfficeRuntimeWindow | null {
+  if (typeof window === 'undefined') return null
+  return window as OfficeRuntimeWindow
+}
 
 function readStoredNpcPositions(): StoredNpcPositions {
   if (typeof window === 'undefined') {
@@ -314,6 +334,9 @@ export function OfficePage() {
   const persistedNpcPositionsRef = useRef<StoredNpcPositions>(readStoredNpcPositions())
   const persistedPlayerStateRef = useRef<StoredPlayerState | null>(null)
   const lastPlayerPersistAtRef = useRef<number>(0)
+  const selectedPlayerCharacterRef = useRef<CharacterType>(selectedPlayerCharacter)
+  const previousNpcPositionsRef = useRef<Record<string, WorldPosition>>({})
+  const lastPlayerAnimFrameRef = useRef<number>(-1)
 
   function findNearestInteractableSessionId(): string | null {
     const playerCenterX = gameState.player.x + SPRITE_SIZE / 2
@@ -431,6 +454,7 @@ export function OfficePage() {
   }, [])
 
   useEffect(() => {
+    selectedPlayerCharacterRef.current = selectedPlayerCharacter
     const playerImg = new Image()
     playerImg.src = `/sprites/${selectedPlayerCharacter}-sheet.png`
     playerImgRef.current = playerImg
@@ -498,16 +522,21 @@ export function OfficePage() {
 
   // Game engine lifecycle: start on mount, stop on cleanup
   useEffect(() => {
+    const runtimeWindow = getOfficeRuntimeWindow()
+    runtimeWindow?.[OFFICE_RUNTIME_TEARDOWN_KEY]?.()
+
     const canvas = canvasRef.current
     if (!canvas) return
     const ctx = canvas.getContext('2d')
     if (!ctx) { console.error('[GameEngine] canvas 2d context unavailable'); return }
+    let disposed = false
 
     const tilemapRenderer = new TilemapRenderer()
     // Load map assets before starting engine (non-blocking: engine starts after assets ready)
     const tilemapLoadPromise = tilemapRenderer
       .load()
       .then(() => {
+        if (disposed) return
         setWorldBounds(tilemapRenderer.worldW || 3232, tilemapRenderer.worldH || 3232)
       })
       .catch(err => console.error('[TilemapRenderer] load failed:', err))
@@ -516,6 +545,7 @@ export function OfficePage() {
 
     const engine = new class extends GameEngine {
       update(deltaMs: number) {
+        if (disposed) return
         gameState.tick += 1
         const prevX = gameState.player.x
         const prevY = gameState.player.y
@@ -525,10 +555,55 @@ export function OfficePage() {
           w: PLAYER_HITBOX.w,
           h: PLAYER_HITBOX.h,
         }))
-        movePlayer(gameState.player, getKeysDown(), deltaMs, collisionMap, npcHitboxes)
+        const keysDown = getKeysDown()
+        const sprintHeld = keysDown.has('ShiftLeft') || keysDown.has('ShiftRight') || keysDown.has('Shift')
+        movePlayer(gameState.player, keysDown, deltaMs, collisionMap, npcHitboxes)
         const moved = Math.abs(gameState.player.x - prevX) > 0.1 || Math.abs(gameState.player.y - prevY) > 0.1
         if (moved) {
-          audioSystem.playFootstep()
+          const currentAnimFrame = Math.floor(gameState.player.animTime / WALK_FRAME_DURATION_MS) % WALK_FRAME_COUNT
+          const frameChanged = currentAnimFrame !== lastPlayerAnimFrameRef.current
+          if (frameChanged) {
+            lastPlayerAnimFrameRef.current = currentAnimFrame
+            if (FOOTSTEP_CONTACT_FRAMES.includes(currentAnimFrame as (typeof FOOTSTEP_CONTACT_FRAMES)[number])) {
+              audioSystem.playFootstep({
+                character: selectedPlayerCharacterRef.current,
+                movement: sprintHeld ? 'run' : 'walk',
+                actorId: 'player',
+              })
+            }
+          }
+        } else {
+          // Reset phase when movement stops so the next start can trigger frame-0 contact naturally.
+          lastPlayerAnimFrameRef.current = -1
+        }
+
+        const deltaSec = Math.max(deltaMs / 1000, 0.0001)
+        const liveSessions = useStore.getState().sessions
+        const previousNpcPositions = previousNpcPositionsRef.current
+        for (const [sessionId, pos] of Object.entries(gameState.npcs)) {
+          const prev = previousNpcPositions[sessionId]
+          if (prev) {
+            const dx = pos.x - prev.x
+            const dy = pos.y - prev.y
+            const distancePx = Math.hypot(dx, dy)
+            if (distancePx > 0.1) {
+              const speedPxPerSec = distancePx / deltaSec
+              const movement = speedPxPerSec >= PLAYER_SPEED * 1.35 ? 'run' : 'walk'
+              const character = (liveSessions[sessionId]?.character ?? 'astronaut') as CharacterType
+              audioSystem.playFootstep({
+                character,
+                movement,
+                actorId: `npc:${sessionId}`,
+              })
+            }
+          }
+
+          previousNpcPositions[sessionId] = { x: pos.x, y: pos.y }
+        }
+        for (const sessionId of Object.keys(previousNpcPositions)) {
+          if (!gameState.npcs[sessionId]) {
+            delete previousNpcPositions[sessionId]
+          }
         }
         const playerDirection = (gameState.player.direction in DIRECTION_ROWS
           ? gameState.player.direction
@@ -568,6 +643,7 @@ export function OfficePage() {
         updateApprovalBalloons()
       }
       render() {
+        if (disposed) return
         ctx.fillStyle = '#000000'
         ctx.fillRect(0, 0, canvas.width, canvas.height)
         // Read sessions and events from the store snapshot (not hook — called in rAF)
@@ -671,20 +747,47 @@ export function OfficePage() {
     engine.start()
     attachInput()
 
+    const teardownRuntime = () => {
+      if (disposed) return
+      disposed = true
+      const playerDirection = (gameState.player.direction in DIRECTION_ROWS
+        ? gameState.player.direction
+        : 'south') as Direction
+      const finalPlayerState: StoredPlayerState = {
+        x: gameState.player.x,
+        y: gameState.player.y,
+        direction: playerDirection,
+      }
+      writeStoredPlayerState(finalPlayerState)
+      persistedPlayerStateRef.current = finalPlayerState
+      engine.stop()
+      detachInput()
+      if (runtimeWindow?.[OFFICE_RUNTIME_TEARDOWN_KEY] === teardownRuntime) {
+        delete runtimeWindow[OFFICE_RUNTIME_TEARDOWN_KEY]
+      }
+    }
+    if (runtimeWindow) {
+      runtimeWindow[OFFICE_RUNTIME_TEARDOWN_KEY] = teardownRuntime
+    }
+
     fetch('/maps/maps-manifest.json')
       .then(r => r.json())
       .then(async (manifest: MapsManifest) => {
+        if (disposed) return
         if (!Array.isArray(manifest.maps)) {
           throw new Error('Invalid maps manifest payload')
         }
         for (let i = 0; i < manifest.maps.length; i++) {
+          if (disposed) return
           const entry = manifest.maps[i]
           const [terrainData, objectsData] = await Promise.all([
             fetch(`${entry.dir}/terrain-map.json`).then(r => r.json()),
             fetch(`${entry.dir}/objects/manifest.json`).then(r => r.json()),
           ])
+          if (disposed) return
           const objects = (objectsData as { objects: unknown[] }).objects as Parameters<CollisionMap['loadObjects']>[0]
           const alphaBounds = await buildObjectAlphaBounds(objects, entry.dir)
+          if (disposed) return
           const loadOpts = {
             tileOriginX: entry.tileOriginX,
             tileOriginY: entry.tileOriginY,
@@ -701,20 +804,7 @@ export function OfficePage() {
         console.error('[CollisionMap] Failed to load collision data:', err)
       })
 
-    return () => {
-      const playerDirection = (gameState.player.direction in DIRECTION_ROWS
-        ? gameState.player.direction
-        : 'south') as Direction
-      const finalPlayerState: StoredPlayerState = {
-        x: gameState.player.x,
-        y: gameState.player.y,
-        direction: playerDirection,
-      }
-      writeStoredPlayerState(finalPlayerState)
-      persistedPlayerStateRef.current = finalPlayerState
-      engine.stop()
-      detachInput()
-    }
+    return teardownRuntime
   }, [])
 
   // ResizeObserver: keep canvas dimensions matching container

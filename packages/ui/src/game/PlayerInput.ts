@@ -13,14 +13,22 @@ const INV_SQRT2 = 0.7071
 const keysDown = new Set<string>()
 let _attached = false
 
-function onKeyDown(e: KeyboardEvent): void {
-  const active = document.activeElement
-  if (
+function clearKeysDown(): void {
+  keysDown.clear()
+}
+
+function isTextInputFocused(active: Element | null): boolean {
+  return (
     active instanceof HTMLInputElement ||
     active instanceof HTMLTextAreaElement ||
     active instanceof HTMLSelectElement ||
     (active instanceof HTMLElement && active.isContentEditable)
-  ) {
+  )
+}
+
+function onKeyDown(e: KeyboardEvent): void {
+  if (isTextInputFocused(document.activeElement)) {
+    clearKeysDown()
     return
   }
   keysDown.add(e.code)
@@ -39,17 +47,31 @@ function onKeyUp(e: KeyboardEvent): void {
   keysDown.delete(e.code)
 }
 
+function onWindowBlur(): void {
+  clearKeysDown()
+}
+
+function onVisibilityChange(): void {
+  if (document.visibilityState !== 'visible') {
+    clearKeysDown()
+  }
+}
+
 export function attachInput(): void {
   if (_attached) return
   window.addEventListener('keydown', onKeyDown)
   window.addEventListener('keyup', onKeyUp)
+  window.addEventListener('blur', onWindowBlur)
+  document.addEventListener('visibilitychange', onVisibilityChange)
   _attached = true
 }
 
 export function detachInput(): void {
   window.removeEventListener('keydown', onKeyDown)
   window.removeEventListener('keyup', onKeyUp)
-  keysDown.clear()
+  window.removeEventListener('blur', onWindowBlur)
+  document.removeEventListener('visibilitychange', onVisibilityChange)
+  clearKeysDown()
   _attached = false
 }
 
@@ -114,6 +136,11 @@ export function movePlayer(
   collisionMap?: CollisionMap,
   blockingRects: ReadonlyArray<BlockingRect> = [],
 ): void {
+  if (!Number.isFinite(deltaMs) || deltaMs <= 0) {
+    player.animTime = 0
+    return
+  }
+
   const dt = deltaMs / 1000
   const sprint = keys.has('ShiftLeft') || keys.has('ShiftRight') || keys.has('Shift')
   const speed = PLAYER_SPEED * (sprint ? PLAYER_SPRINT_MULTIPLIER : 1)
