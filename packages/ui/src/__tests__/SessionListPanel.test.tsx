@@ -32,6 +32,7 @@ function makeSession(overrides: Partial<SessionRecord> & Pick<SessionRecord, 'se
     status: 'active',
     lastEventAt: '2026-01-01T00:01:00.000Z',
     pendingApprovals: 0,
+    character: 'astronaut',
     ...overrides,
   }
 }

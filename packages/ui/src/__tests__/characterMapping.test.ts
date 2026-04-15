@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { CHARACTER_TYPES, sessionToCharacter } from '../components/office/characterMapping.js'
+import { CHARACTER_TYPES, newCharacterBag, drawFromBag } from '../components/office/characterMapping.js'
 
 describe('CHARACTER_TYPES', () => {
   it('has exactly 10 entries', () => {
@@ -15,37 +15,45 @@ describe('CHARACTER_TYPES', () => {
   })
 })
 
-describe('sessionToCharacter', () => {
-  it("returns 'astronaut' for sessionId ending in '0000' (0 % 10 = 0)", () => {
-    expect(sessionToCharacter('0000')).toBe('astronaut')
+describe('newCharacterBag', () => {
+  it('returns all 10 character types', () => {
+    const bag = newCharacterBag()
+    expect(bag).toHaveLength(CHARACTER_TYPES.length)
+    expect([...bag].sort()).toEqual([...CHARACTER_TYPES].sort())
   })
 
-  it("returns 'robot' for sessionId ending in '0001' (1 % 10 = 1)", () => {
-    expect(sessionToCharacter('0001')).toBe('robot')
+  it('produces different orderings across calls (probabilistic)', () => {
+    const results = new Set<string>()
+    for (let i = 0; i < 20; i++) {
+      results.add(newCharacterBag().join(','))
+    }
+    // With 10! possible shuffles, getting the same order twice in 20 tries is astronomically unlikely
+    expect(results.size).toBeGreaterThan(1)
+  })
+})
+
+describe('drawFromBag', () => {
+  it('draws a valid character and shrinks the bag', () => {
+    const bag = newCharacterBag()
+    const [char, rest] = drawFromBag(bag)
+    expect(CHARACTER_TYPES).toContain(char)
+    expect(rest).toHaveLength(bag.length - 1)
   })
 
-  it("returns 'medicine-woman' for sessionId ending in '0009' (9 % 10 = 9)", () => {
-    expect(sessionToCharacter('0009')).toBe('medicine-woman')
+  it('refills when bag is empty', () => {
+    const [char, rest] = drawFromBag([])
+    expect(CHARACTER_TYPES).toContain(char)
+    expect(rest).toHaveLength(CHARACTER_TYPES.length - 1)
   })
 
-  it("returns 'caveman' for sessionId ending in '000f' (15 % 10 = 5 → caveman)", () => {
-    // CHARACTER_TYPES[5] = 'caveman': astronaut(0) robot(1) alien(2) hologram(3) monkey(4) caveman(5)
-    expect(sessionToCharacter('000f')).toBe('caveman')
-  })
-
-  it("returns 'astronaut' for sessionId ending in '000a' (10 % 10 = 0)", () => {
-    expect(sessionToCharacter('000a')).toBe('astronaut')
-  })
-
-  it('is stable: same input always returns same output', () => {
-    const id = 'some-session-id-abc1'
-    const first = sessionToCharacter(id)
-    const second = sessionToCharacter(id)
-    expect(first).toBe(second)
-  })
-
-  it('works with longer session IDs (uses last 4 hex chars)', () => {
-    // 'sess-' + 'feed' — parseInt('feed', 16) = 65261, 65261 % 10 = 1 → 'robot'
-    expect(sessionToCharacter('sess-feed')).toBe('robot')
+  it('all 10 characters are drawn before any repeat', () => {
+    let bag = newCharacterBag()
+    const drawn: string[] = []
+    for (let i = 0; i < CHARACTER_TYPES.length; i++) {
+      const [char, next] = drawFromBag(bag)
+      drawn.push(char)
+      bag = next
+    }
+    expect(new Set(drawn).size).toBe(CHARACTER_TYPES.length)
   })
 })

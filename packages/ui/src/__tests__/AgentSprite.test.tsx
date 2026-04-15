@@ -15,6 +15,7 @@ const mockSession: SessionRecord = {
   status: 'active',
   lastEventAt: '2024-01-01T00:01:00Z',
   pendingApprovals: 0,
+  character: 'astronaut',
 }
 
 function makeMockCtx() {

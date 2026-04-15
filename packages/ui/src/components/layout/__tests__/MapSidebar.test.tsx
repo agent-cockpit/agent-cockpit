@@ -28,7 +28,6 @@ vi.mock('../../../store/index.js', () => ({
 }))
 
 vi.mock('../../office/characterMapping.js', () => ({
-  sessionToCharacter: (_id: string) => 'astronaut',
   characterFaceUrl: (char: string) => `/sprites/faces/${char}-face.png`,
   CHARACTER_TYPES: ['astronaut'],
 }))
@@ -45,6 +44,7 @@ function makeSession(overrides: Partial<SessionRecord> = {}): SessionRecord {
     status: overrides.status ?? 'active',
     lastEventAt: overrides.lastEventAt ?? '2026-04-13T00:00:00.000Z',
     pendingApprovals: overrides.pendingApprovals ?? 0,
+    character: overrides.character ?? 'astronaut',
   }
 }
 
