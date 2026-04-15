@@ -119,4 +119,37 @@ describe('stepNpcBehaviors', () => {
     expect(next.modes['moving-one']).toBe('wander')
     expect(next.positions['moving-one']).not.toEqual(positions['moving-one'])
   })
+
+  it('resumes paused NPC movement once interaction pause is removed', () => {
+    const sessions = [
+      { sessionId: 'chatting-session', status: 'active', pendingApprovals: 0 },
+    ]
+    const positions = {
+      'chatting-session': { x: 640, y: 420 },
+    }
+
+    const pausedStep = stepNpcBehaviors({
+      sessions,
+      positions,
+      deltaMs: 800,
+      tick: 30,
+      worldWidth: 2200,
+      worldHeight: 1500,
+      pausedSessionIds: new Set(['chatting-session']),
+    })
+    const resumedStep = stepNpcBehaviors({
+      sessions,
+      positions: pausedStep.positions,
+      deltaMs: 800,
+      tick: 31,
+      worldWidth: 2200,
+      worldHeight: 1500,
+      pausedSessionIds: new Set(),
+    })
+
+    expect(pausedStep.modes['chatting-session']).toBe('paused')
+    expect(pausedStep.positions['chatting-session']).toEqual(positions['chatting-session'])
+    expect(resumedStep.modes['chatting-session']).toBe('wander')
+    expect(resumedStep.positions['chatting-session']).not.toEqual(positions['chatting-session'])
+  })
 })

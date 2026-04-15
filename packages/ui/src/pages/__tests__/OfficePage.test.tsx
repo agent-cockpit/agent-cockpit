@@ -1,6 +1,25 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { render, screen, act, fireEvent } from '@testing-library/react'
 
+const { engineInstances, stepNpcBehaviorsMock } = vi.hoisted(() => ({
+  engineInstances: [] as Array<{ update: (deltaMs: number) => void; render: () => void }>,
+  stepNpcBehaviorsMock: vi.fn((input: {
+    sessions: ReadonlyArray<{ sessionId: string; pendingApprovals?: number }>
+    positions: Record<string, { x: number; y: number }>
+    pausedSessionIds?: ReadonlySet<string>
+  }) => {
+    const nextPositions: Record<string, { x: number; y: number }> = {}
+    for (const [sessionId, pos] of Object.entries(input.positions)) {
+      if (input.pausedSessionIds?.has(sessionId)) {
+        nextPositions[sessionId] = { x: pos.x, y: pos.y }
+      } else {
+        nextPositions[sessionId] = { x: pos.x + 12, y: pos.y + 4 }
+      }
+    }
+    return { positions: nextPositions, modes: {} }
+  }),
+}))
+
 // Track start/stop calls
 const startMock = vi.fn()
 const stopMock = vi.fn()
@@ -9,7 +28,9 @@ const stopMock = vi.fn()
 vi.mock('../../game/GameEngine.js', () => {
   return {
     GameEngine: class MockGameEngine {
-      constructor(_canvas: HTMLCanvasElement) {}
+      constructor(_canvas: HTMLCanvasElement) {
+        engineInstances.push(this as unknown as { update: (deltaMs: number) => void; render: () => void })
+      }
       start() { startMock() }
       stop() { stopMock() }
       update(_deltaMs: number) {}
@@ -31,7 +52,20 @@ const {
   setSessionDetailOpenMock: vi.fn(),
 }))
 
-const storeState = {
+interface MockStoreState {
+  events: Record<string, unknown[]>
+  sessions: Record<string, unknown>
+  pendingApprovalsBySession: Record<string, unknown[]>
+  selectedSessionId: string | null
+  selectedPlayerCharacter: string
+  sessionDetailOpen: boolean
+  selectSession: ReturnType<typeof vi.fn>
+  setHistoryMode: ReturnType<typeof vi.fn>
+  setPopupPreferredTab: ReturnType<typeof vi.fn>
+  setSessionDetailOpen: ReturnType<typeof vi.fn>
+}
+
+const storeState: MockStoreState = {
   events: {},
   sessions: {},
   pendingApprovalsBySession: {},
@@ -121,6 +155,10 @@ vi.mock('../../components/office/AgentSprite.js', () => ({
   drawAgentSprite: vi.fn(),
 }))
 
+vi.mock('../../game/NpcBehavior.js', () => ({
+  stepNpcBehaviors: stepNpcBehaviorsMock,
+}))
+
 import { OfficePage } from '../OfficePage.js'
 import { scrollToSession } from '../OfficePage.js'
 import { gameState } from '../../game/GameState.js'
@@ -166,13 +204,28 @@ function spriteRectsOverlap(
   )
 }
 
+function runEngineFrame(deltaMs = 16): void {
+  const engine = engineInstances.at(-1)
+  if (!engine) {
+    throw new Error('Engine instance not created')
+  }
+  act(() => {
+    engine.update(deltaMs)
+  })
+}
+
 describe('OfficePage canvas mount', () => {
   beforeEach(() => {
     window.localStorage.clear()
     startMock.mockClear()
     stopMock.mockClear()
+    stepNpcBehaviorsMock.mockClear()
+    engineInstances.length = 0
     selectSessionMock.mockClear()
     setHistoryModeMock.mockClear()
+    storeState.sessions = {}
+    storeState.pendingApprovalsBySession = {}
+    storeState.selectedSessionId = null
     storeState.selectedPlayerCharacter = 'astronaut'
     storeState.sessionDetailOpen = false
     imageInstances.length = 0
@@ -414,6 +467,74 @@ describe('OfficePage canvas mount', () => {
     expect(gameState.player.x).toBe(1234)
     expect(gameState.player.y).toBe(567)
     expect(gameState.player.direction).toBe('north-west')
+  })
+
+  it('passes pending-approval sessions into npc behavior step for center-attention routing', () => {
+    const attentionSession = {
+      sessionId: 'attention-session',
+      provider: 'claude',
+      workspacePath: '/test',
+      startedAt: '2024-01-01T00:00:00Z',
+      status: 'active',
+      lastEventAt: '2024-01-01T00:01:00Z',
+      pendingApprovals: 2,
+    }
+    ;(useActiveSessions as ReturnType<typeof vi.fn>).mockReturnValue([attentionSession])
+    storeState.sessions = { 'attention-session': attentionSession }
+
+    render(<OfficePage />)
+    runEngineFrame(16)
+
+    const latestCall = stepNpcBehaviorsMock.mock.calls.at(-1)?.[0]
+    expect(latestCall).toBeDefined()
+    if (!latestCall) return
+    expect(latestCall.sessions).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          sessionId: 'attention-session',
+          pendingApprovals: 2,
+        }),
+      ]),
+    )
+  })
+
+  it('pauses selected NPC movement while popup is open and resumes after close', () => {
+    const session = {
+      sessionId: 'pause-session',
+      provider: 'claude',
+      workspacePath: '/test',
+      startedAt: '2024-01-01T00:00:00Z',
+      status: 'active',
+      lastEventAt: '2024-01-01T00:01:00Z',
+      pendingApprovals: 0,
+    }
+    ;(useActiveSessions as ReturnType<typeof vi.fn>).mockReturnValue([session])
+    storeState.sessions = { 'pause-session': session }
+
+    const { rerender } = render(<OfficePage />)
+    expect(gameState.npcs['pause-session']).toBeDefined()
+    const initial = { ...(gameState.npcs['pause-session']!) }
+
+    runEngineFrame(16)
+    const moved = { ...gameState.npcs['pause-session'] }
+    expect(moved.x).toBeGreaterThan(initial.x)
+
+    storeState.selectedSessionId = 'pause-session'
+    storeState.sessionDetailOpen = true
+    act(() => {
+      rerender(<OfficePage />)
+    })
+    runEngineFrame(16)
+    const paused = { ...gameState.npcs['pause-session'] }
+    expect(paused).toEqual(moved)
+
+    storeState.sessionDetailOpen = false
+    act(() => {
+      rerender(<OfficePage />)
+    })
+    runEngineFrame(16)
+    const resumed = { ...gameState.npcs['pause-session'] }
+    expect(resumed.x).toBeGreaterThan(paused.x)
   })
 })
 
