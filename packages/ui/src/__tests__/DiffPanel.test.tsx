@@ -215,6 +215,7 @@ describe('DIFF-03: Summary banner', () => {
           status: 'active',
           lastEventAt: T_START,
           pendingApprovals: 0,
+          character: 'astronaut',
         },
       },
     })

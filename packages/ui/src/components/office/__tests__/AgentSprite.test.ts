@@ -63,8 +63,6 @@ describe('drawAgentSprite — imageSmoothingEnabled', () => {
 
     // Build imageCache pre-populated so drawAgentSprite finds the img immediately
     // The cache key is `/sprites/${characterType}-sheet.png`
-    // sessionToCharacter uses the last 4 hex chars of sessionId modulo 10
-    // 'test-sess-0000' -> last 4 = '0000' -> parseInt('0000', 16) = 0 -> 0 % 10 = 0 -> 'astronaut'
     const imageCache = new Map<string, HTMLImageElement>()
     imageCache.set('/sprites/astronaut-sheet.png', img)
 
@@ -77,6 +75,7 @@ describe('drawAgentSprite — imageSmoothingEnabled', () => {
       status: 'active',
       lastEventAt: '2024-01-01T00:01:00Z',
       pendingApprovals: 0,
+      character: 'astronaut',
     } as import('../../../store/index.js').SessionRecord
 
     drawAgentSprite({

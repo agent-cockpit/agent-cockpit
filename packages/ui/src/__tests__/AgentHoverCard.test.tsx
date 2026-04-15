@@ -12,6 +12,7 @@ const claudeSession: SessionRecord = {
   status: 'active',
   lastEventAt: '2024-01-01T00:02:00Z',
   pendingApprovals: 0,
+  character: 'astronaut',
 }
 
 const codexSession: SessionRecord = {

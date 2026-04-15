@@ -1,5 +1,6 @@
 import type { NormalizedEvent } from '@cockpit/shared'
 import type { AppStore, SessionRecord } from './index.js'
+import type { CharacterType } from '../components/office/characterMapping.js'
 
 /**
  * Pure reducer: applies a single NormalizedEvent to the sessions map.
@@ -13,6 +14,7 @@ import type { AppStore, SessionRecord } from './index.js'
 export function applyEventToSessions(
   state: Pick<AppStore, 'sessions'>,
   event: NormalizedEvent,
+  character?: CharacterType,
 ): Pick<AppStore, 'sessions'> {
   const sessions = { ...state.sessions }
   const now = event.timestamp
@@ -27,6 +29,7 @@ export function applyEventToSessions(
         status: 'active',
         lastEventAt: now,
         pendingApprovals: 0,
+        character: character ?? 'astronaut',
         managedByDaemon: event.managedByDaemon ?? (event.provider === 'codex'),
         canSendMessage: event.canSendMessage ?? (event.provider === 'codex'),
         canTerminateSession: event.canTerminateSession ?? (event.provider === 'codex'),

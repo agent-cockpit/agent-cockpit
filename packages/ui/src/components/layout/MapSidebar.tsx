@@ -3,7 +3,7 @@ import { useActiveSessions } from '../../store/selectors.js'
 import { useStore } from '../../store/index.js'
 import type { SessionStatus } from '../../store/index.js'
 import { LaunchSessionModal } from '../sessions/LaunchSessionModal.js'
-import { sessionToCharacter, characterFaceUrl } from '../office/characterMapping.js'
+import { characterFaceUrl } from '../office/characterMapping.js'
 import type { CharacterType } from '../office/characterMapping.js'
 
 interface Props {
@@ -123,7 +123,7 @@ export function MapSidebar({ onFocusSession }: Props) {
               </>
             )}
             <div className="flex items-start gap-3">
-              <FaceAvatar character={sessionToCharacter(session.sessionId)} />
+              <FaceAvatar character={session.character} />
               <div className="min-w-0 flex-1">
                 <div className="flex items-center gap-2">
                   <span className="min-w-0 flex-1 truncate text-xs font-semibold text-foreground [font-family:var(--font-mono-data)] uppercase tracking-wide">{projectName}</span>
