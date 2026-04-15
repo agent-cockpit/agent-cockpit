@@ -164,8 +164,14 @@ export class ClaudeLauncher {
               proc.stdin.write(`${content}\n`);
             },
             terminateSession: () => {
-              if (!proc.killed) {
+              const hasExited = proc.exitCode !== null && proc.exitCode !== undefined;
+              if (proc.killed || hasExited) {
+                return;
+              }
+              try {
                 proc.kill();
+              } catch {
+                // Process can exit between state check and kill; terminate remains idempotent.
               }
             },
             isActive: () => !proc.killed && (proc.exitCode === null || proc.exitCode === undefined),

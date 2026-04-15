@@ -119,12 +119,7 @@ export class CodexAdapter {
     // Cleanup on exit
     proc.on('exit', (code) => {
       this.proc = null;
-      // Auto-deny all pending approvals
-      for (const [, { approvalId, timer }] of this.pendingCodexApprovals) {
-        clearTimeout(timer);
-        codexApprovalResolvers.delete(approvalId);
-      }
-      this.pendingCodexApprovals.clear();
+      this.clearPendingApprovals();
 
       if (this.parserCtx.sessionStartEmitted) {
         this.onEvent({
@@ -242,11 +237,21 @@ export class CodexAdapter {
   // stop()
   // -------------------------------------------------------------------------
   stop(): void {
-    if (this.proc && !this.proc.killed) {
-      this.proc.kill();
-    }
+    const proc = this.proc;
     this.proc = null;
     this.currentThreadId = null;
+
+    this.clearPendingApprovals();
+
+    if (!proc || proc.killed) {
+      return;
+    }
+
+    try {
+      proc.kill();
+    } catch {
+      // Process may already be gone (e.g. late terminate); stop() must be safe.
+    }
   }
 
   async sendChatMessage(message: string): Promise<void> {
@@ -393,6 +398,14 @@ export class CodexAdapter {
 
     // Emit event so UI receives it
     this.onEvent(event);
+  }
+
+  private clearPendingApprovals(): void {
+    for (const [, { approvalId, timer }] of this.pendingCodexApprovals) {
+      clearTimeout(timer);
+      codexApprovalResolvers.delete(approvalId);
+    }
+    this.pendingCodexApprovals.clear();
   }
 
   private emitSessionStartIfNeeded(): void {
