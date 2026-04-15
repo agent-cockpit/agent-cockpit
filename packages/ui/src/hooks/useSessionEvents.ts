@@ -1,4 +1,5 @@
 import { useEffect } from 'react'
+import type { NormalizedEvent } from '@cockpit/shared'
 import { useStore } from '../store/index.js'
 
 // WS_URL defaults to the daemon's WebSocket port.
@@ -10,6 +11,33 @@ const MAX_RETRIES = 12
 let ws: WebSocket | null = null
 let retries = 0
 let retryTimer: ReturnType<typeof setTimeout> | null = null
+const CATCHUP_FALLBACK_FLUSH_MS = 800
+
+interface CatchupCompleteMessage {
+  type: 'catchup_complete'
+  lastSeenSequence: number
+  latestSequenceNumber: number
+}
+
+function isCatchupCompleteMessage(value: unknown): value is CatchupCompleteMessage {
+  if (!value || typeof value !== 'object') return false
+  const msg = value as Record<string, unknown>
+  return (
+    msg['type'] === 'catchup_complete' &&
+    typeof msg['lastSeenSequence'] === 'number' &&
+    typeof msg['latestSequenceNumber'] === 'number'
+  )
+}
+
+function isNormalizedEvent(value: unknown): value is NormalizedEvent & { sequenceNumber?: number } {
+  if (!value || typeof value !== 'object') return false
+  const event = value as Record<string, unknown>
+  return (
+    typeof event['type'] === 'string' &&
+    typeof event['sessionId'] === 'string' &&
+    typeof event['timestamp'] === 'string'
+  )
+}
 
 /**
  * Open a WebSocket connection to the daemon.
@@ -26,7 +54,7 @@ let retryTimer: ReturnType<typeof setTimeout> | null = null
  */
 export function connectDaemon(): void {
   // Read lastSeenSequence at call time — critical for correct reconnect behavior
-  const { setWsStatus, recordSequence, applyEvent, lastSeenSequence } =
+  const { setWsStatus, recordSequence, applyEvent, applyEventsBatch, lastSeenSequence } =
     useStore.getState()
 
   if (ws && (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING)) {
@@ -39,6 +67,37 @@ export function connectDaemon(): void {
   const socket = new WebSocket(url)
   ws = socket
   console.log('[WS] socket created, readyState:', socket.readyState)
+  const replayBuffer: NormalizedEvent[] = []
+  let replayMaxSequence = lastSeenSequence
+  let waitingForCatchupComplete = lastSeenSequence === 0
+  let catchupFallbackTimer: ReturnType<typeof setTimeout> | null = null
+
+  function clearCatchupFallback(): void {
+    if (!catchupFallbackTimer) return
+    clearTimeout(catchupFallbackTimer)
+    catchupFallbackTimer = null
+  }
+
+  function flushReplayBuffer(sequenceOverride?: number): void {
+    if (!waitingForCatchupComplete) return
+    waitingForCatchupComplete = false
+    clearCatchupFallback()
+    if (replayBuffer.length > 0) {
+      applyEventsBatch(replayBuffer)
+      replayBuffer.length = 0
+    }
+    const nextSequence = typeof sequenceOverride === 'number' ? sequenceOverride : replayMaxSequence
+    recordSequence(nextSequence)
+  }
+
+  function scheduleCatchupFallback(): void {
+    if (!waitingForCatchupComplete) return
+    clearCatchupFallback()
+    catchupFallbackTimer = setTimeout(() => {
+      console.warn('[WS] catchup_complete timeout — applying buffered replay events')
+      flushReplayBuffer()
+    }, CATCHUP_FALLBACK_FLUSH_MS)
+  }
 
   socket.onopen = () => {
     console.log('[WS] connected')
@@ -48,12 +107,34 @@ export function connectDaemon(): void {
 
   socket.onmessage = (e) => {
     try {
-      const event = JSON.parse(e.data as string)
-      console.log('[WS] message received:', event.type, event.sequenceNumber)
-      if (typeof event.sequenceNumber === 'number') {
-        recordSequence(event.sequenceNumber)
+      const payload = JSON.parse(e.data as string)
+
+      if (isCatchupCompleteMessage(payload)) {
+        console.log('[WS] catchup complete:', payload.latestSequenceNumber)
+        flushReplayBuffer(payload.latestSequenceNumber)
+        return
       }
-      applyEvent(event)
+
+      if (!isNormalizedEvent(payload)) {
+        console.warn('[WS] ignoring unrecognized message payload')
+        return
+      }
+
+      console.log('[WS] message received:', payload.type, payload.sequenceNumber)
+      if (typeof payload.sequenceNumber === 'number') {
+        replayMaxSequence = Math.max(replayMaxSequence, payload.sequenceNumber)
+      }
+
+      if (waitingForCatchupComplete) {
+        replayBuffer.push(payload)
+        scheduleCatchupFallback()
+        return
+      }
+
+      if (typeof payload.sequenceNumber === 'number') {
+        recordSequence(payload.sequenceNumber)
+      }
+      applyEvent(payload)
     } catch (err) {
       console.error('[WS] applyEvent error:', err)
     }
@@ -65,6 +146,9 @@ export function connectDaemon(): void {
     // In React StrictMode, cleanup closes a connecting socket while a new one
     // is already assigned to `ws` — the stale onclose must not null it out.
     if (ws !== socket) return
+    clearCatchupFallback()
+    waitingForCatchupComplete = false
+    replayBuffer.length = 0
     setWsStatus('disconnected')
     ws = null
     if (retries < MAX_RETRIES) {

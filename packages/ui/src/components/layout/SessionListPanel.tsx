@@ -16,7 +16,6 @@ export function SessionListPanel() {
   const selectedSessionId = useStore((s) => s.selectedSessionId)
   const sessionsById = useStore((s) => s.sessions)
   const wsStatus = useStore((s) => s.wsStatus)
-  console.log('[DEBUG] sessions:', sessions, 'store sessions:', useStore.getState().sessions, 'wsStatus:', useStore.getState().wsStatus, 'lastSeenSequence:', useStore.getState().lastSeenSequence)
   const [launchOpen, setLaunchOpen] = useState(false)
   const [terminatingSessionId, setTerminatingSessionId] = useState<string | null>(null)
   const [confirmTerminateSessionId, setConfirmTerminateSessionId] = useState<string | null>(null)

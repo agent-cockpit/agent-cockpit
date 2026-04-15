@@ -43,6 +43,91 @@ const SPAWN_SLOTS: ReadonlyArray<{ x: number; y: number }> = [
 const SPAWN_JITTER = 16
 const SPRITE_SIZE = 42
 const INTERACT_RADIUS_PX = 64
+const NPC_POSITION_STORAGE_KEY = 'cockpit.npc.positions.v1'
+const PLAYER_STATE_STORAGE_KEY = 'cockpit.player.state.v1'
+
+interface WorldPosition {
+  x: number
+  y: number
+}
+
+type StoredNpcPositions = Record<string, WorldPosition>
+type StoredPlayerState = WorldPosition & { direction: Direction }
+
+function readStoredNpcPositions(): StoredNpcPositions {
+  if (typeof window === 'undefined') {
+    return {}
+  }
+
+  try {
+    const raw = window.localStorage.getItem(NPC_POSITION_STORAGE_KEY)
+    if (!raw) return {}
+    const parsed = JSON.parse(raw) as unknown
+    if (!parsed || typeof parsed !== 'object') return {}
+    const normalized: StoredNpcPositions = {}
+    for (const [sessionId, value] of Object.entries(parsed as Record<string, unknown>)) {
+      if (!value || typeof value !== 'object') continue
+      const pos = value as Record<string, unknown>
+      const x = pos['x']
+      const y = pos['y']
+      if (typeof x !== 'number' || typeof y !== 'number') continue
+      if (!Number.isFinite(x) || !Number.isFinite(y)) continue
+      normalized[sessionId] = { x, y }
+    }
+    return normalized
+  } catch {
+    return {}
+  }
+}
+
+function writeStoredNpcPositions(positions: StoredNpcPositions): void {
+  if (typeof window === 'undefined') {
+    return
+  }
+  try {
+    window.localStorage.setItem(NPC_POSITION_STORAGE_KEY, JSON.stringify(positions))
+  } catch {
+    // Ignore storage failures and keep in-memory positions authoritative.
+  }
+}
+
+function isDirection(value: unknown): value is Direction {
+  return typeof value === 'string' && value in DIRECTION_ROWS
+}
+
+function readStoredPlayerState(): StoredPlayerState | null {
+  if (typeof window === 'undefined') {
+    return null
+  }
+
+  try {
+    const raw = window.localStorage.getItem(PLAYER_STATE_STORAGE_KEY)
+    if (!raw) return null
+    const parsed = JSON.parse(raw) as unknown
+    if (!parsed || typeof parsed !== 'object') return null
+    const payload = parsed as Record<string, unknown>
+    const x = payload['x']
+    const y = payload['y']
+    const direction = payload['direction']
+    if (typeof x !== 'number' || typeof y !== 'number') return null
+    if (!Number.isFinite(x) || !Number.isFinite(y)) return null
+    if (!isDirection(direction)) return null
+    return { x, y, direction }
+  } catch {
+    return null
+  }
+}
+
+function writeStoredPlayerState(state: StoredPlayerState): void {
+  if (typeof window === 'undefined') {
+    return
+  }
+  try {
+    window.localStorage.setItem(PLAYER_STATE_STORAGE_KEY, JSON.stringify(state))
+  } catch {
+    // Ignore storage failures and keep in-memory player state authoritative.
+  }
+}
 
 function isTextInputFocused(active: Element | null): boolean {
   return (
@@ -226,6 +311,9 @@ export function OfficePage() {
   const interactableSessionRef = useRef<string | null>(null)
   const interactButtonAnchorRef = useRef<HTMLDivElement | null>(null)
   const balloonRefsMap = useRef<Map<string, HTMLDivElement | null>>(new Map())
+  const persistedNpcPositionsRef = useRef<StoredNpcPositions>(readStoredNpcPositions())
+  const persistedPlayerStateRef = useRef<StoredPlayerState | null>(null)
+  const lastPlayerPersistAtRef = useRef<number>(0)
 
   function findNearestInteractableSessionId(): string | null {
     const playerCenterX = gameState.player.x + SPRITE_SIZE / 2
@@ -348,23 +436,64 @@ export function OfficePage() {
     playerImgRef.current = playerImg
   }, [selectedPlayerCharacter])
 
-  // Seed gameState.npcs from sessions — assign walkable spawn slot on first appearance only
   useEffect(() => {
+    const persisted = readStoredPlayerState()
+    if (!persisted) return
+    gameState.player.x = persisted.x
+    gameState.player.y = persisted.y
+    gameState.player.direction = persisted.direction
+    persistedPlayerStateRef.current = persisted
+  }, [])
+
+  // Seed gameState.npcs from sessions — assign walkable spawn slot on first appearance only.
+  // Positions are persisted by sessionId so reload/rerender keeps the same world location.
+  useEffect(() => {
+    const persistedNpcPositions = persistedNpcPositionsRef.current
+    let didMutatePersistedPositions = false
+
     sessions.forEach((session, i) => {
       if (!gameState.npcs[session.sessionId]) {
+        const persisted = persistedNpcPositions[session.sessionId]
+        if (persisted) {
+          gameState.npcs[session.sessionId] = { x: persisted.x, y: persisted.y }
+          return
+        }
         const slot = SPAWN_SLOTS[i % SPAWN_SLOTS.length]
         const cycle = Math.floor(i / SPAWN_SLOTS.length)
-        gameState.npcs[session.sessionId] = {
+        const seededPos = {
           x: slot.x + (cycle > 0 ? (cycle % 3) * SPAWN_JITTER : 0),
           y: slot.y + (cycle > 0 ? Math.floor(cycle / 3) * SPAWN_JITTER : 0),
         }
+        gameState.npcs[session.sessionId] = seededPos
+        persistedNpcPositions[session.sessionId] = seededPos
+        didMutatePersistedPositions = true
       }
     })
+
     // Clean up sessions that ended
     const activeIds = new Set(sessions.map(s => s.sessionId))
     Object.keys(gameState.npcs).forEach(id => {
-      if (!activeIds.has(id)) delete gameState.npcs[id]
+      if (!activeIds.has(id)) {
+        delete gameState.npcs[id]
+        if (persistedNpcPositions[id]) {
+          delete persistedNpcPositions[id]
+          didMutatePersistedPositions = true
+        }
+        return
+      }
+
+      const pos = gameState.npcs[id]
+      if (!pos) return
+      const persisted = persistedNpcPositions[id]
+      if (!persisted || persisted.x !== pos.x || persisted.y !== pos.y) {
+        persistedNpcPositions[id] = { x: pos.x, y: pos.y }
+        didMutatePersistedPositions = true
+      }
     })
+
+    if (didMutatePersistedPositions) {
+      writeStoredNpcPositions(persistedNpcPositions)
+    }
   }, [sessions])
 
   // Game engine lifecycle: start on mount, stop on cleanup
@@ -400,6 +529,27 @@ export function OfficePage() {
         const moved = Math.abs(gameState.player.x - prevX) > 0.1 || Math.abs(gameState.player.y - prevY) > 0.1
         if (moved) {
           audioSystem.playFootstep()
+        }
+        const playerDirection = (gameState.player.direction in DIRECTION_ROWS
+          ? gameState.player.direction
+          : 'south') as Direction
+        const playerState: StoredPlayerState = {
+          x: gameState.player.x,
+          y: gameState.player.y,
+          direction: playerDirection,
+        }
+        const persistedState = persistedPlayerStateRef.current
+        const didPlayerStateChange = !persistedState ||
+          persistedState.x !== playerState.x ||
+          persistedState.y !== playerState.y ||
+          persistedState.direction !== playerState.direction
+        if (didPlayerStateChange) {
+          const now = Date.now()
+          if (now - lastPlayerPersistAtRef.current >= 250) {
+            writeStoredPlayerState(playerState)
+            persistedPlayerStateRef.current = playerState
+            lastPlayerPersistAtRef.current = now
+          }
         }
         const cam = gameState.camera
         const zoom = cam.zoom  // = 2
@@ -552,6 +702,16 @@ export function OfficePage() {
       })
 
     return () => {
+      const playerDirection = (gameState.player.direction in DIRECTION_ROWS
+        ? gameState.player.direction
+        : 'south') as Direction
+      const finalPlayerState: StoredPlayerState = {
+        x: gameState.player.x,
+        y: gameState.player.y,
+        direction: playerDirection,
+      }
+      writeStoredPlayerState(finalPlayerState)
+      persistedPlayerStateRef.current = finalPlayerState
       engine.stop()
       detachInput()
     }

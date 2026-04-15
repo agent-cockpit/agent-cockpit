@@ -14,6 +14,7 @@ import type { ApprovalsSlice } from './approvalsSlice.js'
 
 export type SessionStatus = 'active' | 'ended' | 'error'
 export const PLAYER_CHARACTER_STORAGE_KEY = 'cockpit.player.character.v1'
+export const SESSION_CHARACTER_STORAGE_KEY = 'cockpit.session.characters.v1'
 
 function isCharacterType(value: string): value is CharacterType {
   return CHARACTER_TYPES.includes(value as CharacterType)
@@ -34,6 +35,63 @@ function readStoredPlayerCharacter(): CharacterType {
   } catch {
     return 'astronaut'
   }
+}
+
+function readStoredSessionCharacters(): Record<string, CharacterType> {
+  if (typeof window === 'undefined') {
+    return {}
+  }
+
+  try {
+    const raw = window.localStorage.getItem(SESSION_CHARACTER_STORAGE_KEY)
+    if (!raw) return {}
+    const parsed = JSON.parse(raw) as unknown
+    if (!parsed || typeof parsed !== 'object') return {}
+
+    const normalized: Record<string, CharacterType> = {}
+    for (const [sessionId, value] of Object.entries(parsed as Record<string, unknown>)) {
+      if (typeof sessionId !== 'string' || typeof value !== 'string' || !isCharacterType(value)) continue
+      normalized[sessionId] = value
+    }
+    return normalized
+  } catch {
+    return {}
+  }
+}
+
+let sessionCharacterCache: Record<string, CharacterType> | null = null
+
+function getSessionCharacterCache(): Record<string, CharacterType> {
+  if (!sessionCharacterCache) {
+    sessionCharacterCache = readStoredSessionCharacters()
+  }
+  return sessionCharacterCache
+}
+
+function persistSessionCharacterCache(): void {
+  if (typeof window === 'undefined' || !sessionCharacterCache) return
+  try {
+    window.localStorage.setItem(
+      SESSION_CHARACTER_STORAGE_KEY,
+      JSON.stringify(sessionCharacterCache),
+    )
+  } catch {
+    // Ignore storage failures and keep in-memory state authoritative.
+  }
+}
+
+function setStoredSessionCharacter(sessionId: string, character: CharacterType): void {
+  const cache = getSessionCharacterCache()
+  if (cache[sessionId] === character) return
+  cache[sessionId] = character
+  persistSessionCharacterCache()
+}
+
+function removeStoredSessionCharacter(sessionId: string): void {
+  const cache = getSessionCharacterCache()
+  if (!(sessionId in cache)) return
+  delete cache[sessionId]
+  persistSessionCharacterCache()
 }
 
 export interface SessionSummary {
@@ -75,6 +133,7 @@ interface SessionsSlice {
   sessions: Record<string, SessionRecord>
   characterBag: CharacterType[]
   applyEvent: (event: NormalizedEvent) => void
+  applyEventsBatch: (events: NormalizedEvent[]) => void
 }
 
 interface UiSlice {
@@ -115,22 +174,65 @@ interface HistorySlice {
 
 export type AppStore = SessionsSlice & UiSlice & WsSlice & EventsSlice & HistorySlice & ApprovalsSlice
 
+function reduceStoreWithEvent(
+  state: Pick<AppStore, 'sessions' | 'events' | 'pendingApprovalsBySession' | 'characterBag'>,
+  event: NormalizedEvent,
+): Pick<AppStore, 'sessions' | 'events' | 'pendingApprovalsBySession' | 'characterBag'> {
+  let characterBag = state.characterBag
+  let character: CharacterType | undefined
+  if (event.type === 'session_start') {
+    const existingCharacter = state.sessions[event.sessionId]?.character
+    if (existingCharacter) {
+      character = existingCharacter
+      setStoredSessionCharacter(event.sessionId, character)
+    } else {
+      const persistedCharacter = getSessionCharacterCache()[event.sessionId]
+      let assignedCharacter: CharacterType
+      if (persistedCharacter) {
+        assignedCharacter = persistedCharacter
+      } else {
+        ;[assignedCharacter, characterBag] = drawFromBag(characterBag)
+      }
+      character = assignedCharacter
+      setStoredSessionCharacter(event.sessionId, character)
+    }
+  } else if (event.type === 'session_end') {
+    removeStoredSessionCharacter(event.sessionId)
+  }
+  const sessionsPatch = applyEventToSessions(state, event, character)
+  const eventsPatch = applyEventToEvents(state, event)
+  const { pendingApprovalsBySession } = applyEventToApprovals(state, event)
+  return {
+    sessions: sessionsPatch.sessions,
+    events: eventsPatch.events,
+    pendingApprovalsBySession,
+    characterBag,
+  }
+}
+
 export const useStore = create<AppStore>()(
   subscribeWithSelector((set) => ({
     // sessionsSlice
     sessions: {},
     characterBag: newCharacterBag(),
     applyEvent: (event) =>
+      set((state) => reduceStoreWithEvent(state, event)),
+    applyEventsBatch: (events) =>
       set((state) => {
-        let characterBag = state.characterBag
-        let character: CharacterType | undefined
-        if (event.type === 'session_start' && !state.sessions[event.sessionId]) {
-          ;[character, characterBag] = drawFromBag(characterBag)
+        if (events.length === 0) return {}
+
+        let nextState: Pick<AppStore, 'sessions' | 'events' | 'pendingApprovalsBySession' | 'characterBag'> = {
+          sessions: state.sessions,
+          events: state.events,
+          pendingApprovalsBySession: state.pendingApprovalsBySession,
+          characterBag: state.characterBag,
         }
-        const sessionsPatch = applyEventToSessions(state, event, character)
-        const eventsPatch = applyEventToEvents(state, event)
-        const { pendingApprovalsBySession } = applyEventToApprovals(state, event)
-        return { ...sessionsPatch, ...eventsPatch, pendingApprovalsBySession, characterBag }
+
+        for (const event of events) {
+          nextState = reduceStoreWithEvent(nextState, event)
+        }
+
+        return nextState
       }),
 
     // eventsSlice
@@ -168,7 +270,8 @@ export const useStore = create<AppStore>()(
     wsStatus: 'disconnected',
     lastSeenSequence: 0,
     setWsStatus: (s) => set({ wsStatus: s }),
-    recordSequence: (n) => set({ lastSeenSequence: n }),
+    recordSequence: (n) =>
+      set((state) => ({ lastSeenSequence: Math.max(state.lastSeenSequence, n) })),
 
     // historySlice
     historySessions: {},

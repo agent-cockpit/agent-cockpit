@@ -46,6 +46,22 @@ export function handleConnection(
     }
   }
 
+  // Explicit catch-up boundary so clients can batch-apply replayed events
+  // and avoid transient intermediate UI states during initial load.
+  if (ws.readyState === WebSocket.OPEN) {
+    const latestSequenceNumber =
+      missed.length > 0
+        ? missed[missed.length - 1]?.sequenceNumber ?? lastSeenSequence
+        : lastSeenSequence
+    ws.send(
+      JSON.stringify({
+        type: 'catchup_complete',
+        lastSeenSequence,
+        latestSequenceNumber,
+      }),
+    )
+  }
+
   function emit(event: NormalizedEvent): void {
     if (deps?.emitEvent) {
       deps.emitEvent(event);

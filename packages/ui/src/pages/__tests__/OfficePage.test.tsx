@@ -34,6 +34,7 @@ const {
 const storeState = {
   events: {},
   sessions: {},
+  pendingApprovalsBySession: {},
   selectedSessionId: null,
   selectedPlayerCharacter: 'astronaut',
   sessionDetailOpen: false,
@@ -42,6 +43,8 @@ const storeState = {
   setPopupPreferredTab: setPopupPreferredTabMock,
   setSessionDetailOpen: setSessionDetailOpenMock,
 }
+const NPC_POSITION_STORAGE_KEY = 'cockpit.npc.positions.v1'
+const PLAYER_STATE_STORAGE_KEY = 'cockpit.player.state.v1'
 
 vi.mock('../../store/index.js', () => {
   const useStore = vi.fn((selector: (s: typeof storeState) => unknown) => selector(storeState))
@@ -125,6 +128,7 @@ import { useActiveSessions } from '../../store/selectors.js'
 
 describe('OfficePage canvas mount', () => {
   beforeEach(() => {
+    window.localStorage.clear()
     startMock.mockClear()
     stopMock.mockClear()
     selectSessionMock.mockClear()
@@ -328,6 +332,43 @@ describe('OfficePage canvas mount', () => {
     })
 
     expect(selectSessionMock).not.toHaveBeenCalled()
+  })
+
+  it('restores persisted NPC position for a known session id', () => {
+    window.localStorage.setItem(
+      NPC_POSITION_STORAGE_KEY,
+      JSON.stringify({
+        'persisted-session': { x: 777, y: 555 },
+      }),
+    )
+    ;(useActiveSessions as ReturnType<typeof vi.fn>).mockReturnValue([
+      {
+        sessionId: 'persisted-session',
+        provider: 'claude',
+        workspacePath: '/test',
+        startedAt: '2024-01-01T00:00:00Z',
+        status: 'active',
+        lastEventAt: '2024-01-01T00:01:00Z',
+        pendingApprovals: 0,
+      },
+    ])
+
+    render(<OfficePage />)
+
+    expect(gameState.npcs['persisted-session']).toEqual({ x: 777, y: 555 })
+  })
+
+  it('restores persisted player position and direction on mount', () => {
+    window.localStorage.setItem(
+      PLAYER_STATE_STORAGE_KEY,
+      JSON.stringify({ x: 1234, y: 567, direction: 'north-west' }),
+    )
+
+    render(<OfficePage />)
+
+    expect(gameState.player.x).toBe(1234)
+    expect(gameState.player.y).toBe(567)
+    expect(gameState.player.direction).toBe('north-west')
   })
 })
 
