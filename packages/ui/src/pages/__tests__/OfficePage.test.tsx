@@ -125,6 +125,46 @@ import { OfficePage } from '../OfficePage.js'
 import { scrollToSession } from '../OfficePage.js'
 import { gameState } from '../../game/GameState.js'
 import { useActiveSessions } from '../../store/selectors.js'
+import { CollisionMap, PLAYER_HITBOX } from '../../game/CollisionMap.js'
+
+const PLAYER_SPRITE_SIZE_PX = 64
+
+function hitboxesOverlap(
+  playerPos: { x: number; y: number },
+  npcPos: { x: number; y: number },
+): boolean {
+  const player = {
+    x: playerPos.x + PLAYER_HITBOX.offsetX,
+    y: playerPos.y + PLAYER_HITBOX.offsetY,
+    w: PLAYER_HITBOX.w,
+    h: PLAYER_HITBOX.h,
+  }
+  const npc = {
+    x: npcPos.x + PLAYER_HITBOX.offsetX,
+    y: npcPos.y + PLAYER_HITBOX.offsetY,
+    w: PLAYER_HITBOX.w,
+    h: PLAYER_HITBOX.h,
+  }
+
+  return (
+    player.x < npc.x + npc.w &&
+    player.x + player.w > npc.x &&
+    player.y < npc.y + npc.h &&
+    player.y + player.h > npc.y
+  )
+}
+
+function spriteRectsOverlap(
+  playerPos: { x: number; y: number },
+  npcPos: { x: number; y: number },
+): boolean {
+  return (
+    playerPos.x < npcPos.x + PLAYER_SPRITE_SIZE_PX &&
+    playerPos.x + PLAYER_SPRITE_SIZE_PX > npcPos.x &&
+    playerPos.y < npcPos.y + PLAYER_SPRITE_SIZE_PX &&
+    playerPos.y + PLAYER_SPRITE_SIZE_PX > npcPos.y
+  )
+}
 
 describe('OfficePage canvas mount', () => {
   beforeEach(() => {
@@ -266,9 +306,14 @@ describe('OfficePage canvas mount', () => {
     // Merged avatar-chat behavior snaps camera to NPC origin-based focus helper.
     expect(gameState.camera.targetX).toBe(200)
     expect(gameState.camera.targetY).toBe(150)
-    // Player must teleport to NPC position so update() preserves camera target on next tick
-    expect(gameState.player.x).toBe(400)
-    expect(gameState.player.y).toBe(300)
+    // Player must teleport near the NPC but not overlap its occupied hitbox.
+    expect(gameState.player.x === 400 && gameState.player.y === 300).toBe(false)
+    expect(
+      hitboxesOverlap(
+        { x: gameState.player.x, y: gameState.player.y },
+        { x: 400, y: 300 },
+      ),
+    ).toBe(false)
   })
 
   it('canvas click outside any NPC does not call selectSession', () => {
@@ -410,7 +455,7 @@ describe('OfficePage scrollToSession', () => {
     expect(gameState.camera.y).toBe(150)
   })
 
-  it('keeps player position synchronized with focused NPC position', () => {
+  it('teleports player to a nearby free spot instead of overlapping the NPC', () => {
     render(<OfficePage />)
     gameState.npcs['test-session-1'] = { x: 400, y: 300 }
 
@@ -418,8 +463,79 @@ describe('OfficePage scrollToSession', () => {
       scrollToSession('test-session-1')
     })
 
+    expect(gameState.player.x === 400 && gameState.player.y === 300).toBe(false)
+    expect(
+      hitboxesOverlap(
+        { x: gameState.player.x, y: gameState.player.y },
+        { x: 400, y: 300 },
+      ),
+    ).toBe(false)
+    expect(
+      spriteRectsOverlap(
+        { x: gameState.player.x, y: gameState.player.y },
+        { x: 400, y: 300 },
+      ),
+    ).toBe(false)
+  })
+
+  it('selects the nearest available spot when closer adjacent spots are occupied', () => {
+    render(<OfficePage />)
+    gameState.npcs['test-session-1'] = { x: 400, y: 300 }
+    // Block nearest north/west/east candidates (32px away), leaving south as closest free.
+    gameState.npcs['block-north'] = { x: 400, y: 268 }
+    gameState.npcs['block-west'] = { x: 368, y: 300 }
+    gameState.npcs['block-east'] = { x: 432, y: 300 }
+
+    act(() => {
+      scrollToSession('test-session-1')
+    })
+
     expect(gameState.player.x).toBe(400)
-    expect(gameState.player.y).toBe(300)
+    expect(gameState.player.y).toBe(364)
+    expect(
+      hitboxesOverlap(
+        { x: gameState.player.x, y: gameState.player.y },
+        { x: 400, y: 300 },
+      ),
+    ).toBe(false)
+    expect(
+      spriteRectsOverlap(
+        { x: gameState.player.x, y: gameState.player.y },
+        { x: 400, y: 300 },
+      ),
+    ).toBe(false)
+  })
+
+  it('avoids teleporting into map obstacles when selecting a nearby spot', () => {
+    const overlapsSpy = vi.spyOn(CollisionMap.prototype, 'overlaps').mockImplementation((x, y, w, h) => (
+      x === 416 && y === 300 && w === PLAYER_HITBOX.w && h === PLAYER_HITBOX.h
+    ))
+    try {
+      render(<OfficePage />)
+      gameState.npcs['test-session-1'] = { x: 400, y: 300 }
+
+      act(() => {
+        scrollToSession('test-session-1')
+      })
+
+      expect(overlapsSpy).toHaveBeenCalled()
+      expect(gameState.player.x).toBe(400)
+      expect(gameState.player.y).toBe(236)
+      expect(
+        hitboxesOverlap(
+          { x: gameState.player.x, y: gameState.player.y },
+          { x: 400, y: 300 },
+        ),
+      ).toBe(false)
+      expect(
+        spriteRectsOverlap(
+          { x: gameState.player.x, y: gameState.player.y },
+          { x: 400, y: 300 },
+        ),
+      ).toBe(false)
+    } finally {
+      overlapsSpy.mockRestore()
+    }
   })
 
   it('is a safe no-op when the session id is unknown', () => {

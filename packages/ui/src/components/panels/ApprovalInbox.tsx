@@ -83,11 +83,12 @@ function formatProposedAction(raw: string): string {
 
 interface ApprovalCardProps {
   approval: PendingApproval
+  queuePosition: number
   disabled: boolean
   onDecision: (approvalId: string, decision: 'approve' | 'deny' | 'always_allow') => void
 }
 
-function ApprovalCard({ approval, disabled, onDecision }: ApprovalCardProps) {
+function ApprovalCard({ approval, queuePosition, disabled, onDecision }: ApprovalCardProps) {
   const formattedAction = formatProposedAction(approval.proposedAction)
   const buttonBase =
     'px-3 py-1.5 text-xs font-medium [font-family:var(--font-mono-data)] uppercase tracking-wide disabled:opacity-50 disabled:cursor-not-allowed transition-colors'
@@ -99,8 +100,12 @@ function ApprovalCard({ approval, disabled, onDecision }: ApprovalCardProps) {
 
       {/* Header: action type + risk badge */}
       <div className="flex items-center gap-2 mb-2">
+        <span className="data-readout-dim text-[10px] tabular-nums">#{String(queuePosition).padStart(2, '0')}</span>
         <span className="[font-family:var(--font-mono-data)] text-xs font-semibold uppercase tracking-wide text-foreground">{formatActionType(approval.actionType)}</span>
         <RiskBadge level={approval.riskLevel as RiskLevel} />
+        <span className="ml-auto data-readout-dim text-[10px] tabular-nums">
+          {new Date(approval.timestamp).toLocaleTimeString()}
+        </span>
       </div>
 
       {/* Proposed action */}
@@ -141,7 +146,7 @@ function ApprovalCard({ approval, disabled, onDecision }: ApprovalCardProps) {
           className={`${buttonBase} bg-[var(--color-cockpit-green)]/20 border border-[var(--color-cockpit-green)]/50 text-[var(--color-cockpit-green)] hover:bg-[var(--color-cockpit-green)]/30`}
           aria-label="Approve"
         >
-          Approve
+          Approve Once
         </button>
         <button
           disabled={disabled}
@@ -157,7 +162,7 @@ function ApprovalCard({ approval, disabled, onDecision }: ApprovalCardProps) {
           className={`${buttonBase} bg-[color-mix(in_srgb,var(--color-cockpit-accent)_10%,transparent)] border border-[color-mix(in_srgb,var(--color-cockpit-accent)_40%,transparent)] text-[var(--color-cockpit-accent)] hover:bg-[color-mix(in_srgb,var(--color-cockpit-accent)_20%,transparent)]`}
           aria-label="Always Allow"
         >
-          Always Allow
+          Always Allow Rule
         </button>
       </div>
     </div>
@@ -182,23 +187,49 @@ export function ApprovalInbox() {
     setDecidedIds((prev) => new Set([...prev, approvalId]))
   }
 
-  const visibleApprovals = approvals.filter((a) => !decidedIds.has(a.approvalId))
+  const riskRank: Record<string, number> = {
+    critical: 0,
+    high: 1,
+    medium: 2,
+    low: 3,
+  }
+
+  const visibleApprovals = approvals
+    .filter((a) => !decidedIds.has(a.approvalId))
+    .sort((a, b) => {
+      const riskDelta = (riskRank[a.riskLevel] ?? 9) - (riskRank[b.riskLevel] ?? 9)
+      if (riskDelta !== 0) return riskDelta
+      return b.timestamp.localeCompare(a.timestamp)
+    })
+
   const isConnected = wsStatus === 'connected'
 
   return (
     <div className="flex flex-col p-4 overflow-y-auto h-full">
       {/* Header */}
-      <div className="flex items-center gap-2 mb-4">
-        <h1 className="cockpit-label">Approval Queue</h1>
-        {!isConnected && (
+      <div className="mb-3 border border-border/70 bg-[var(--color-panel-surface)] px-3 py-2">
+        <div className="flex items-center gap-2">
+          <h1 className="cockpit-label">Approval Queue</h1>
+          <span className="data-readout text-[10px]">
+            <span className="data-readout-dim">PENDING:&nbsp;</span>
+            <span className="tabular-nums">{String(visibleApprovals.length).padStart(2, '0')}</span>
+          </span>
+        </div>
+        <p className="mt-1 text-[10px] [font-family:var(--font-mono-data)] text-muted-foreground">
+          Process approvals top-down. Higher-risk items are shown first.
+        </p>
+      </div>
+
+      {!isConnected && (
+        <div className="mb-3">
           <span
-            className="[font-family:var(--font-mono-data)] text-xs text-amber-200 bg-amber-500/20 border border-amber-400/40 px-1.5 py-0.5"
+            className="inline-flex [font-family:var(--font-mono-data)] text-xs text-amber-200 bg-amber-500/20 border border-amber-400/40 px-2 py-1"
             style={{ textShadow: '0 0 6px rgba(251,191,36,0.4)' }}
           >
-            Reconnecting...
+            Reconnecting... decisions are temporarily disabled.
           </span>
-        )}
-      </div>
+        </div>
+      )}
 
       {/* Content */}
       {visibleApprovals.length === 0 ? (
@@ -207,10 +238,11 @@ export function ApprovalInbox() {
         </div>
       ) : (
         <div>
-          {visibleApprovals.map((approval) => (
+          {visibleApprovals.map((approval, idx) => (
             <ApprovalCard
               key={approval.approvalId}
               approval={approval}
+              queuePosition={idx + 1}
               disabled={!isConnected}
               onDecision={handleDecision}
             />

@@ -35,15 +35,23 @@ export function InstancePopupHub({ open, onClose }: Props) {
   const popupPreferredTab = useStore((s) => s.popupPreferredTab)
   const setPopupPreferredTab = useStore((s) => s.setPopupPreferredTab)
   const wsStatus = useStore((s) => s.wsStatus)
-  const session = useStore((s) =>
+  const liveSession = useStore((s) =>
     selectedSessionId ? s.sessions[selectedSessionId] : undefined
+  )
+  const historySession = useStore((s) =>
+    selectedSessionId ? s.historySessions?.[selectedSessionId] : undefined
   )
   const [activeTab, setActiveTab] = useState<TabId>('approvals')
   const [isTerminating, setIsTerminating] = useState(false)
   const [terminateError, setTerminateError] = useState<string | null>(null)
   const [confirmTerminateOpen, setConfirmTerminateOpen] = useState(false)
 
-  const projectName = session?.workspacePath.split('/').at(-1) ?? 'Session'
+  const provider = (liveSession?.provider ?? historySession?.provider) as
+    | 'claude'
+    | 'codex'
+    | undefined
+  const workspacePath = liveSession?.workspacePath ?? historySession?.workspacePath
+  const projectName = workspacePath?.split('/').at(-1) ?? 'Session'
 
   useEffect(() => {
     if (!open) return
@@ -68,22 +76,22 @@ export function InstancePopupHub({ open, onClose }: Props) {
   }, [open, selectedSessionId])
 
   useEffect(() => {
-    if (!isTerminating || !session) return
-    if (session.status !== 'active') {
+    if (!isTerminating || !liveSession) return
+    if (liveSession.status !== 'active') {
       setIsTerminating(false)
       return
     }
-    if (session.reason) {
-      setTerminateError(session.reason)
+    if (liveSession.reason) {
+      setTerminateError(liveSession.reason)
       setIsTerminating(false)
     }
-  }, [isTerminating, session])
+  }, [isTerminating, liveSession])
 
   function handleTerminate(): void {
-    if (!session || !selectedSessionId) return
-    if (session.canTerminateSession !== true) {
+    if (!liveSession || !selectedSessionId) return
+    if (liveSession.canTerminateSession !== true) {
       setTerminateError(
-        session.reason ?? 'Session termination is unavailable for this session.',
+        liveSession.reason ?? 'Session termination is unavailable for this session.',
       )
       return
     }
@@ -95,13 +103,13 @@ export function InstancePopupHub({ open, onClose }: Props) {
   }
 
   function confirmTerminate(): void {
-    if (!session || !selectedSessionId) {
+    if (!liveSession || !selectedSessionId) {
       setConfirmTerminateOpen(false)
       return
     }
-    if (session.canTerminateSession !== true) {
+    if (liveSession.canTerminateSession !== true) {
       setTerminateError(
-        session.reason ?? 'Session termination is unavailable for this session.',
+        liveSession.reason ?? 'Session termination is unavailable for this session.',
       )
       setConfirmTerminateOpen(false)
       return
@@ -127,7 +135,7 @@ export function InstancePopupHub({ open, onClose }: Props) {
                      flex flex-col overflow-hidden border border-border/80
                      shadow-[0_0_40px_color-mix(in_srgb,var(--color-cockpit-accent)_16%,transparent),0_20px_60px_rgba(0,0,0,0.6)]"
           aria-label={`Session: ${projectName}`}
-          style={session ? getProviderAccentStyle(session.provider) : undefined}
+          style={provider ? getProviderAccentStyle(provider) : undefined}
         >
           {/* Header */}
           <div className="cockpit-frame-full flex items-center gap-3 px-4 py-3 border-b border-border shrink-0 bg-[var(--color-panel-surface)]">
@@ -136,12 +144,12 @@ export function InstancePopupHub({ open, onClose }: Props) {
             <Dialog.Title className="[font-family:var(--font-mono-data)] text-xs font-semibold text-foreground uppercase tracking-widest">
               {projectName}
             </Dialog.Title>
-            {session && (
-              <span className={`text-[9px] font-semibold uppercase tracking-wide px-1.5 py-0.5 ${session.provider === 'claude' ? 'badge-provider-claude' : 'badge-provider-codex'}`}>
-                {session.provider}
+            {provider && (
+              <span className={`text-[9px] font-semibold uppercase tracking-wide px-1.5 py-0.5 ${provider === 'claude' ? 'badge-provider-claude' : 'badge-provider-codex'}`}>
+                {provider}
               </span>
             )}
-            {session?.status === 'active' && session.canTerminateSession === true && (
+            {liveSession?.status === 'active' && liveSession.canTerminateSession === true && (
               <button
                 type="button"
                 onClick={handleTerminate}
@@ -151,9 +159,9 @@ export function InstancePopupHub({ open, onClose }: Props) {
                 {isTerminating ? 'Terminating...' : 'Terminate'}
               </button>
             )}
-            {session?.status === 'active' && session.canTerminateSession === false && (
+            {liveSession?.status === 'active' && liveSession.canTerminateSession === false && (
               <span className="text-[10px] text-muted-foreground">
-                {session.reason ?? 'Session termination is unavailable for this session.'}
+                {liveSession.reason ?? 'Session termination is unavailable for this session.'}
               </span>
             )}
             <Dialog.Close
@@ -208,9 +216,9 @@ export function InstancePopupHub({ open, onClose }: Props) {
             </div>
           </Tabs.Root>
           <TerminateSessionDialog
-            open={open && confirmTerminateOpen && !!session}
+            open={open && confirmTerminateOpen && !!liveSession}
             sessionName={projectName}
-            provider={session?.provider ?? 'claude'}
+            provider={liveSession?.provider ?? provider ?? 'claude'}
             isProcessing={isTerminating}
             onCancel={() => setConfirmTerminateOpen(false)}
             onConfirm={confirmTerminate}
