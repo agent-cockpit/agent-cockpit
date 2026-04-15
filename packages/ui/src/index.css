@@ -210,3 +210,21 @@
   filter: drop-shadow(0 0 4px var(--glow-color, transparent));
   image-rendering: pixelated;
 }
+
+/* Native form controls in dark surfaces (prevents dark text on dark backgrounds). */
+select,
+input,
+textarea {
+  color: var(--color-foreground);
+}
+
+select option,
+select optgroup {
+  color: var(--color-foreground);
+  background: var(--color-panel-surface);
+}
+
+input::placeholder,
+textarea::placeholder {
+  color: var(--color-cockpit-dim);
+}

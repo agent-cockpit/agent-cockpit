@@ -18,12 +18,14 @@ export function MemoryPanel() {
   const { sessionId: paramSessionId } = useParams<{ sessionId: string }>()
   const storeSessionId = useStore((s) => s.selectedSessionId)
   const sessionId = paramSessionId ?? storeSessionId ?? ''
-  const session = useStore((s) => s.sessions[sessionId ?? ''])
+  const liveSession = useStore((s) => s.sessions[sessionId ?? ''])
+  const historySession = useStore((s) => s.historySessions[sessionId ?? ''])
   const events = useStore((s) => getSessionEvents(s, sessionId ?? ''))
+  const bulkApplyEvents = useStore((s) => s.bulkApplyEvents)
   const historyMode = useStore((s) => s.historyMode)
 
   // CLAUDE.md state
-  const [claudeMd, setClaudeMd] = useState<string | null>(undefined as unknown as null)
+  const [claudeMd, setClaudeMd] = useState<string | null>(null)
   const [claudeMdPath, setClaudeMdPath] = useState<string | null>(null)
   const [editContent, setEditContent] = useState('')
   const [saving, setSaving] = useState(false)
@@ -40,8 +42,24 @@ export function MemoryPanel() {
   // Dismissed suggestion IDs
   const [dismissedIds, setDismissedIds] = useState<Set<string>>(new Set())
 
-  const showActiveWarning = session?.status === 'active'
-  const workspace = session?.workspacePath ?? ''
+  const sessionStatus = liveSession?.status ?? historySession?.finalStatus
+  const showActiveWarning = !historyMode && sessionStatus === 'active'
+  const workspace = liveSession?.workspacePath ?? historySession?.workspacePath ?? ''
+
+  // Hydrate session events for pending suggestions if local cache is empty.
+  useEffect(() => {
+    if (!sessionId) return
+    if (events.length > 0) return
+    fetch(`${DAEMON}/api/sessions/${sessionId}/events`)
+      .then((r) => r.json())
+      .then((evs: unknown) => {
+        bulkApplyEvents(sessionId, Array.isArray(evs) ? (evs as NormalizedEvent[]) : [])
+      })
+      .catch(() => {
+        /* ignore fetch failures and keep live stream data */
+      })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sessionId])
 
   // Fetch CLAUDE.md + auto memory on mount
   useEffect(() => {

@@ -63,6 +63,7 @@ export function MapSidebar({ onFocusSession }: Props) {
   const selectedSessionId = useStore((s) => s.selectedSessionId)
   const selectSession = useStore((s) => s.selectSession)
   const setSessionDetailOpen = useStore((s) => s.setSessionDetailOpen)
+  const setHistoryMode = useStore((s) => s.setHistoryMode)
   const rows = [...sessions].sort((a, b) => b.lastEventAt.localeCompare(a.lastEventAt))
   const [launchOpen, setLaunchOpen] = useState(false)
 
@@ -105,6 +106,7 @@ export function MapSidebar({ onFocusSession }: Props) {
             aria-current={isSelected ? 'true' : undefined}
             onClick={() => {
               selectSession(session.sessionId)
+              setHistoryMode?.(false)
               onFocusSession(session.sessionId)
               setSessionDetailOpen(true)
             }}

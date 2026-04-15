@@ -14,6 +14,7 @@ export function SessionListPanel() {
   const navigate = useNavigate()
   const sessions = useFilteredSessions()
   const selectedSessionId = useStore((s) => s.selectedSessionId)
+  const setHistoryMode = useStore((s) => s.setHistoryMode)
   const sessionsById = useStore((s) => s.sessions)
   const wsStatus = useStore((s) => s.wsStatus)
   const [launchOpen, setLaunchOpen] = useState(false)
@@ -23,6 +24,7 @@ export function SessionListPanel() {
 
   function handleCardClick(sessionId: string) {
     useStore.getState().selectSession(sessionId)
+    setHistoryMode?.(false)
     navigate('/session/' + sessionId + '/approvals')
   }
 

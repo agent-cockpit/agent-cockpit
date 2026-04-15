@@ -170,6 +170,26 @@ describe('getWorkspacePath', () => {
     expect(getWorkspacePath(db, sessionId)).toBe(workspace);
   });
 
+  it('falls back to claude_sessions when session_start is missing', () => {
+    const sessionId = 'claude-fallback-01';
+    const workspace = '/home/user/claude-fallback';
+    db.prepare(
+      'INSERT INTO claude_sessions (session_id, claude_id, workspace, created_at) VALUES (?, ?, ?, ?)',
+    ).run(sessionId, 'claude-native-id-01', workspace, new Date().toISOString());
+
+    expect(getWorkspacePath(db, sessionId)).toBe(workspace);
+  });
+
+  it('falls back to codex_sessions when session_start is missing', () => {
+    const sessionId = 'codex-fallback-01';
+    const workspace = '/home/user/codex-fallback';
+    db.prepare(
+      'INSERT INTO codex_sessions (session_id, thread_id, workspace, created_at) VALUES (?, ?, ?, ?)',
+    ).run(sessionId, 'thread-123', workspace, new Date().toISOString());
+
+    expect(getWorkspacePath(db, sessionId)).toBe(workspace);
+  });
+
   it('returns null for an unknown sessionId', () => {
     expect(getWorkspacePath(db, 'unknown-session')).toBeNull();
   });
