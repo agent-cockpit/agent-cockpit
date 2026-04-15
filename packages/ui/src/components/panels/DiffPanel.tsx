@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useParams } from 'react-router'
 import type { NormalizedEvent } from '@cockpit/shared'
 import { useStore } from '../../store/index.js'
@@ -8,22 +8,106 @@ interface FileEntry {
   filePath: string
   changeType: 'created' | 'modified' | 'deleted'
   diff?: string
+  lastSeenIndex: number
 }
 
 // ─── Pure helpers ─────────────────────────────────────────────────────────────
 
+function splitDiffLines(text: string): string[] {
+  return text.split('\n')
+}
+
+function buildSyntheticDiff(
+  filePath: string,
+  changeType: FileEntry['changeType'],
+  oldText: string | null,
+  newText: string | null,
+): string | undefined {
+  if (changeType === 'created' && newText) {
+    const addedLines = splitDiffLines(newText).map((line) => `+${line}`)
+    return [`--- /dev/null`, `+++ b/${filePath}`, '@@', ...addedLines].join('\n')
+  }
+
+  if (changeType === 'deleted' && oldText) {
+    const removedLines = splitDiffLines(oldText).map((line) => `-${line}`)
+    return [`--- a/${filePath}`, `+++ /dev/null`, '@@', ...removedLines].join('\n')
+  }
+
+  if (oldText !== null && newText !== null) {
+    const removedLines = splitDiffLines(oldText).map((line) => `-${line}`)
+    const addedLines = splitDiffLines(newText).map((line) => `+${line}`)
+    return [`--- a/${filePath}`, `+++ b/${filePath}`, '@@', ...removedLines, ...addedLines].join('\n')
+  }
+
+  return undefined
+}
+
+function deriveEntryFromToolCall(event: NormalizedEvent): Omit<FileEntry, 'lastSeenIndex'> | null {
+  if (event.type !== 'tool_call') return null
+
+  const input = event.input
+  if (!input || typeof input !== 'object') return null
+  const toolInput = input as Record<string, unknown>
+  const toolName = event.toolName
+
+  if (!['Write', 'Edit', 'Update', 'MultiEdit'].includes(toolName)) {
+    return null
+  }
+
+  const filePath =
+    typeof toolInput['path'] === 'string'
+      ? toolInput['path']
+      : typeof toolInput['file_path'] === 'string'
+        ? toolInput['file_path']
+        : null
+  if (!filePath) return null
+
+  const oldString = typeof toolInput['old_string'] === 'string' ? toolInput['old_string'] : null
+  const newString = typeof toolInput['new_string'] === 'string' ? toolInput['new_string'] : null
+  const content = typeof toolInput['content'] === 'string' ? toolInput['content'] : null
+
+  const changeType: FileEntry['changeType'] = toolName === 'Write' ? 'created' : 'modified'
+  const diff =
+    toolName === 'Write'
+      ? buildSyntheticDiff(filePath, changeType, null, content)
+      : buildSyntheticDiff(filePath, changeType, oldString, newString)
+
+  return {
+    filePath,
+    changeType,
+    diff,
+  }
+}
+
 function deriveFileTree(events: NormalizedEvent[]): FileEntry[] {
   const map = new Map<string, FileEntry>()
-  for (const event of events) {
+
+  function upsertEntry(entry: Omit<FileEntry, 'lastSeenIndex'>, lastSeenIndex: number): void {
+    const existing = map.get(entry.filePath)
+    map.set(entry.filePath, {
+      filePath: entry.filePath,
+      changeType: entry.changeType,
+      diff: entry.diff ?? existing?.diff,
+      lastSeenIndex,
+    })
+  }
+
+  events.forEach((event, index) => {
     if (event.type === 'file_change') {
-      map.set(event.filePath, {
+      upsertEntry({
         filePath: event.filePath,
         changeType: event.changeType,
         diff: event.diff,
-      })
+      }, index)
+      return
     }
-  }
-  return [...map.values()].sort((a, b) => a.filePath.localeCompare(b.filePath))
+
+    const toolEntry = deriveEntryFromToolCall(event)
+    if (toolEntry) {
+      upsertEntry(toolEntry, index)
+    }
+  })
+  return [...map.values()].sort((a, b) => b.lastSeenIndex - a.lastSeenIndex)
 }
 
 function formatElapsed(ms: number): string {
@@ -82,6 +166,7 @@ export function DiffPanel() {
   const storeSessionId = useStore((s) => s.selectedSessionId)
   const sessionId = paramSessionId ?? storeSessionId ?? ''
   const events = useStore((s) => s.events[sessionId!] ?? EMPTY_EVENTS)
+  const bulkApplyEvents = useStore((s) => s.bulkApplyEvents)
   const session = useStore((s) => (sessionId ? s.sessions[sessionId] : undefined))
   const [selectedFilePath, setSelectedFilePath] = useState<string | null>(null)
 
@@ -100,6 +185,33 @@ export function DiffPanel() {
         : null
   const elapsedMs = startTime !== null && endTime !== null ? endTime - startTime : null
   const selectedEntry = fileTree.find((f) => f.filePath === selectedFilePath) ?? null
+
+  useEffect(() => {
+    if (!sessionId) return
+    if (events.length > 0) return
+    fetch(`http://localhost:3001/api/sessions/${sessionId}/events`)
+      .then((r) => r.json())
+      .then((evs: NormalizedEvent[]) => bulkApplyEvents(sessionId, evs))
+      .catch(() => {
+        /* silently ignore */
+      })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sessionId])
+
+  useEffect(() => {
+    if (fileTree.length === 0) {
+      if (selectedFilePath !== null) setSelectedFilePath(null)
+      return
+    }
+
+    const selectionStillExists = selectedFilePath
+      ? fileTree.some((entry) => entry.filePath === selectedFilePath)
+      : false
+
+    if (!selectionStillExists) {
+      setSelectedFilePath(fileTree[0]!.filePath)
+    }
+  }, [fileTree, selectedFilePath])
 
   return (
     <div className="flex flex-col h-full">
