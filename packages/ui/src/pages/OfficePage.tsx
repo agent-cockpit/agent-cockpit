@@ -62,13 +62,28 @@ interface CollisionProbe {
 /** Verified walkable spawn positions for NPC agents (world pixel coords).
  * Slots are validated against terrain + object collisions using PLAYER_HITBOX.
  * Coordinates stay on open floor around map center to avoid wall/object edge spawns.
+ * findNearestFreeNpcSpawnPosition corrects any slot that lands in a wall at runtime.
  */
 const SPAWN_SLOTS: ReadonlyArray<{ x: number; y: number }> = [
   { x: 1984, y: 1888 }, { x: 2048, y: 1888 }, { x: 2112, y: 1888 }, { x: 2176, y: 1888 },
   { x: 2016, y: 1920 }, { x: 2080, y: 1920 }, { x: 2144, y: 1920 },
   { x: 1952, y: 1952 }, { x: 2016, y: 1952 },
   { x: 1920, y: 2112 }, { x: 1984, y: 2112 }, { x: 2048, y: 2112 },
+  // Extended slots — prevents visual overlap for sessions 13-24
+  { x: 2048, y: 1952 }, { x: 2112, y: 1952 }, { x: 2176, y: 1952 },
+  { x: 1952, y: 2048 }, { x: 2016, y: 2048 }, { x: 2080, y: 2048 },
+  { x: 2144, y: 2048 }, { x: 1920, y: 2080 }, { x: 1984, y: 2080 },
+  { x: 2048, y: 2080 }, { x: 2112, y: 2080 }, { x: 2048, y: 2144 },
 ] as const
+
+/** Deterministic slot offset derived from workspacePath so same-workspace NPCs cluster together. */
+function workspaceSlotOffset(workspacePath: string): number {
+  let h = 0
+  for (let i = 0; i < workspacePath.length; i++) {
+    h = (Math.imul(31, h) + workspacePath.charCodeAt(i)) >>> 0
+  }
+  return h % SPAWN_SLOTS.length
+}
 
 /** NPCs stop when player center is within this distance of NPC center. */
 const NPC_PLAYER_PROXIMITY_PX = 120
@@ -585,41 +600,48 @@ function findNearestFreeTeleportPosition(
   collisionProbe: CollisionProbe | null,
 ): WorldPosition {
   const clampedTarget = clampPlayerPositionToWorld(targetPos)
-  const candidates: Array<{ pos: WorldPosition; distanceSq: number; absDx: number; absDy: number }> = []
+  const maxLayer = Math.ceil(TELEPORT_SEARCH_RADIUS_PX / TELEPORT_SEARCH_STEP_PX)
   const seen = new Set<string>()
 
-  for (let dy = -TELEPORT_SEARCH_RADIUS_PX; dy <= TELEPORT_SEARCH_RADIUS_PX; dy += TELEPORT_SEARCH_STEP_PX) {
-    for (let dx = -TELEPORT_SEARCH_RADIUS_PX; dx <= TELEPORT_SEARCH_RADIUS_PX; dx += TELEPORT_SEARCH_STEP_PX) {
-      const candidate = clampPlayerPositionToWorld({
-        x: clampedTarget.x + dx,
-        y: clampedTarget.y + dy,
-      })
-      const key = `${candidate.x},${candidate.y}`
-      if (seen.has(key)) continue
-      seen.add(key)
+  // Enumerate positions layer-by-layer (Chebyshev rings) for early exit.
+  // Each ring is sorted with the same comparator as the original full-sort so
+  // the first free slot found is equivalent to the original winner in the
+  // common (non-boundary-clamped) case.
+  for (let layer = 0; layer <= maxLayer; layer++) {
+    const dist = layer * TELEPORT_SEARCH_STEP_PX
+    const ring: Array<{ pos: WorldPosition; distanceSq: number; absDx: number; absDy: number }> = []
 
-      const deltaX = candidate.x - clampedTarget.x
-      const deltaY = candidate.y - clampedTarget.y
-      candidates.push({
-        pos: candidate,
-        distanceSq: deltaX * deltaX + deltaY * deltaY,
-        absDx: Math.abs(deltaX),
-        absDy: Math.abs(deltaY),
-      })
+    for (let dx = -dist; dx <= dist; dx += TELEPORT_SEARCH_STEP_PX) {
+      for (let dy = -dist; dy <= dist; dy += TELEPORT_SEARCH_STEP_PX) {
+        // Only the border of this Chebyshev layer (skip interior for layer > 0)
+        if (layer > 0 && Math.abs(dx) < dist && Math.abs(dy) < dist) continue
+        const candidate = clampPlayerPositionToWorld({ x: clampedTarget.x + dx, y: clampedTarget.y + dy })
+        const key = `${candidate.x},${candidate.y}`
+        if (seen.has(key)) continue
+        seen.add(key)
+        const deltaX = candidate.x - clampedTarget.x
+        const deltaY = candidate.y - clampedTarget.y
+        ring.push({
+          pos: candidate,
+          distanceSq: deltaX * deltaX + deltaY * deltaY,
+          absDx: Math.abs(deltaX),
+          absDy: Math.abs(deltaY),
+        })
+      }
     }
-  }
 
-  candidates.sort((a, b) => {
-    if (a.distanceSq !== b.distanceSq) return a.distanceSq - b.distanceSq
-    if (a.absDx !== b.absDx) return a.absDx - b.absDx
-    if (a.absDy !== b.absDy) return a.absDy - b.absDy
-    if (a.pos.y !== b.pos.y) return a.pos.y - b.pos.y
-    return a.pos.x - b.pos.x
-  })
+    ring.sort((a, b) => {
+      if (a.distanceSq !== b.distanceSq) return a.distanceSq - b.distanceSq
+      if (a.absDx !== b.absDx) return a.absDx - b.absDx
+      if (a.absDy !== b.absDy) return a.absDy - b.absDy
+      if (a.pos.y !== b.pos.y) return a.pos.y - b.pos.y
+      return a.pos.x - b.pos.x
+    })
 
-  for (const candidate of candidates) {
-    if (isTeleportSpotFree(candidate.pos, occupiedSpriteRects, collisionProbe)) {
-      return candidate.pos
+    for (const candidate of ring) {
+      if (isTeleportSpotFree(candidate.pos, occupiedSpriteRects, collisionProbe)) {
+        return candidate.pos
+      }
     }
   }
 
@@ -684,6 +706,7 @@ export function OfficePage() {
   const npcModeBySessionRef = useRef<Record<string, string>>({})
   const minimapBgRef = useRef<OffscreenCanvas | null>(null)
   const lastPlayerAnimFrameRef = useRef<number>(-1)
+  const playerTeleportFlashFramesRef = useRef<number>(0)
 
   function findNearestInteractableSessionId(): string | null {
     const playerCenterX = gameState.player.x + PLAYER_SPRITE_SIZE_PX / 2
@@ -726,6 +749,7 @@ export function OfficePage() {
     // snap camera instantly to keep focus interaction responsive.
     gameState.player.x = safeTeleportPos.x
     gameState.player.y = safeTeleportPos.y
+    playerTeleportFlashFramesRef.current = 3
     const cam = gameState.camera
     cam.targetX = Math.max(0, Math.min(pos.x - cam.viewportW / 2, WORLD_W - cam.viewportW))
     cam.targetY = Math.max(0, Math.min(pos.y - cam.viewportH / 2, WORLD_H - cam.viewportH))
@@ -845,10 +869,17 @@ export function OfficePage() {
     const resolvedSessionPositions: Record<string, WorldPosition> = {}
     const playerHitbox = playerHitboxAt({ x: gameState.player.x, y: gameState.player.y })
 
-    sessions.forEach((session, i) => {
+    // Sort by workspacePath so sessions from the same workspace get consecutive slots,
+    // producing a natural cluster. Deterministic sort keeps slot assignment stable across renders.
+    const orderedSessions = [...sessions].sort((a, b) =>
+      (a.workspacePath ?? '').localeCompare(b.workspacePath ?? ''),
+    )
+
+    orderedSessions.forEach((session, i) => {
       const existing = gameState.npcs[session.sessionId]
       const persisted = persistedNpcPositions[session.sessionId]
-      const slot = SPAWN_SLOTS[i % SPAWN_SLOTS.length]
+      const baseOffset = workspaceSlotOffset(session.workspacePath ?? '')
+      const slot = SPAWN_SLOTS[(baseOffset + i) % SPAWN_SLOTS.length]
       const cycle = Math.floor(i / SPAWN_SLOTS.length)
       const fallbackPos = {
         x: slot.x + (cycle > 0 ? (cycle % 3) * SPAWN_JITTER : 0),
@@ -1141,7 +1172,10 @@ export function OfficePage() {
             dx = pos.x - prev.x
             dy = pos.y - prev.y
             distancePx = Math.hypot(dx, dy)
-            if (distancePx > 0.1) {
+            // Suppress footstep if distance is implausibly large — indicates a teleport jump
+            // rather than natural movement (~8 tiles/frame at 60fps = ~128px max natural).
+            const MAX_NATURAL_MOVE_PX = 80
+            if (distancePx > 0.1 && distancePx < MAX_NATURAL_MOVE_PX) {
               const speedPxPerSec = distancePx / deltaSec
               const movement = speedPxPerSec >= PLAYER_SPEED * 1.35 ? 'run' : 'walk'
               const character = (liveSessions[sessionId]?.character ?? 'astronaut') as CharacterType
@@ -1276,11 +1310,20 @@ export function OfficePage() {
           const stateOffset = gameState.player.animTime > 0 ? STATE_ROW_OFFSET.walk : STATE_ROW_OFFSET.idle
           const row = dirRow + stateOffset
           const col = Math.floor(gameState.player.animTime / WALK_FRAME_DURATION_MS) % WALK_FRAME_COUNT
+          const flashFrames = playerTeleportFlashFramesRef.current
+          if (flashFrames > 0) playerTeleportFlashFramesRef.current--
           spriteQueue.push({
             depth: gameState.player.y + PLAYER_HITBOX.offsetY + PLAYER_HITBOX.h,
             // Keep player behind NPC when they share the same depth line.
             priority: 0,
-            draw: () => ctx.drawImage(pImg, col * 64, row * 64, 64, 64, px, py, 64, 64),
+            draw: () => {
+              // Fade-in alpha pulse for 3 frames after teleport (0.3 → 0.7 → 1.0)
+              if (flashFrames > 0) {
+                ctx.globalAlpha = 0.3 + 0.7 * ((3 - flashFrames) / 3)
+              }
+              ctx.drawImage(pImg, col * 64, row * 64, 64, 64, px, py, 64, 64)
+              ctx.globalAlpha = 1.0
+            },
           })
         }
 

@@ -89,7 +89,8 @@ function readExternalSessions(stateDbPath: string, updatedAtCutoffSec: number): 
         workspacePath: row.cwd,
         createdAt: row.created_at,
       }))
-  } catch {
+  } catch (err) {
+    console.warn('[externalSessionIngest] Failed to read sessions from', stateDbPath, ':', err)
     return []
   } finally {
     stateDb?.close()
