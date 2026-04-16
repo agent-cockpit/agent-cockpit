@@ -280,7 +280,8 @@ describe('NPC spawn slot seeding', () => {
 
     act(() => { render(<OfficePage />) })
 
-    expect(gameState.npcs['sess-12']).toEqual({ x: 2000, y: 1888 })
+    // Second cycle starts near slot[0] + jitter, then de-overlap may nudge to the nearest free coordinate.
+    expect(gameState.npcs['sess-12']).toEqual({ x: 2016, y: 1888 })
   })
 
   it('all 12 SPAWN_SLOTS are within world bounds (1..3232)', () => {

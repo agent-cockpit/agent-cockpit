@@ -1,155 +1,171 @@
 import { describe, expect, it } from 'vitest'
-import { stepNpcBehaviors } from '../NpcBehavior.js'
+import { stepNpcBehaviors, type NpcRuntimeState } from '../NpcBehavior.js'
+import type { WalkGrid } from '../NpcPathfinding.js'
 
-function distanceToCenter(pos: { x: number; y: number }, center: { x: number; y: number }): number {
-  return Math.hypot(pos.x - center.x, pos.y - center.y)
+interface SimState {
+  positions: Record<string, { x: number; y: number }>
+  runtimeBySession: Record<string, NpcRuntimeState>
+  worldTimeMs: number
+}
+
+function makeGrid(cols: number, rows: number, walkableValue = 1): WalkGrid {
+  return {
+    cellSize: 32,
+    cols,
+    rows,
+    walkable: new Uint8Array(cols * rows).fill(walkableValue),
+  }
+}
+
+function stepSim(
+  state: SimState,
+  deltaMs: number,
+  pausedSessionIds: ReadonlySet<string> = new Set(),
+  grid: WalkGrid | null = makeGrid(110, 110),
+): SimState {
+  const sessions = [{ sessionId: 'npc-a', status: 'active', pendingApprovals: 0 }]
+  const nextWorldTime = state.worldTimeMs + deltaMs
+  const step = stepNpcBehaviors({
+    sessions,
+    positions: state.positions,
+    runtimeBySession: state.runtimeBySession,
+    deltaMs,
+    worldTimeMs: nextWorldTime,
+    worldWidth: 3232,
+    worldHeight: 3232,
+    pausedSessionIds,
+    walkableBounds: { minX: 1800, minY: 1760, maxX: 2280, maxY: 2200 },
+    walkGrid: grid,
+  })
+
+  return {
+    positions: step.positions,
+    runtimeBySession: step.runtimeBySession,
+    worldTimeMs: nextWorldTime,
+  }
 }
 
 describe('stepNpcBehaviors', () => {
-  it('moves active NPCs in deterministic wander mode', () => {
-    const sessions = [
-      { sessionId: 'wander-a', status: 'active', pendingApprovals: 0 },
-    ]
-    const positions = {
-      'wander-a': { x: 320, y: 240 },
+  it('is deterministic across frame rates over 10s (16ms vs 33ms) within 2px', () => {
+    let fast: SimState = {
+      positions: { 'npc-a': { x: 2016, y: 1920 } },
+      runtimeBySession: {},
+      worldTimeMs: 0,
+    }
+    let slow: SimState = {
+      positions: { 'npc-a': { x: 2016, y: 1920 } },
+      runtimeBySession: {},
+      worldTimeMs: 0,
     }
 
-    const first = stepNpcBehaviors({
-      sessions,
-      positions,
-      deltaMs: 1000,
-      tick: 10,
-      worldWidth: 2000,
-      worldHeight: 1400,
-    })
-    const second = stepNpcBehaviors({
-      sessions,
-      positions,
-      deltaMs: 1000,
-      tick: 10,
-      worldWidth: 2000,
-      worldHeight: 1400,
-    })
+    while (fast.worldTimeMs < 10000) {
+      fast = stepSim(fast, 16)
+    }
+    while (slow.worldTimeMs < 10000) {
+      slow = stepSim(slow, 33)
+    }
 
-    expect(first.modes['wander-a']).toBe('wander')
-    expect(first.positions['wander-a']).not.toEqual(positions['wander-a'])
-    expect(first.positions['wander-a']).toEqual(second.positions['wander-a'])
+    const posFast = fast.positions['npc-a']!
+    const posSlow = slow.positions['npc-a']!
+    const delta = Math.hypot(posFast.x - posSlow.x, posFast.y - posSlow.y)
+    expect(delta).toBeLessThanOrEqual(2)
   })
 
-  it('routes attention-needed NPCs toward map center', () => {
-    const center = { x: 500, y: 500 }
-    const sessions = [
-      { sessionId: 'needs-approval', status: 'active', pendingApprovals: 2 },
-    ]
-    const positions = {
-      'needs-approval': { x: 120, y: 130 },
+  it('keeps paused NPCs stationary and disables stuck accumulation', () => {
+    let state: SimState = {
+      positions: { 'npc-a': { x: 2060, y: 1940 } },
+      runtimeBySession: {},
+      worldTimeMs: 0,
     }
 
-    const next = stepNpcBehaviors({
-      sessions,
-      positions,
-      deltaMs: 1000,
-      tick: 0,
-      worldWidth: 1000,
-      worldHeight: 1000,
-      center,
-    })
+    const paused = new Set(['npc-a'])
+    for (let i = 0; i < 30; i++) {
+      state = stepSim(state, 250, paused)
+    }
 
-    expect(next.modes['needs-approval']).toBe('attention')
-    expect(
-      distanceToCenter(next.positions['needs-approval'], center),
-    ).toBeLessThan(distanceToCenter(positions['needs-approval'], center))
+    expect(state.positions['npc-a']).toEqual({ x: 2060, y: 1940 })
+    const runtime = state.runtimeBySession['npc-a']
+    expect(runtime).toBeDefined()
+    if (!runtime) return
+    expect(runtime.mode).toBe('paused')
+    expect(runtime.stuckSinceMs).toBe(0)
+    expect(runtime.failedReplans).toBe(0)
   })
 
-  it('applies stable spread offsets so attention NPCs do not collapse to one point', () => {
-    const sessions = [
-      { sessionId: 'attention-a', status: 'error', pendingApprovals: 0 },
-      { sessionId: 'attention-b', status: 'active', pendingApprovals: 1 },
-      { sessionId: 'attention-c', status: 'active', pendingApprovals: 2 },
-    ]
-    const positions = {
-      'attention-a': { x: 250, y: 250 },
-      'attention-b': { x: 260, y: 250 },
-      'attention-c': { x: 270, y: 250 },
+  it('converges attention NPCs toward center and holds without jittering', () => {
+    const center = { x: 2080, y: 1920 }
+    let state: SimState = {
+      positions: { 'npc-a': { x: 1600, y: 1500 } },
+      runtimeBySession: {},
+      worldTimeMs: 0,
     }
 
-    const next = stepNpcBehaviors({
-      sessions,
-      positions,
-      deltaMs: 2000,
-      tick: 0,
-      worldWidth: 1200,
-      worldHeight: 1200,
-      center: { x: 600, y: 600 },
-    })
+    for (let i = 0; i < 120; i++) {
+      const nextWorldTime = state.worldTimeMs + 50
+      const step = stepNpcBehaviors({
+        sessions: [{ sessionId: 'npc-a', status: 'active', pendingApprovals: 2 }],
+        positions: state.positions,
+        runtimeBySession: state.runtimeBySession,
+        deltaMs: 50,
+        worldTimeMs: nextWorldTime,
+        worldWidth: 3232,
+        worldHeight: 3232,
+        center,
+        walkGrid: makeGrid(110, 110),
+      })
+      state = {
+        positions: step.positions,
+        runtimeBySession: step.runtimeBySession,
+        worldTimeMs: nextWorldTime,
+      }
+    }
 
-    const a = next.positions['attention-a']
-    const b = next.positions['attention-b']
-    const c = next.positions['attention-c']
-    expect(a).toBeDefined()
-    expect(b).toBeDefined()
-    expect(c).toBeDefined()
-    expect(a.x === b.x && a.y === b.y).toBe(false)
-    expect(a.x === c.x && a.y === c.y).toBe(false)
-    expect(b.x === c.x && b.y === c.y).toBe(false)
+    const settled = state.positions['npc-a']!
+    const d1 = Math.hypot(settled.x - center.x, settled.y - center.y)
+    expect(d1).toBeLessThan(24)
+
+    for (let i = 0; i < 40; i++) {
+      const nextWorldTime = state.worldTimeMs + 50
+      const step = stepNpcBehaviors({
+        sessions: [{ sessionId: 'npc-a', status: 'active', pendingApprovals: 2 }],
+        positions: state.positions,
+        runtimeBySession: state.runtimeBySession,
+        deltaMs: 50,
+        worldTimeMs: nextWorldTime,
+        worldWidth: 3232,
+        worldHeight: 3232,
+        center,
+        walkGrid: makeGrid(110, 110),
+      })
+      state = {
+        positions: step.positions,
+        runtimeBySession: step.runtimeBySession,
+        worldTimeMs: nextWorldTime,
+      }
+    }
+
+    const held = state.positions['npc-a']!
+    const settleDrift = Math.hypot(held.x - settled.x, held.y - settled.y)
+    expect(settleDrift).toBeLessThanOrEqual(2)
   })
 
-  it('keeps paused NPCs frozen while allowing non-paused NPCs to keep moving', () => {
-    const sessions = [
-      { sessionId: 'paused-one', status: 'active', pendingApprovals: 0 },
-      { sessionId: 'moving-one', status: 'active', pendingApprovals: 0 },
-    ]
-    const positions = {
-      'paused-one': { x: 300, y: 300 },
-      'moving-one': { x: 320, y: 310 },
+  it('replans when blocked and increments failedReplans before any teleport fallback', () => {
+    let state: SimState = {
+      positions: { 'npc-a': { x: 2016, y: 1920 } },
+      runtimeBySession: {},
+      worldTimeMs: 0,
+    }
+    const blockedGrid = makeGrid(110, 110, 0)
+
+    for (let i = 0; i < 20; i++) {
+      state = stepSim(state, 200, new Set(), blockedGrid)
     }
 
-    const next = stepNpcBehaviors({
-      sessions,
-      positions,
-      deltaMs: 1000,
-      tick: 18,
-      worldWidth: 2000,
-      worldHeight: 1400,
-      pausedSessionIds: new Set(['paused-one']),
-    })
-
-    expect(next.modes['paused-one']).toBe('paused')
-    expect(next.positions['paused-one']).toEqual(positions['paused-one'])
-    expect(next.modes['moving-one']).toBe('wander')
-    expect(next.positions['moving-one']).not.toEqual(positions['moving-one'])
-  })
-
-  it('resumes paused NPC movement once interaction pause is removed', () => {
-    const sessions = [
-      { sessionId: 'chatting-session', status: 'active', pendingApprovals: 0 },
-    ]
-    const positions = {
-      'chatting-session': { x: 640, y: 420 },
-    }
-
-    const pausedStep = stepNpcBehaviors({
-      sessions,
-      positions,
-      deltaMs: 800,
-      tick: 30,
-      worldWidth: 2200,
-      worldHeight: 1500,
-      pausedSessionIds: new Set(['chatting-session']),
-    })
-    const resumedStep = stepNpcBehaviors({
-      sessions,
-      positions: pausedStep.positions,
-      deltaMs: 800,
-      tick: 31,
-      worldWidth: 2200,
-      worldHeight: 1500,
-      pausedSessionIds: new Set(),
-    })
-
-    expect(pausedStep.modes['chatting-session']).toBe('paused')
-    expect(pausedStep.positions['chatting-session']).toEqual(positions['chatting-session'])
-    expect(resumedStep.modes['chatting-session']).toBe('wander')
-    expect(resumedStep.positions['chatting-session']).not.toEqual(positions['chatting-session'])
+    expect(state.positions['npc-a']).toEqual({ x: 2016, y: 1920 })
+    const runtime = state.runtimeBySession['npc-a']
+    expect(runtime).toBeDefined()
+    if (!runtime) return
+    expect(runtime.failedReplans).toBeGreaterThanOrEqual(3)
+    expect(runtime.path.length).toBe(0)
   })
 })

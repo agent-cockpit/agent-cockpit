@@ -8,6 +8,8 @@ import { InstancePopupHub } from '../components/office/InstancePopupHub.js'
 import { MenuPopup } from '../components/office/MenuPopup.js'
 import { ApprovalBalloonOverlay } from '../components/office/ApprovalBalloonOverlay.js'
 import { drawAgentSprite } from '../components/office/AgentSprite.js'
+import { drawMiniMap, MINIMAP_MAP_W, MINIMAP_MAP_H } from '../components/office/MiniMap.js'
+
 import { DIRECTION_ROWS, STATE_ROW_OFFSET } from '../components/office/spriteStates.js'
 import type { Direction } from '../components/office/spriteStates.js'
 import type { CharacterType } from '../components/office/characterMapping.js'
@@ -25,7 +27,15 @@ import {
 } from '../game/PlayerInput.js'
 import { TilemapRenderer, type MapsManifest } from '../game/TilemapRenderer.js'
 import { CollisionMap, PLAYER_HITBOX } from '../game/CollisionMap.js'
-import { stepNpcBehaviors } from '../game/NpcBehavior.js'
+import {
+  stepNpcBehaviors,
+  NPC_SPRITE_SIZE_PX,
+  type NpcRuntimeState,
+} from '../game/NpcBehavior.js'
+import {
+  buildWalkGrid,
+  type WalkGrid,
+} from '../game/NpcPathfinding.js'
 
 // Module-level sidebar focus callback for MapSidebar compatibility.
 let _scrollToSession: ((id: string) => void) | null = null
@@ -60,14 +70,22 @@ const SPAWN_SLOTS: ReadonlyArray<{ x: number; y: number }> = [
   { x: 1920, y: 2112 }, { x: 1984, y: 2112 }, { x: 2048, y: 2112 },
 ] as const
 
+/** NPCs stop when player center is within this distance of NPC center. */
+const NPC_PLAYER_PROXIMITY_PX = 120
+const NPC_PROXIMITY_HALF_SIZE = NPC_SPRITE_SIZE_PX / 2
+
 /** Pixel offset applied per cycle to prevent exact NPC stacking when sessions > 12. */
 const SPAWN_JITTER = 16
-const SPRITE_SIZE = 42
-const PLAYER_SPRITE_SIZE_PX = 64
+const PLAYER_SPRITE_SIZE_PX = NPC_SPRITE_SIZE_PX
 const INTERACT_RADIUS_PX = 64
 const FOOTSTEP_CONTACT_FRAMES = [0, 4] as const
 const TELEPORT_SEARCH_STEP_PX = 16
 const TELEPORT_SEARCH_RADIUS_PX = 512
+const NPC_SPAWN_SEARCH_STEP_PX = 16
+const NPC_SPAWN_SEARCH_RADIUS_PX = 320
+const NPC_STUCK_WARNING_MS = 2000
+const NPC_STUCK_HARD_FAIL_MS = 6000
+const NPC_REPLAN_FAILS_FOR_RECOVERY = 3
 const NPC_POSITION_STORAGE_KEY = 'cockpit.npc.positions.v1'
 const PLAYER_STATE_STORAGE_KEY = 'cockpit.player.state.v1'
 const OFFICE_RUNTIME_TEARDOWN_KEY = '__cockpitOfficeRuntimeTeardown__'
@@ -374,11 +392,18 @@ function canOccupyNpcPosition(
   occupiedNpcHitboxes: ReadonlyArray<AxisAlignedRect>,
   playerHitbox: AxisAlignedRect,
   collisionProbe: CollisionProbe | null,
+  allowSolidOverlap = false,
+  allowNpcOverlap = false,
+  allowPlayerOverlap = false,
 ): boolean {
   const candidateHitbox = npcHitboxAt(candidate)
-  if (rectsOverlap(candidateHitbox, playerHitbox)) return false
-  if (occupiedNpcHitboxes.some((hitbox) => rectsOverlap(candidateHitbox, hitbox))) return false
-  if (collisionProbe?.overlaps(candidateHitbox.x, candidateHitbox.y, candidateHitbox.w, candidateHitbox.h)) {
+  if (!allowPlayerOverlap && rectsOverlap(candidateHitbox, playerHitbox)) return false
+  const overlapsNpc = occupiedNpcHitboxes.some((hitbox) => rectsOverlap(candidateHitbox, hitbox))
+  if (overlapsNpc && !allowNpcOverlap) return false
+  if (
+    !allowSolidOverlap &&
+    collisionProbe?.overlaps(candidateHitbox.x, candidateHitbox.y, candidateHitbox.w, candidateHitbox.h)
+  ) {
     return false
   }
   return true
@@ -393,18 +418,93 @@ function resolveNpcMovementPosition(
 ): WorldPosition {
   const clampedCurrent = clampPlayerPositionToWorld(current)
   const clampedDesired = clampPlayerPositionToWorld(desired)
-  if (canOccupyNpcPosition(clampedDesired, occupiedNpcHitboxes, playerHitbox, collisionProbe)) {
+  const currentHitbox = npcHitboxAt(clampedCurrent)
+  const escapingNpcOverlap = occupiedNpcHitboxes.some((hitbox) => rectsOverlap(currentHitbox, hitbox))
+  const escapingPlayerOverlap = rectsOverlap(currentHitbox, playerHitbox)
+  const escapingSolidOverlap = collisionProbe?.overlaps(
+    currentHitbox.x,
+    currentHitbox.y,
+    currentHitbox.w,
+    currentHitbox.h,
+  ) ?? false
+
+  if (
+    canOccupyNpcPosition(
+      clampedDesired,
+      occupiedNpcHitboxes,
+      playerHitbox,
+      collisionProbe,
+      escapingSolidOverlap,
+      escapingNpcOverlap,
+      escapingPlayerOverlap,
+    )
+  ) {
     return clampedDesired
   }
 
   const xOnly = clampPlayerPositionToWorld({ x: clampedDesired.x, y: clampedCurrent.y })
-  if (canOccupyNpcPosition(xOnly, occupiedNpcHitboxes, playerHitbox, collisionProbe)) {
+  if (
+    canOccupyNpcPosition(
+      xOnly,
+      occupiedNpcHitboxes,
+      playerHitbox,
+      collisionProbe,
+      escapingSolidOverlap,
+      escapingNpcOverlap,
+      escapingPlayerOverlap,
+    )
+  ) {
     return xOnly
   }
 
   const yOnly = clampPlayerPositionToWorld({ x: clampedCurrent.x, y: clampedDesired.y })
-  if (canOccupyNpcPosition(yOnly, occupiedNpcHitboxes, playerHitbox, collisionProbe)) {
+  if (
+    canOccupyNpcPosition(
+      yOnly,
+      occupiedNpcHitboxes,
+      playerHitbox,
+      collisionProbe,
+      escapingSolidOverlap,
+      escapingNpcOverlap,
+      escapingPlayerOverlap,
+    )
+  ) {
     return yOnly
+  }
+
+  for (const detourStep of [14, 32, 64]) {
+    const detourCandidates = [
+      { x: clampedCurrent.x + detourStep, y: clampedCurrent.y },
+      { x: clampedCurrent.x - detourStep, y: clampedCurrent.y },
+      { x: clampedCurrent.x, y: clampedCurrent.y + detourStep },
+      { x: clampedCurrent.x, y: clampedCurrent.y - detourStep },
+      { x: clampedCurrent.x + detourStep, y: clampedCurrent.y + detourStep },
+      { x: clampedCurrent.x + detourStep, y: clampedCurrent.y - detourStep },
+      { x: clampedCurrent.x - detourStep, y: clampedCurrent.y + detourStep },
+      { x: clampedCurrent.x - detourStep, y: clampedCurrent.y - detourStep },
+    ]
+      .map((pos) => clampPlayerPositionToWorld(pos))
+      .sort((a, b) => {
+        const da = Math.hypot(a.x - clampedDesired.x, a.y - clampedDesired.y)
+        const db = Math.hypot(b.x - clampedDesired.x, b.y - clampedDesired.y)
+        return da - db
+      })
+
+    for (const candidate of detourCandidates) {
+      if (
+        canOccupyNpcPosition(
+          candidate,
+          occupiedNpcHitboxes,
+          playerHitbox,
+          collisionProbe,
+          escapingSolidOverlap,
+          escapingNpcOverlap,
+          escapingPlayerOverlap,
+        )
+      ) {
+        return candidate
+      }
+    }
   }
 
   return clampedCurrent
@@ -413,6 +513,57 @@ function resolveNpcMovementPosition(
 export function derivePausedNpcSessionIds(sessionDetailOpen: boolean, selectedSessionId: string | null): Set<string> {
   if (!sessionDetailOpen || !selectedSessionId) return new Set()
   return new Set([selectedSessionId])
+}
+
+function findNearestFreeNpcSpawnPosition(
+  targetPos: WorldPosition,
+  occupiedNpcHitboxes: ReadonlyArray<AxisAlignedRect>,
+  playerHitbox: AxisAlignedRect,
+  collisionProbe: CollisionProbe | null,
+): WorldPosition {
+  const clampedTarget = clampPlayerPositionToWorld(targetPos)
+  if (canOccupyNpcPosition(clampedTarget, occupiedNpcHitboxes, playerHitbox, collisionProbe)) {
+    return clampedTarget
+  }
+
+  const candidates: Array<{ pos: WorldPosition; distanceSq: number; absDx: number; absDy: number }> = []
+  const seen = new Set<string>()
+  for (let dy = -NPC_SPAWN_SEARCH_RADIUS_PX; dy <= NPC_SPAWN_SEARCH_RADIUS_PX; dy += NPC_SPAWN_SEARCH_STEP_PX) {
+    for (let dx = -NPC_SPAWN_SEARCH_RADIUS_PX; dx <= NPC_SPAWN_SEARCH_RADIUS_PX; dx += NPC_SPAWN_SEARCH_STEP_PX) {
+      const candidate = clampPlayerPositionToWorld({
+        x: clampedTarget.x + dx,
+        y: clampedTarget.y + dy,
+      })
+      const key = `${candidate.x},${candidate.y}`
+      if (seen.has(key)) continue
+      seen.add(key)
+
+      const deltaX = candidate.x - clampedTarget.x
+      const deltaY = candidate.y - clampedTarget.y
+      candidates.push({
+        pos: candidate,
+        distanceSq: deltaX * deltaX + deltaY * deltaY,
+        absDx: Math.abs(deltaX),
+        absDy: Math.abs(deltaY),
+      })
+    }
+  }
+
+  candidates.sort((a, b) => {
+    if (a.distanceSq !== b.distanceSq) return a.distanceSq - b.distanceSq
+    if (a.absDx !== b.absDx) return a.absDx - b.absDx
+    if (a.absDy !== b.absDy) return a.absDy - b.absDy
+    if (a.pos.y !== b.pos.y) return a.pos.y - b.pos.y
+    return a.pos.x - b.pos.x
+  })
+
+  for (const candidate of candidates) {
+    if (canOccupyNpcPosition(candidate.pos, occupiedNpcHitboxes, playerHitbox, collisionProbe)) {
+      return candidate.pos
+    }
+  }
+
+  return clampedTarget
 }
 
 function isTeleportSpotFree(
@@ -475,6 +626,32 @@ function findNearestFreeTeleportPosition(
   return clampedTarget
 }
 
+function hasMovementInput(keysDown: ReadonlySet<string>): boolean {
+  return (
+    keysDown.has('KeyW') ||
+    keysDown.has('ArrowUp') ||
+    keysDown.has('KeyS') ||
+    keysDown.has('ArrowDown') ||
+    keysDown.has('KeyA') ||
+    keysDown.has('ArrowLeft') ||
+    keysDown.has('KeyD') ||
+    keysDown.has('ArrowRight')
+  )
+}
+
+function deriveDirectionFromDelta(dx: number, dy: number, fallback: Direction): Direction {
+  const epsilon = 0.01
+  if (Math.abs(dx) < epsilon && Math.abs(dy) < epsilon) return fallback
+  if (dx > 0 && dy < 0) return 'north-east'
+  if (dx < 0 && dy < 0) return 'north-west'
+  if (dx > 0 && dy > 0) return 'south-east'
+  if (dx < 0 && dy > 0) return 'south-west'
+  if (dx > 0) return 'east'
+  if (dx < 0) return 'west'
+  if (dy < 0) return 'north'
+  return 'south'
+}
+
 export function OfficePage() {
   const sessions = useActiveSessions()
   const sessionDetailOpen = useStore((s) => s.sessionDetailOpen)
@@ -499,18 +676,25 @@ export function OfficePage() {
   const selectedSessionIdRef = useRef<string | null>(selectedSessionId)
   const sessionDetailOpenRef = useRef<boolean>(sessionDetailOpen)
   const previousNpcPositionsRef = useRef<Record<string, WorldPosition>>({})
+  const npcDirectionBySessionRef = useRef<Record<string, Direction>>({})
+  const npcAnimTimeMsBySessionRef = useRef<Record<string, number>>({})
+  const npcMovingBySessionRef = useRef<Record<string, boolean>>({})
+  const npcRuntimeBySessionRef = useRef<Record<string, NpcRuntimeState>>({})
+  const npcWalkGridRef = useRef<WalkGrid | null>(null)
+  const npcModeBySessionRef = useRef<Record<string, string>>({})
+  const minimapBgRef = useRef<OffscreenCanvas | null>(null)
   const lastPlayerAnimFrameRef = useRef<number>(-1)
 
   function findNearestInteractableSessionId(): string | null {
-    const playerCenterX = gameState.player.x + SPRITE_SIZE / 2
-    const playerCenterY = gameState.player.y + SPRITE_SIZE / 2
+    const playerCenterX = gameState.player.x + PLAYER_SPRITE_SIZE_PX / 2
+    const playerCenterY = gameState.player.y + PLAYER_SPRITE_SIZE_PX / 2
     const maxDistanceSq = INTERACT_RADIUS_PX * INTERACT_RADIUS_PX
     let closestId: string | null = null
     let closestDistanceSq = Number.POSITIVE_INFINITY
 
     for (const [sessionId, pos] of Object.entries(gameState.npcs)) {
-      const npcCenterX = pos.x + SPRITE_SIZE / 2
-      const npcCenterY = pos.y + SPRITE_SIZE / 2
+      const npcCenterX = pos.x + PLAYER_SPRITE_SIZE_PX / 2
+      const npcCenterY = pos.y + PLAYER_SPRITE_SIZE_PX / 2
       const dx = npcCenterX - playerCenterX
       const dy = npcCenterY - playerCenterY
       const distanceSq = dx * dx + dy * dy
@@ -573,7 +757,7 @@ export function OfficePage() {
     }
 
     const zoom = gameState.camera.zoom
-    const screenX = (pos.x - gameState.camera.x + SPRITE_SIZE) * zoom
+    const screenX = (pos.x - gameState.camera.x + 42) * zoom
     const screenY = (pos.y - gameState.camera.y + 10) * zoom
 
     // Hide prompt when the target is far outside current viewport.
@@ -603,7 +787,7 @@ export function OfficePage() {
         el.style.display = 'none'
         continue
       }
-      const screenX = (pos.x - gameState.camera.x + SPRITE_SIZE / 2) * zoom
+      const screenX = (pos.x - gameState.camera.x + 21) * zoom
       const screenY = (pos.y - gameState.camera.y) * zoom
       if (
         screenX < -300 ||
@@ -652,27 +836,48 @@ export function OfficePage() {
     persistedPlayerStateRef.current = persisted
   }, [])
 
-  // Seed gameState.npcs from sessions — assign walkable spawn slot on first appearance only.
-  // Positions are persisted by sessionId so reload/rerender keeps the same world location.
+  // Seed and normalize gameState.npcs from sessions.
+  // Existing positions are preserved when valid, but stacked/invalid positions are de-overlapped.
+  // Positions are persisted by sessionId so reload/rerender keeps stable world locations.
   useEffect(() => {
     const persistedNpcPositions = persistedNpcPositionsRef.current
     let didMutatePersistedPositions = false
+    const resolvedSessionPositions: Record<string, WorldPosition> = {}
+    const playerHitbox = playerHitboxAt({ x: gameState.player.x, y: gameState.player.y })
 
     sessions.forEach((session, i) => {
-      if (!gameState.npcs[session.sessionId]) {
-        const persisted = persistedNpcPositions[session.sessionId]
-        if (persisted) {
-          gameState.npcs[session.sessionId] = { x: persisted.x, y: persisted.y }
-          return
-        }
-        const slot = SPAWN_SLOTS[i % SPAWN_SLOTS.length]
-        const cycle = Math.floor(i / SPAWN_SLOTS.length)
-        const seededPos = {
-          x: slot.x + (cycle > 0 ? (cycle % 3) * SPAWN_JITTER : 0),
-          y: slot.y + (cycle > 0 ? Math.floor(cycle / 3) * SPAWN_JITTER : 0),
-        }
-        gameState.npcs[session.sessionId] = seededPos
-        persistedNpcPositions[session.sessionId] = seededPos
+      const existing = gameState.npcs[session.sessionId]
+      const persisted = persistedNpcPositions[session.sessionId]
+      const slot = SPAWN_SLOTS[i % SPAWN_SLOTS.length]
+      const cycle = Math.floor(i / SPAWN_SLOTS.length)
+      const fallbackPos = {
+        x: slot.x + (cycle > 0 ? (cycle % 3) * SPAWN_JITTER : 0),
+        y: slot.y + (cycle > 0 ? Math.floor(cycle / 3) * SPAWN_JITTER : 0),
+      }
+      const basePos = clampPlayerPositionToWorld(existing ?? persisted ?? fallbackPos)
+
+      const occupiedNpcHitboxes = Object.values(resolvedSessionPositions).map((pos) => npcHitboxAt(pos))
+      const canKeepBasePos = existing
+        ? canOccupyNpcPosition(basePos, occupiedNpcHitboxes, playerHitbox, collisionMapRef.current)
+        : false
+
+      const resolvedPos = canKeepBasePos
+        ? basePos
+        : findNearestFreeNpcSpawnPosition(
+          basePos,
+          occupiedNpcHitboxes,
+          playerHitbox,
+          collisionMapRef.current,
+        )
+
+      resolvedSessionPositions[session.sessionId] = resolvedPos
+      if (!existing || existing.x !== resolvedPos.x || existing.y !== resolvedPos.y) {
+        gameState.npcs[session.sessionId] = resolvedPos
+      }
+
+      const previousPersisted = persistedNpcPositions[session.sessionId]
+      if (!previousPersisted || previousPersisted.x !== resolvedPos.x || previousPersisted.y !== resolvedPos.y) {
+        persistedNpcPositions[session.sessionId] = resolvedPos
         didMutatePersistedPositions = true
       }
     })
@@ -682,6 +887,7 @@ export function OfficePage() {
     Object.keys(gameState.npcs).forEach(id => {
       if (!activeIds.has(id)) {
         delete gameState.npcs[id]
+        delete npcRuntimeBySessionRef.current[id]
         if (persistedNpcPositions[id]) {
           delete persistedNpcPositions[id]
           didMutatePersistedPositions = true
@@ -713,6 +919,7 @@ export function OfficePage() {
     const ctx = canvas.getContext('2d')
     if (!ctx) { console.error('[GameEngine] canvas 2d context unavailable'); return }
     let disposed = false
+    gameState.worldTimeMs = 0
 
     const tilemapRenderer = new TilemapRenderer()
     // Load map assets before starting engine (non-blocking: engine starts after assets ready)
@@ -721,6 +928,21 @@ export function OfficePage() {
       .then(() => {
         if (disposed) return
         setWorldBounds(tilemapRenderer.worldW || 3232, tilemapRenderer.worldH || 3232)
+        // Pre-render minimap tilemap background (done once — map is static)
+        try {
+          const bg = new OffscreenCanvas(MINIMAP_MAP_W, MINIMAP_MAP_H)
+          const bgCtx = bg.getContext('2d')
+          if (bgCtx) {
+            bgCtx.imageSmoothingEnabled = false
+            tilemapRenderer.blitMinimap(bgCtx, 0, 0, MINIMAP_MAP_W, MINIMAP_MAP_H)
+            // Dark blue tint for radar aesthetic
+            bgCtx.fillStyle = 'rgba(4, 10, 26, 0.52)'
+            bgCtx.fillRect(0, 0, MINIMAP_MAP_W, MINIMAP_MAP_H)
+            minimapBgRef.current = bg
+          }
+        } catch {
+          // OffscreenCanvas not supported — minimap falls back to blank bg
+        }
       })
       .catch(err => console.error('[TilemapRenderer] load failed:', err))
 
@@ -741,8 +963,15 @@ export function OfficePage() {
         }))
         const keysDown = getKeysDown()
         const sprintHeld = keysDown.has('ShiftLeft') || keysDown.has('ShiftRight') || keysDown.has('Shift')
+        const moveInputHeld = hasMovementInput(keysDown)
         movePlayer(gameState.player, keysDown, deltaMs, collisionMap, npcHitboxes)
-        const moved = Math.abs(gameState.player.x - prevX) > 0.1 || Math.abs(gameState.player.y - prevY) > 0.1
+        let moved = Math.abs(gameState.player.x - prevX) > 0.1 || Math.abs(gameState.player.y - prevY) > 0.1
+        if (!moved && moveInputHeld) {
+          // Safety valve: if NPC blocking creates a deadlock ring, keep player controls responsive.
+          // We still respect terrain/object collisions by keeping collisionMap enabled.
+          movePlayer(gameState.player, keysDown, deltaMs, collisionMap, [])
+          moved = Math.abs(gameState.player.x - prevX) > 0.1 || Math.abs(gameState.player.y - prevY) > 0.1
+        }
         if (moved) {
           const currentAnimFrame = Math.floor(gameState.player.animTime / WALK_FRAME_DURATION_MS) % WALK_FRAME_COUNT
           const frameChanged = currentAnimFrame !== lastPlayerAnimFrameRef.current
@@ -761,25 +990,52 @@ export function OfficePage() {
           lastPlayerAnimFrameRef.current = -1
         }
 
+        gameState.worldTimeMs += Math.max(deltaMs, 0)
         const deltaSec = Math.max(deltaMs / 1000, 0.0001)
+        if (!npcWalkGridRef.current && collisionMapRef.current) {
+          npcWalkGridRef.current = buildWalkGrid({
+            worldWidth: WORLD_W,
+            worldHeight: WORLD_H,
+            cellSize: 32,
+            spriteSizePx: PLAYER_SPRITE_SIZE_PX,
+            hitbox: PLAYER_HITBOX,
+            overlaps: collisionMapRef.current.overlaps.bind(collisionMapRef.current),
+          })
+        }
         const liveSessions = useStore.getState().sessions
         const activeNpcSessions = Object.values(liveSessions)
           .filter((session) => session.status === 'active' && gameState.npcs[session.sessionId])
-        const pausedSessionIds = derivePausedNpcSessionIds(
+        const pausedByDetail = derivePausedNpcSessionIds(
           sessionDetailOpenRef.current,
           selectedSessionIdRef.current,
         )
+        const playerCx = gameState.player.x + PLAYER_SPRITE_SIZE_PX / 2
+        const playerCy = gameState.player.y + PLAYER_SPRITE_SIZE_PX / 2
+        const pausedSessionIds = new Set(pausedByDetail)
+        for (const [sessionId, pos] of Object.entries(gameState.npcs)) {
+          const npcCx = pos.x + NPC_PROXIMITY_HALF_SIZE
+          const npcCy = pos.y + NPC_PROXIMITY_HALF_SIZE
+          if (Math.hypot(npcCx - playerCx, npcCy - playerCy) <= NPC_PLAYER_PROXIMITY_PX) {
+            pausedSessionIds.add(sessionId)
+          }
+        }
         const behaviorStep = stepNpcBehaviors({
           sessions: activeNpcSessions,
           positions: gameState.npcs,
           deltaMs,
-          tick: gameState.tick,
+          worldTimeMs: gameState.worldTimeMs,
           worldWidth: WORLD_W,
           worldHeight: WORLD_H,
           pausedSessionIds,
+          runtimeBySession: npcRuntimeBySessionRef.current,
+          walkGrid: npcWalkGridRef.current,
         })
         const playerHitbox = playerHitboxAt({ x: gameState.player.x, y: gameState.player.y })
         const resolvedPositions: Record<string, WorldPosition> = { ...gameState.npcs }
+        const runtimeBySession: Record<string, NpcRuntimeState> = {
+          ...npcRuntimeBySessionRef.current,
+          ...behaviorStep.runtimeBySession,
+        }
         const orderedSessionIds = Object.keys(behaviorStep.positions).sort((a, b) => a.localeCompare(b))
         for (const sessionId of orderedSessionIds) {
           const current = resolvedPositions[sessionId]
@@ -798,18 +1054,93 @@ export function OfficePage() {
           resolvedPositions[sessionId] = next
         }
         for (const sessionId of orderedSessionIds) {
+          const prev = gameState.npcs[sessionId]
           const next = resolvedPositions[sessionId]
+          const runtime = runtimeBySession[sessionId]
           if (!next) continue
+          if (!runtime) {
+            gameState.npcs[sessionId] = { x: next.x, y: next.y }
+            continue
+          }
+
+          const movedDistance = prev ? Math.hypot(next.x - prev.x, next.y - prev.y) : 1
+          const mode = behaviorStep.modes[sessionId]
+
+          if (mode === 'paused') {
+            runtime.stuckSinceMs = 0
+            runtime.lastProgressAtMs = gameState.worldTimeMs
+          } else if (movedDistance >= 0.5) {
+            runtime.lastProgressAtMs = gameState.worldTimeMs
+            runtime.stuckSinceMs = 0
+            runtime.failedReplans = 0
+          } else {
+            if (runtime.stuckSinceMs <= 0) {
+              runtime.stuckSinceMs = gameState.worldTimeMs
+            }
+            const stuckDurationMs = gameState.worldTimeMs - runtime.stuckSinceMs
+            if (stuckDurationMs >= NPC_STUCK_WARNING_MS) {
+              runtime.path = []
+              runtime.pathIndex = 0
+            }
+
+            const shouldEmergencyRecover =
+              stuckDurationMs >= NPC_STUCK_HARD_FAIL_MS &&
+              runtime.failedReplans >= NPC_REPLAN_FAILS_FOR_RECOVERY
+            if (shouldEmergencyRecover) {
+              const slotIndex = Math.abs(runtime.seed + Math.floor(gameState.worldTimeMs / 1000)) % SPAWN_SLOTS.length
+              const slotTarget = SPAWN_SLOTS[slotIndex]!
+              const occupiedNpcHitboxes = Object.entries(resolvedPositions)
+                .filter(([id]) => id !== sessionId)
+                .map(([, pos]) => npcHitboxAt(pos))
+              const freePos = findNearestFreeNpcSpawnPosition(
+                slotTarget,
+                occupiedNpcHitboxes,
+                playerHitbox,
+                collisionMapRef.current,
+              )
+              resolvedPositions[sessionId] = freePos
+              gameState.npcs[sessionId] = { x: freePos.x, y: freePos.y }
+              runtime.target = null
+              runtime.path = []
+              runtime.pathIndex = 0
+              runtime.velocity = { x: 0, y: 0 }
+              runtime.failedReplans = 0
+              runtime.stuckSinceMs = 0
+              runtime.lastProgressAtMs = gameState.worldTimeMs
+              continue
+            }
+          }
           gameState.npcs[sessionId] = { x: next.x, y: next.y }
         }
 
+        for (const sessionId of Object.keys(runtimeBySession)) {
+          if (!gameState.npcs[sessionId]) {
+            delete runtimeBySession[sessionId]
+          }
+        }
+        npcRuntimeBySessionRef.current = runtimeBySession
+
+        // Update mode cache for minimap
+        for (const [sessionId, runtime] of Object.entries(runtimeBySession)) {
+          npcModeBySessionRef.current[sessionId] = runtime.mode
+        }
+        for (const id of Object.keys(npcModeBySessionRef.current)) {
+          if (!gameState.npcs[id]) delete npcModeBySessionRef.current[id]
+        }
+
         const previousNpcPositions = previousNpcPositionsRef.current
+        const npcDirections = npcDirectionBySessionRef.current
+        const npcAnimTimeMs = npcAnimTimeMsBySessionRef.current
+        const npcMovingBySession = npcMovingBySessionRef.current
         for (const [sessionId, pos] of Object.entries(gameState.npcs)) {
           const prev = previousNpcPositions[sessionId]
+          let dx = 0
+          let dy = 0
+          let distancePx = 0
           if (prev) {
-            const dx = pos.x - prev.x
-            const dy = pos.y - prev.y
-            const distancePx = Math.hypot(dx, dy)
+            dx = pos.x - prev.x
+            dy = pos.y - prev.y
+            distancePx = Math.hypot(dx, dy)
             if (distancePx > 0.1) {
               const speedPxPerSec = distancePx / deltaSec
               const movement = speedPxPerSec >= PLAYER_SPEED * 1.35 ? 'run' : 'walk'
@@ -822,11 +1153,19 @@ export function OfficePage() {
             }
           }
 
+          const wasDirection = npcDirections[sessionId] ?? 'south'
+          const isMoving = distancePx > 0.1
+          npcMovingBySession[sessionId] = isMoving
+          npcDirections[sessionId] = deriveDirectionFromDelta(dx, dy, wasDirection)
+          npcAnimTimeMs[sessionId] = isMoving ? (npcAnimTimeMs[sessionId] ?? 0) + deltaMs : 0
           previousNpcPositions[sessionId] = { x: pos.x, y: pos.y }
         }
         for (const sessionId of Object.keys(previousNpcPositions)) {
           if (!gameState.npcs[sessionId]) {
             delete previousNpcPositions[sessionId]
+            delete npcDirections[sessionId]
+            delete npcAnimTimeMs[sessionId]
+            delete npcMovingBySession[sessionId]
           }
         }
         const playerDirection = (gameState.player.direction in DIRECTION_ROWS
@@ -919,6 +1258,9 @@ export function OfficePage() {
                 session,
                 lastEvent,
                 position: { x: pos.x - gameState.camera.x, y: pos.y - gameState.camera.y },
+                direction: npcDirectionBySessionRef.current[session.sessionId] ?? 'south',
+                isMoving: npcMovingBySessionRef.current[session.sessionId] ?? false,
+                animTimeMs: npcAnimTimeMsBySessionRef.current[session.sessionId] ?? 0,
                 imageCache: imageCacheRef.current,
                 tick: gameState.tick,
               })
@@ -985,6 +1327,24 @@ export function OfficePage() {
 
         // Layer 5: screen-space polish (vignette + scanlines + noise)
         drawScreenOverlays(ctx, canvas.width, canvas.height, fxPatterns, gameState.tick)
+
+        // Layer 6: minimap overlay (screen-space, drawn last so it's always on top)
+        drawMiniMap({
+          ctx,
+          canvasW: canvas.width,
+          canvasH: canvas.height,
+          worldW: WORLD_W,
+          worldH: WORLD_H,
+          playerPos: gameState.player,
+          playerImg: playerImgRef.current,
+          npcPositions: gameState.npcs,
+          npcModes: npcModeBySessionRef.current,
+          sessions: liveSessions,
+          imageCache: imageCacheRef.current,
+          tilemapBg: minimapBgRef.current,
+          camera: gameState.camera,
+          tick: gameState.tick,
+        })
       }
     }(canvas)
 
@@ -1006,6 +1366,8 @@ export function OfficePage() {
       persistedPlayerStateRef.current = finalPlayerState
       engine.stop()
       detachInput()
+      npcWalkGridRef.current = null
+      npcRuntimeBySessionRef.current = {}
       if (collisionMapRef.current === collisionMap) {
         collisionMapRef.current = null
       }
@@ -1045,7 +1407,63 @@ export function OfficePage() {
           collisionMap.loadTerrain(terrainData as Parameters<CollisionMap['loadTerrain']>[0], loadOpts)
           collisionMap.loadObjects(objects, alphaBounds, loadOpts)
         }
+
+        npcWalkGridRef.current = buildWalkGrid({
+          worldWidth: WORLD_W,
+          worldHeight: WORLD_H,
+          cellSize: 32,
+          spriteSizePx: PLAYER_SPRITE_SIZE_PX,
+          hitbox: PLAYER_HITBOX,
+          overlaps: collisionMap.overlaps.bind(collisionMap),
+        })
+
+        const currentPlayerPos = { x: gameState.player.x, y: gameState.player.y }
+        const currentPlayerHitbox = playerHitboxAt(currentPlayerPos)
+        const occupiedNpcSpriteRects = Object.values(gameState.npcs).map((pos) => ({
+          x: pos.x,
+          y: pos.y,
+          w: PLAYER_SPRITE_SIZE_PX,
+          h: PLAYER_SPRITE_SIZE_PX,
+        }))
+        const overlapsNpcSprite = occupiedNpcSpriteRects.some((rect) =>
+          rectsOverlap(playerSpriteRectAt(currentPlayerPos), rect),
+        )
+        const overlapsSolid = collisionMap.overlaps(
+          currentPlayerHitbox.x,
+          currentPlayerHitbox.y,
+          currentPlayerHitbox.w,
+          currentPlayerHitbox.h,
+        )
+        if (overlapsSolid || overlapsNpcSprite) {
+          const safePlayerPos = findNearestFreeTeleportPosition(
+            currentPlayerPos,
+            occupiedNpcSpriteRects,
+            collisionMap,
+          )
+          gameState.player.x = safePlayerPos.x
+          gameState.player.y = safePlayerPos.y
+          const playerDirection = (gameState.player.direction in DIRECTION_ROWS
+            ? gameState.player.direction
+            : 'south') as Direction
+          const safePlayerState: StoredPlayerState = {
+            x: safePlayerPos.x,
+            y: safePlayerPos.y,
+            direction: playerDirection,
+          }
+          writeStoredPlayerState(safePlayerState)
+          persistedPlayerStateRef.current = safePlayerState
+          lastPlayerPersistAtRef.current = Date.now()
+        }
+
         await tilemapLoadPromise
+        npcWalkGridRef.current = buildWalkGrid({
+          worldWidth: WORLD_W,
+          worldHeight: WORLD_H,
+          cellSize: 32,
+          spriteSizePx: PLAYER_SPRITE_SIZE_PX,
+          hitbox: PLAYER_HITBOX,
+          overlaps: collisionMap.overlaps.bind(collisionMap),
+        })
       })
       .catch((err: unknown) => {
         console.error('[CollisionMap] Failed to load collision data:', err)
@@ -1082,8 +1500,8 @@ export function OfficePage() {
       const clickY = (e.clientY - rect.top) / zoom + gameState.camera.y
       for (const [sessionId, pos] of Object.entries(gameState.npcs)) {
         if (
-          clickX >= pos.x && clickX <= pos.x + SPRITE_SIZE &&
-          clickY >= pos.y && clickY <= pos.y + SPRITE_SIZE
+          clickX >= pos.x && clickX <= pos.x + PLAYER_SPRITE_SIZE_PX &&
+          clickY >= pos.y && clickY <= pos.y + PLAYER_SPRITE_SIZE_PX
         ) {
           focusSessionInWorld(sessionId)
           openAgentChatPopup(sessionId)
