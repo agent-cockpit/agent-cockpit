@@ -14,6 +14,7 @@ export interface GameState {
   player: { x: number; y: number; direction: string; animTime: number }
   npcs: Record<string, { x: number; y: number }>
   tick: number
+  worldTimeMs: number
 }
 
 export const gameState: GameState = {
@@ -21,4 +22,5 @@ export const gameState: GameState = {
   player: { x: 2080, y: 1920, direction: 'south', animTime: 0 },  // map tile (19,17) → pixel (65*32, 60*32) — open floor
   npcs: {},
   tick: 0,
+  worldTimeMs: 0,
 }

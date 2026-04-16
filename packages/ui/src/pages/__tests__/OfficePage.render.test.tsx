@@ -27,9 +27,15 @@ vi.mock('../../store/index.js', () => {
   const storeState = {
     events: {},
     sessions: {},
+    pendingApprovalsBySession: {},
+    wsStatus: 'disconnected',
     selectedSessionId: null,
+    selectedPlayerCharacter: 'astronaut',
+    sessionDetailOpen: false,
     selectSession: vi.fn(),
     setHistoryMode: vi.fn(),
+    setPopupPreferredTab: vi.fn(),
+    setSessionDetailOpen: vi.fn(),
   }
   const useStore = vi.fn((selector: (s: typeof storeState) => unknown) => selector(storeState))
   ;(useStore as unknown as { getState: () => typeof storeState }).getState = () => storeState

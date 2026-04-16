@@ -4,8 +4,8 @@ milestone: v1.1
 milestone_name: — 2D Pixel Art Game Experience
 status: completed
 stopped_at: Completed 25-01-PLAN.md
-last_updated: "2026-04-15T12:59:36.505Z"
-last_activity: 2026-04-14 -- Phase 28 completed
+last_updated: "2026-04-15T23:36:45.000Z"
+last_activity: "2026-04-15 - Completed quick task 1: Add NPC behaviours for the sessions characters. They are completly still right now. Make them move around the map and when they have a pending approval or something that needs user attention make it go back to the center of the map. When the user interact with the \"NPC\" it should stop until the user closes the interaction"
 progress:
   total_phases: 31
   completed_phases: 20
@@ -28,7 +28,7 @@ See: .planning/PROJECT.md (updated 2026-04-10)
 Phase: 28
 Plan: 3 of 3 complete
 Status: Phase 28 complete
-Last activity: 2026-04-14 -- Phase 28 completed
+Last activity: 2026-04-15 - Completed quick task 1: Add NPC behaviours for the sessions characters. They are completly still right now. Make them move around the map and when they have a pending approval or something that needs user attention make it go back to the center of the map. When the user interact with the "NPC" it should stop until the user closes the interaction
 
 Progress: [█████████░] 91%
 
@@ -197,6 +197,12 @@ None yet — requirements phase will surface tasks.
 - Audio loading: browser autoplay policies may require user interaction first
 - Save system complexity: what exactly constitutes "game state" to save?
 - NPC behavior: how to make zone movement feel natural, not robotic
+
+### Quick Tasks Completed
+
+| # | Description | Date | Commit | Directory |
+|---|-------------|------|--------|-----------|
+| 1 | Add NPC behaviours for the sessions characters. They are completly still right now. Make them move around the map and when they have a pending approval or something that needs user attention make it go back to the center of the map. When the user interact with the "NPC" it should stop until the user closes the interaction | 2026-04-15 | 13d1557 | [1-add-npc-behaviours-for-the-sessions-char](./quick/1-add-npc-behaviours-for-the-sessions-char/) |
 
 ## Session Continuity
 

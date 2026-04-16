@@ -82,4 +82,26 @@ export class TilemapRenderer {
       ctx.drawImage(img, entry.worldOriginX - camX, entry.worldOriginY - camY)
     }
   }
+
+  /** Render all map composites scaled to fit a target rect. Used for minimap pre-rendering. */
+  blitMinimap(
+    ctx: CanvasRenderingContext2D | OffscreenCanvasRenderingContext2D,
+    targetX: number,
+    targetY: number,
+    targetW: number,
+    targetH: number,
+  ): void {
+    if (!this._ready || this.worldW === 0 || this.worldH === 0) return
+    const scaleX = targetW / this.worldW
+    const scaleY = targetH / this.worldH
+    for (const { img, entry } of this.maps) {
+      ctx.drawImage(
+        img,
+        targetX + entry.worldOriginX * scaleX,
+        targetY + entry.worldOriginY * scaleY,
+        entry.widthPx * scaleX,
+        entry.heightPx * scaleY,
+      )
+    }
+  }
 }

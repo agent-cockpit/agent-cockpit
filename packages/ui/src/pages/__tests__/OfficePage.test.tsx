@@ -1,5 +1,38 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { render, screen, act, fireEvent } from '@testing-library/react'
+import { render, screen, act, fireEvent, waitFor } from '@testing-library/react'
+
+const { engineInstances, stepNpcBehaviorsMock } = vi.hoisted(() => ({
+  engineInstances: [] as Array<{ update: (deltaMs: number) => void; render: () => void }>,
+  stepNpcBehaviorsMock: vi.fn((input: {
+    sessions: ReadonlyArray<{ sessionId: string; pendingApprovals?: number }>
+    positions: Record<string, { x: number; y: number }>
+    pausedSessionIds?: ReadonlySet<string>
+    runtimeBySession?: Record<string, unknown>
+  }) => {
+    const nextPositions: Record<string, { x: number; y: number }> = {}
+    const nextRuntimeBySession: Record<string, unknown> = {}
+    for (const [sessionId, pos] of Object.entries(input.positions)) {
+      nextRuntimeBySession[sessionId] = input.runtimeBySession?.[sessionId] ?? {
+        mode: input.pausedSessionIds?.has(sessionId) ? 'paused' : 'wander',
+        target: null,
+        path: [],
+        pathIndex: 0,
+        velocity: { x: 0, y: 0 },
+        nextDecisionAtMs: 0,
+        lastProgressAtMs: 0,
+        stuckSinceMs: 0,
+        failedReplans: 0,
+        seed: 1,
+      }
+      if (input.pausedSessionIds?.has(sessionId)) {
+        nextPositions[sessionId] = { x: pos.x, y: pos.y }
+      } else {
+        nextPositions[sessionId] = { x: pos.x + 12, y: pos.y + 4 }
+      }
+    }
+    return { positions: nextPositions, modes: {}, runtimeBySession: nextRuntimeBySession }
+  }),
+}))
 
 // Track start/stop calls
 const startMock = vi.fn()
@@ -9,7 +42,9 @@ const stopMock = vi.fn()
 vi.mock('../../game/GameEngine.js', () => {
   return {
     GameEngine: class MockGameEngine {
-      constructor(_canvas: HTMLCanvasElement) {}
+      constructor(_canvas: HTMLCanvasElement) {
+        engineInstances.push(this as unknown as { update: (deltaMs: number) => void; render: () => void })
+      }
       start() { startMock() }
       stop() { stopMock() }
       update(_deltaMs: number) {}
@@ -31,7 +66,20 @@ const {
   setSessionDetailOpenMock: vi.fn(),
 }))
 
-const storeState = {
+interface MockStoreState {
+  events: Record<string, unknown[]>
+  sessions: Record<string, unknown>
+  pendingApprovalsBySession: Record<string, unknown[]>
+  selectedSessionId: string | null
+  selectedPlayerCharacter: string
+  sessionDetailOpen: boolean
+  selectSession: ReturnType<typeof vi.fn>
+  setHistoryMode: ReturnType<typeof vi.fn>
+  setPopupPreferredTab: ReturnType<typeof vi.fn>
+  setSessionDetailOpen: ReturnType<typeof vi.fn>
+}
+
+const storeState: MockStoreState = {
   events: {},
   sessions: {},
   pendingApprovalsBySession: {},
@@ -121,6 +169,11 @@ vi.mock('../../components/office/AgentSprite.js', () => ({
   drawAgentSprite: vi.fn(),
 }))
 
+vi.mock('../../game/NpcBehavior.js', () => ({
+  stepNpcBehaviors: stepNpcBehaviorsMock,
+  NPC_SPRITE_SIZE_PX: 64,
+}))
+
 import { OfficePage } from '../OfficePage.js'
 import { scrollToSession } from '../OfficePage.js'
 import { gameState } from '../../game/GameState.js'
@@ -166,13 +219,28 @@ function spriteRectsOverlap(
   )
 }
 
+function runEngineFrame(deltaMs = 16): void {
+  const engine = engineInstances.at(-1)
+  if (!engine) {
+    throw new Error('Engine instance not created')
+  }
+  act(() => {
+    engine.update(deltaMs)
+  })
+}
+
 describe('OfficePage canvas mount', () => {
   beforeEach(() => {
     window.localStorage.clear()
     startMock.mockClear()
     stopMock.mockClear()
+    stepNpcBehaviorsMock.mockClear()
+    engineInstances.length = 0
     selectSessionMock.mockClear()
     setHistoryModeMock.mockClear()
+    storeState.sessions = {}
+    storeState.pendingApprovalsBySession = {}
+    storeState.selectedSessionId = null
     storeState.selectedPlayerCharacter = 'astronaut'
     storeState.sessionDetailOpen = false
     imageInstances.length = 0
@@ -185,6 +253,8 @@ describe('OfficePage canvas mount', () => {
     Object.keys(gameState.npcs).forEach(k => delete gameState.npcs[k])
     gameState.player.x = 2 * 96
     gameState.player.y = 5 * 96
+    gameState.tick = 0
+    gameState.worldTimeMs = 0
     gameState.camera = { x: 0, y: 0, targetX: 0, targetY: 0, viewportW: 400, viewportH: 300, zoom: 2 }
     ;(useActiveSessions as ReturnType<typeof vi.fn>).mockReturnValue([])
   })
@@ -403,6 +473,80 @@ describe('OfficePage canvas mount', () => {
     expect(gameState.npcs['persisted-session']).toEqual({ x: 777, y: 555 })
   })
 
+  it('de-overlaps persisted NPCs that share the same stored position', () => {
+    window.localStorage.setItem(
+      NPC_POSITION_STORAGE_KEY,
+      JSON.stringify({
+        'overlap-a': { x: 777, y: 555 },
+        'overlap-b': { x: 777, y: 555 },
+      }),
+    )
+    ;(useActiveSessions as ReturnType<typeof vi.fn>).mockReturnValue([
+      {
+        sessionId: 'overlap-a',
+        provider: 'claude',
+        workspacePath: '/test',
+        startedAt: '2024-01-01T00:00:00Z',
+        status: 'active',
+        lastEventAt: '2024-01-01T00:01:00Z',
+        pendingApprovals: 0,
+      },
+      {
+        sessionId: 'overlap-b',
+        provider: 'codex',
+        workspacePath: '/test',
+        startedAt: '2024-01-01T00:00:00Z',
+        status: 'active',
+        lastEventAt: '2024-01-01T00:01:00Z',
+        pendingApprovals: 0,
+      },
+    ])
+
+    render(<OfficePage />)
+
+    const posA = gameState.npcs['overlap-a']
+    const posB = gameState.npcs['overlap-b']
+    expect(posA).toBeDefined()
+    expect(posB).toBeDefined()
+    if (!posA || !posB) return
+    expect(hitboxesOverlap(posA, posB)).toBe(false)
+  })
+
+  it('de-overlaps already-seeded NPCs that are stacked in runtime state', () => {
+    ;(useActiveSessions as ReturnType<typeof vi.fn>).mockReturnValue([
+      {
+        sessionId: 'runtime-a',
+        provider: 'claude',
+        workspacePath: '/test',
+        startedAt: '2024-01-01T00:00:00Z',
+        status: 'active',
+        lastEventAt: '2024-01-01T00:01:00Z',
+        pendingApprovals: 0,
+      },
+      {
+        sessionId: 'runtime-b',
+        provider: 'codex',
+        workspacePath: '/test',
+        startedAt: '2024-01-01T00:00:00Z',
+        status: 'active',
+        lastEventAt: '2024-01-01T00:01:00Z',
+        pendingApprovals: 0,
+      },
+    ])
+
+    gameState.npcs['runtime-a'] = { x: 930, y: 640 }
+    gameState.npcs['runtime-b'] = { x: 930, y: 640 }
+
+    render(<OfficePage />)
+
+    const posA = gameState.npcs['runtime-a']
+    const posB = gameState.npcs['runtime-b']
+    expect(posA).toBeDefined()
+    expect(posB).toBeDefined()
+    if (!posA || !posB) return
+    expect(hitboxesOverlap(posA, posB)).toBe(false)
+  })
+
   it('restores persisted player position and direction on mount', () => {
     window.localStorage.setItem(
       PLAYER_STATE_STORAGE_KEY,
@@ -415,6 +559,142 @@ describe('OfficePage canvas mount', () => {
     expect(gameState.player.y).toBe(567)
     expect(gameState.player.direction).toBe('north-west')
   })
+
+  it('nudges persisted player position to nearest free spot when initial spawn is blocked', async () => {
+    const initial = { x: 1234, y: 567, direction: 'south' as const }
+    window.localStorage.setItem(PLAYER_STATE_STORAGE_KEY, JSON.stringify(initial))
+
+    const blockedX = initial.x + PLAYER_HITBOX.offsetX
+    const blockedY = initial.y + PLAYER_HITBOX.offsetY
+    const overlapsSpy = vi.spyOn(CollisionMap.prototype, 'overlaps').mockImplementation((x, y) => (
+      x === blockedX && y === blockedY
+    ))
+
+    try {
+      render(<OfficePage />)
+
+      await waitFor(() => {
+        expect(gameState.player.x === initial.x && gameState.player.y === initial.y).toBe(false)
+      })
+    } finally {
+      overlapsSpy.mockRestore()
+    }
+  })
+
+  it('passes pending-approval sessions into npc behavior step for center-attention routing', () => {
+    const attentionSession = {
+      sessionId: 'attention-session',
+      provider: 'claude',
+      workspacePath: '/test',
+      startedAt: '2024-01-01T00:00:00Z',
+      status: 'active',
+      lastEventAt: '2024-01-01T00:01:00Z',
+      pendingApprovals: 2,
+    }
+    ;(useActiveSessions as ReturnType<typeof vi.fn>).mockReturnValue([attentionSession])
+    storeState.sessions = { 'attention-session': attentionSession }
+
+    render(<OfficePage />)
+    runEngineFrame(16)
+
+    const latestCall = stepNpcBehaviorsMock.mock.calls.at(-1)?.[0]
+    expect(latestCall).toBeDefined()
+    if (!latestCall) return
+    expect(latestCall.sessions).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          sessionId: 'attention-session',
+          pendingApprovals: 2,
+        }),
+      ]),
+    )
+  })
+
+  it('pauses selected NPC movement while popup is open and resumes after close', () => {
+    const session = {
+      sessionId: 'pause-session',
+      provider: 'claude',
+      workspacePath: '/test',
+      startedAt: '2024-01-01T00:00:00Z',
+      status: 'active',
+      lastEventAt: '2024-01-01T00:01:00Z',
+      pendingApprovals: 0,
+    }
+    ;(useActiveSessions as ReturnType<typeof vi.fn>).mockReturnValue([session])
+    storeState.sessions = { 'pause-session': session }
+
+    const { rerender } = render(<OfficePage />)
+    expect(gameState.npcs['pause-session']).toBeDefined()
+    const initial = { ...(gameState.npcs['pause-session']!) }
+
+    runEngineFrame(16)
+    const moved = { ...gameState.npcs['pause-session'] }
+    expect(moved.x).toBeGreaterThan(initial.x)
+
+    storeState.selectedSessionId = 'pause-session'
+    storeState.sessionDetailOpen = true
+    act(() => {
+      rerender(<OfficePage />)
+    })
+    runEngineFrame(16)
+    const paused = { ...gameState.npcs['pause-session'] }
+    expect(paused).toEqual(moved)
+
+    storeState.sessionDetailOpen = false
+    act(() => {
+      rerender(<OfficePage />)
+    })
+    runEngineFrame(16)
+    const resumed = { ...gameState.npcs['pause-session'] }
+    expect(resumed.x).toBeGreaterThan(paused.x)
+  })
+
+  it('lets NPCs escape when persisted positions start inside collision overlap', () => {
+    const session = {
+      sessionId: 'stuck-session',
+      provider: 'claude',
+      workspacePath: '/test',
+      startedAt: '2024-01-01T00:00:00Z',
+      status: 'active',
+      lastEventAt: '2024-01-01T00:01:00Z',
+      pendingApprovals: 0,
+    }
+    ;(useActiveSessions as ReturnType<typeof vi.fn>).mockReturnValue([session])
+    storeState.sessions = { 'stuck-session': session }
+
+    const overlapsSpy = vi.spyOn(CollisionMap.prototype, 'overlaps').mockReturnValue(true)
+    try {
+      render(<OfficePage />)
+      const initial = { ...(gameState.npcs['stuck-session']!) }
+
+      runEngineFrame(16)
+
+      const moved = gameState.npcs['stuck-session']
+      expect(moved).toBeDefined()
+      if (!moved) return
+      expect(moved.x).toBeGreaterThan(initial.x)
+    } finally {
+      overlapsSpy.mockRestore()
+    }
+  })
+
+  it('keeps player movement responsive when NPC collisions would deadlock movement', () => {
+    render(<OfficePage />)
+    gameState.player.x = 400
+    gameState.player.y = 300
+    gameState.npcs['blocker-session'] = { x: 433, y: 300 }
+    const initialX = gameState.player.x
+
+    act(() => {
+      window.dispatchEvent(new KeyboardEvent('keydown', { code: 'KeyD', bubbles: true }))
+    })
+    runEngineFrame(16)
+    act(() => {
+      window.dispatchEvent(new KeyboardEvent('keyup', { code: 'KeyD', bubbles: true }))
+    })
+
+    expect(gameState.player.x).toBeGreaterThan(initialX)
+  })
 })
 
 describe('OfficePage scrollToSession', () => {
@@ -423,6 +703,8 @@ describe('OfficePage scrollToSession', () => {
     Object.keys(gameState.npcs).forEach(k => delete gameState.npcs[k])
     gameState.player.x = 2 * 96
     gameState.player.y = 5 * 96
+    gameState.tick = 0
+    gameState.worldTimeMs = 0
     gameState.camera = { x: 0, y: 0, targetX: 0, targetY: 0, viewportW: 400, viewportH: 300, zoom: 2 }
     ;(useActiveSessions as ReturnType<typeof vi.fn>).mockReturnValue([
       {

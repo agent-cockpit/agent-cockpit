@@ -17,6 +17,8 @@ export interface DrawAgentSpriteOptions {
   lastEvent: NormalizedEvent | undefined
   position: { x: number; y: number }
   direction?: Direction
+  isMoving?: boolean
+  animTimeMs?: number
   imageCache: Map<string, HTMLImageElement>
   tick: number  // game tick counter from gameState.tick — used for NPC frame stepping
 }
@@ -27,14 +29,18 @@ export function drawAgentSprite({
   lastEvent,
   position,
   direction = 'south',
+  isMoving = false,
+  animTimeMs = 0,
   imageCache,
   tick,
 }: DrawAgentSpriteOptions): void {
   const characterType = session.character
   const agentState = deriveAgentState(session, lastEvent)
-  const animState = COLOR_STATE_TO_ANIMATION[agentState]
+  const shouldWalk = isMoving && agentState !== 'blocked' && agentState !== 'completed' && agentState !== 'failed'
+  const animState = shouldWalk ? 'walk' : COLOR_STATE_TO_ANIMATION[agentState]
   const row = DIRECTION_ROWS[direction] + STATE_ROW_OFFSET[animState]
   const NPC_TICKS_PER_FRAME = 8
+  const NPC_WALK_FRAME_DURATION_MS = 100
   const NPC_FRAME_COUNTS: Record<typeof animState, number> = {
     idle: 4,
     blocked: 8,
@@ -42,7 +48,9 @@ export function drawAgentSprite({
     failed: 7,
     walk: 8,
   }
-  const col = Math.floor(tick / NPC_TICKS_PER_FRAME) % NPC_FRAME_COUNTS[animState]
+  const col = animState === 'walk'
+    ? Math.floor(Math.max(animTimeMs, 0) / NPC_WALK_FRAME_DURATION_MS) % NPC_FRAME_COUNTS.walk
+    : Math.floor(tick / NPC_TICKS_PER_FRAME) % NPC_FRAME_COUNTS[animState]
   const src = `/sprites/${characterType}-sheet.png`
 
   let img = imageCache.get(src)

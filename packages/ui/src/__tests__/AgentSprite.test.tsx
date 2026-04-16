@@ -113,4 +113,31 @@ describe('drawAgentSprite', () => {
     // Image not complete (default)
     expect((ctx.drawImage as ReturnType<typeof vi.fn>).mock.calls.length).toBe(0)
   })
+
+  it('uses walk animation rows/frames when NPC is moving', () => {
+    const ctx = makeMockCtx()
+    const position = { x: 0, y: 0 }
+
+    drawAgentSprite({ ctx, session: mockSession, lastEvent: undefined, position, imageCache, tick: 0 })
+    const img = imageCache.get([...imageCache.keys()][0])!
+    Object.defineProperty(img, 'complete', { value: true, configurable: true })
+
+    drawAgentSprite({
+      ctx,
+      session: mockSession,
+      lastEvent: undefined,
+      position,
+      direction: 'east',
+      isMoving: true,
+      animTimeMs: 250,
+      imageCache,
+      tick: 0,
+    })
+    const drawImageCalls = (ctx.drawImage as ReturnType<typeof vi.fn>).mock.calls
+    const lastCall = drawImageCalls.at(-1)
+    expect(lastCall).toBeDefined()
+    if (!lastCall) return
+    expect(lastCall[1]).toBe(128) // sx = col(2) * 64
+    expect(lastCall[2]).toBe(2176) // sy = (east row 2 + walk offset 32) * 64
+  })
 })

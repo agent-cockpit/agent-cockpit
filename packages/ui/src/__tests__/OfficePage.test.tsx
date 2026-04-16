@@ -35,7 +35,10 @@ vi.mock('../store/index.js', () => {
   const storeState = {
     events: {} as Record<string, unknown[]>,
     sessions: {} as Record<string, unknown>,
+    pendingApprovalsBySession: {} as Record<string, unknown[]>,
+    wsStatus: 'disconnected' as const,
     selectedSessionId: null,
+    selectedPlayerCharacter: 'astronaut',
     sessionDetailOpen: false,
     selectSession: mockSelectSession,
     setHistoryMode: mockSetHistoryMode,
@@ -90,6 +93,7 @@ function makeSession(overrides: Partial<SessionRecord> & Pick<SessionRecord, 'se
     status: 'active',
     lastEventAt: '2026-01-01T00:01:00.000Z',
     pendingApprovals: 0,
+    character: 'astronaut',
     ...overrides,
   }
 }
@@ -276,7 +280,8 @@ describe('NPC spawn slot seeding', () => {
 
     act(() => { render(<OfficePage />) })
 
-    expect(gameState.npcs['sess-12']).toEqual({ x: 2000, y: 1888 })
+    // Second cycle starts near slot[0] + jitter, then de-overlap may nudge to the nearest free coordinate.
+    expect(gameState.npcs['sess-12']).toEqual({ x: 2016, y: 1888 })
   })
 
   it('all 12 SPAWN_SLOTS are within world bounds (1..3232)', () => {
