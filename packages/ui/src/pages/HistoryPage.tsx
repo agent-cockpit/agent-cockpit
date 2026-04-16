@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useStore, type SessionSummary } from '../store/index.js'
 import { ComparePanel } from '../components/panels/ComparePanel.js'
+import { DAEMON_URL } from '../lib/daemonUrl.js'
 
-const DAEMON_URL = 'http://localhost:3001'
 type ProviderFilter = 'all' | string
 type StatusFilter = 'all' | 'active' | 'ended' | 'error'
 type DateFilter = 'all' | '7d' | '30d'

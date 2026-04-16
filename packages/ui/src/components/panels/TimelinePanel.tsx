@@ -3,6 +3,7 @@ import { useParams } from 'react-router'
 import type { NormalizedEvent } from '@cockpit/shared'
 import { useStore } from '../../store/index.js'
 import { EMPTY_EVENTS } from '../../store/eventsSlice.js'
+import { DAEMON_URL } from '../../lib/daemonUrl.js'
 
 const EVENT_TYPE_LABELS: Record<string, string> = {
   session_start: 'Session Started',
@@ -85,7 +86,7 @@ export function TimelinePanel() {
   useEffect(() => {
     if (!sessionId) return
     if (events.length > 0) return
-    fetch(`http://localhost:3001/api/sessions/${sessionId}/events`)
+    fetch(`${DAEMON_URL}/api/sessions/${sessionId}/events`)
       .then((r) => r.json())
       .then((evs: NormalizedEvent[]) => bulkApplyEvents(sessionId, evs))
       .catch(() => {

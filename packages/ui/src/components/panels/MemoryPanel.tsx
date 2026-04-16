@@ -3,8 +3,7 @@ import { useParams } from 'react-router'
 import type { NormalizedEvent } from '@cockpit/shared'
 import { useStore } from '../../store/index.js'
 import { getSessionEvents, EMPTY_EVENTS } from '../../store/eventsSlice.js'
-
-const DAEMON = 'http://localhost:3001'
+import { DAEMON_URL as DAEMON } from '../../lib/daemonUrl.js'
 
 interface MemoryNote {
   note_id: string

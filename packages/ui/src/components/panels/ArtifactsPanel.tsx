@@ -3,6 +3,7 @@ import { useParams } from 'react-router'
 import type { NormalizedEvent } from '@cockpit/shared'
 import { useStore } from '../../store/index.js'
 import { EMPTY_EVENTS } from '../../store/eventsSlice.js'
+import { DAEMON_URL } from '../../lib/daemonUrl.js'
 
 interface ArtifactItem {
   id: string
@@ -36,13 +37,23 @@ function maybeGetFilePath(input: unknown): string | null {
   return null
 }
 
-function maybeGetToolDiff(input: unknown): string | undefined {
+function maybeGetToolDiff(input: unknown, filePath?: string): string | undefined {
   if (!input || typeof input !== 'object' || Array.isArray(input)) return undefined
   const payload = input as Record<string, unknown>
   const oldString = typeof payload['old_string'] === 'string' ? payload['old_string'] : null
   const newString = typeof payload['new_string'] === 'string' ? payload['new_string'] : null
   if (oldString === null && newString === null) return undefined
-  return [`---`, `+++`, `@@`, ...(oldString ? oldString.split('\n').map((line) => `-${line}`) : []), ...(newString ? newString.split('\n').map((line) => `+${line}`) : [])].join('\n')
+  const oldLines = oldString?.split('\n') ?? []
+  const newLines = newString?.split('\n') ?? []
+  const aFile = filePath ? `a/${filePath}` : 'a/file'
+  const bFile = filePath ? `b/${filePath}` : 'b/file'
+  return [
+    `--- ${aFile}`,
+    `+++ ${bFile}`,
+    `@@ -1,${oldLines.length} +1,${newLines.length} @@`,
+    ...oldLines.map((line) => `-${line}`),
+    ...newLines.map((line) => `+${line}`),
+  ].join('\n')
 }
 
 function deriveArtifacts(events: NormalizedEvent[]): ArtifactItem[] {
@@ -72,7 +83,7 @@ function deriveArtifacts(events: NormalizedEvent[]): ArtifactItem[] {
         changeType: event.toolName === 'Write' ? 'created' : 'modified',
         source: 'tool_call',
         timestamp: event.timestamp,
-        diff: maybeGetToolDiff(event.input),
+        diff: maybeGetToolDiff(event.input, filePath),
       })
     }
   })
@@ -221,7 +232,7 @@ export function ArtifactsPanel() {
   useEffect(() => {
     if (!sessionId) return
     if (events.length > 0) return
-    fetch(`http://localhost:3001/api/sessions/${sessionId}/events`)
+    fetch(`${DAEMON_URL}/api/sessions/${sessionId}/events`)
       .then((r) => r.json())
       .then((evs: unknown) => {
         bulkApplyEvents(sessionId, Array.isArray(evs) ? (evs as NormalizedEvent[]) : [])
@@ -230,6 +241,8 @@ export function ArtifactsPanel() {
         /* ignore fetch failures and keep live stream data */
       })
     // eslint-disable-next-line react-hooks/exhaustive-deps
+    // Intentionally omit bulkApplyEvents — it's a stable store action; adding it would re-run
+    // this fetch on every render cycle. If the store is refactored, verify stability is preserved.
   }, [sessionId])
 
   const artifacts = useMemo(() => deriveArtifacts(events), [events])

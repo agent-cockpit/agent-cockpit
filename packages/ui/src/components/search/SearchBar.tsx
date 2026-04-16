@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
+import { DAEMON_URL } from '../../lib/daemonUrl.js'
 
 interface SearchResult {
   sourceType: 'event' | 'approval' | 'memory_note'
@@ -6,8 +7,6 @@ interface SearchResult {
   sessionId: string
   snippet: string
 }
-
-const DAEMON_URL = 'http://localhost:3001'
 
 export function SearchBar() {
   const [query, setQuery] = useState('')
