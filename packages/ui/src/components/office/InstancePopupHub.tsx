@@ -188,7 +188,7 @@ export function InstancePopupHub({ open, onClose }: Props) {
                 <Tabs.Trigger
                   key={id}
                   value={id}
-                  className="cockpit-tab -mb-px data-[state=active]:text-[color:var(--color-cockpit-accent)] data-[state=active]:border-b-[color:var(--color-cockpit-accent)] data-[state=active]:[text-shadow:0_0_4px_var(--color-cockpit-accent)]"
+                  className="cockpit-tab -mb-px data-[state=active]:text-[color:var(--color-cockpit-accent)] data-[state=active]:border-b-[color:var(--color-cockpit-accent)] data-[state=active]:[text-shadow:0_0_2px_var(--color-cockpit-accent)]"
                 >
                   {TAB_LABELS[id]}
                 </Tabs.Trigger>

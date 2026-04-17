@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useParams } from 'react-router'
 import type { NormalizedEvent } from '@cockpit/shared'
 import { useStore } from '../../store/index.js'
@@ -17,12 +17,24 @@ const EVENT_TYPE_LABELS: Record<string, string> = {
   memory_read: 'Memory Read',
   memory_write: 'Memory Written',
   provider_parse_error: 'Parse Error',
+  session_chat_message: 'Chat Message',
+  session_chat_error: 'Chat Error',
 }
 
 type EventWithSeq = NormalizedEvent & { sequenceNumber?: number }
 
+function Field({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="[font-family:var(--font-mono-data)]">
+      <span className="cockpit-label">{label}:&nbsp;</span>
+      <span className="text-muted-foreground">{value}</span>
+    </div>
+  )
+}
+
 function InlineDetail({ event }: { event: NormalizedEvent }) {
-  const base = 'px-4 py-2 bg-[var(--color-panel-surface)] text-xs border-b border-border/50'
+  const base = 'px-4 py-2 bg-[var(--color-panel-surface)] text-xs border-b border-border/50 text-muted-foreground'
+
   if (event.type === 'tool_call') {
     return (
       <div className={base}>
@@ -33,6 +45,7 @@ function InlineDetail({ event }: { event: NormalizedEvent }) {
       </div>
     )
   }
+
   if (event.type === 'file_change') {
     return (
       <div className={base}>
@@ -46,6 +59,7 @@ function InlineDetail({ event }: { event: NormalizedEvent }) {
       </div>
     )
   }
+
   if (event.type === 'approval_request') {
     return (
       <div className={base}>
@@ -63,11 +77,104 @@ function InlineDetail({ event }: { event: NormalizedEvent }) {
       </div>
     )
   }
-  return (
-    <div className={base}>
-      <pre className="whitespace-pre-wrap [font-family:var(--font-mono-data)]">{JSON.stringify(event, null, 2)}</pre>
-    </div>
-  )
+
+  if (event.type === 'approval_resolved') {
+    return (
+      <div className={base}>
+        <Field label="Decision" value={event.decision} />
+        <Field label="ID" value={event.approvalId.slice(0, 8)} />
+      </div>
+    )
+  }
+
+  if (event.type === 'session_start') {
+    return (
+      <div className={base}>
+        <Field label="Provider" value={event.provider} />
+        <Field label="Workspace" value={event.workspacePath} />
+      </div>
+    )
+  }
+
+  if (event.type === 'session_end') {
+    return (
+      <div className={base}>
+        <Field label="Provider" value={event.provider} />
+        {event.exitCode !== undefined && <Field label="Exit code" value={String(event.exitCode)} />}
+      </div>
+    )
+  }
+
+  if (event.type === 'subagent_spawn') {
+    return (
+      <div className={base}>
+        <Field label="Subagent ID" value={event.subagentSessionId.slice(0, 8)} />
+      </div>
+    )
+  }
+
+  if (event.type === 'subagent_complete') {
+    return (
+      <div className={base}>
+        <Field label="Subagent ID" value={event.subagentSessionId.slice(0, 8)} />
+        <Field label="Success" value={event.success ? 'yes' : 'no'} />
+      </div>
+    )
+  }
+
+  if (event.type === 'memory_read') {
+    return (
+      <div className={base}>
+        <Field label="Key" value={event.memoryKey} />
+      </div>
+    )
+  }
+
+  if (event.type === 'memory_write') {
+    return (
+      <div className={base}>
+        <Field label="Key" value={event.memoryKey} />
+        <div className="[font-family:var(--font-mono-data)] mt-1">
+          <span className="cockpit-label">Value:&nbsp;</span>
+          <span className="text-muted-foreground whitespace-pre-wrap">{event.value}</span>
+        </div>
+      </div>
+    )
+  }
+
+  if (event.type === 'provider_parse_error') {
+    return (
+      <div className={base}>
+        <Field label="Provider" value={event.provider} />
+        <div className="[font-family:var(--font-mono-data)] mt-1 text-[var(--color-cockpit-red)]">{event.errorMessage}</div>
+        <pre className="mt-1 whitespace-pre-wrap text-muted-foreground [font-family:var(--font-mono-data)] max-h-32 overflow-y-auto">
+          {event.rawPayload.slice(0, 500)}{event.rawPayload.length > 500 ? '…' : ''}
+        </pre>
+      </div>
+    )
+  }
+
+  if (event.type === 'session_chat_message') {
+    return (
+      <div className={base}>
+        <Field label="Role" value={event.role} />
+        <pre className="mt-1 whitespace-pre-wrap text-muted-foreground [font-family:var(--font-mono-data)] max-h-40 overflow-y-auto">
+          {event.content.slice(0, 600)}{event.content.length > 600 ? '…' : ''}
+        </pre>
+      </div>
+    )
+  }
+
+  if (event.type === 'session_chat_error') {
+    return (
+      <div className={base}>
+        <Field label="Code" value={event.reasonCode} />
+        <Field label="Reason" value={event.reason} />
+      </div>
+    )
+  }
+
+  return null
 }
 
 export function TimelinePanel() {
@@ -95,7 +202,12 @@ export function TimelinePanel() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sessionId]) // intentionally omit events/bulkApplyEvents — run once on mount
 
-  const filteredEvents = filterType ? events.filter((e) => e.type === filterType) : events
+  // Pair each event with its original index, filter, then reverse (newest first)
+  const filteredEventsWithIdx = useMemo(() => {
+    const indexed = events.map((e, i) => ({ event: e, origIdx: i }))
+    const filtered = filterType ? indexed.filter(({ event }) => event.type === filterType) : indexed
+    return filtered.slice().reverse()
+  }, [events, filterType])
 
   // Jump-to targets always from UNFILTERED list
   const jumpTargets = events
@@ -110,7 +222,6 @@ export function TimelinePanel() {
       setFilterType(null)
       rowRefs.current.get(next.i)?.scrollIntoView({ block: 'nearest' })
     } else if (targets.length > 0) {
-      // If no "next", jump to the first one
       const first = targets[0]!
       setJumpIndex(first.i)
       setFilterType(null)
@@ -193,23 +304,19 @@ export function TimelinePanel() {
 
       {/* Timeline list */}
       <div className="flex-1 overflow-y-auto" data-testid="timeline-list">
-        {filteredEvents.length === 0 && (
+        {filteredEventsWithIdx.length === 0 && (
           <div className="flex items-center justify-center h-full cockpit-label" style={{ color: 'var(--color-cockpit-dim)' }}>
             -- NO EVENTS --
           </div>
         )}
-        {filteredEvents.map((event, idx) => {
-          const seq =
-            (event as EventWithSeq).sequenceNumber !== undefined
-              ? (event as EventWithSeq).sequenceNumber!
-              : idx
-          const rowKey = (event as EventWithSeq).sequenceNumber ?? `idx-${idx}`
+        {filteredEventsWithIdx.map(({ event, origIdx }) => {
+          const rowKey = (event as EventWithSeq).sequenceNumber ?? `idx-${origIdx}`
           const isSelected = selectedSeq === rowKey
           return (
             <div key={rowKey}>
               <div
                 ref={(el) => {
-                  if (el) rowRefs.current.set(idx, el)
+                  if (el) rowRefs.current.set(origIdx, el)
                 }}
                 onClick={() => setSelectedSeq(isSelected ? null : rowKey)}
                 className={`flex items-start gap-2 px-3 py-2 cursor-pointer border-b border-border/40 transition-colors ${

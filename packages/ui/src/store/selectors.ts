@@ -2,9 +2,10 @@ import { useRef } from 'react'
 import { useStore } from './index.js'
 import type { SessionRecord } from './index.js'
 
-function getFilteredSorted(sessions: Record<string, SessionRecord>, filters: { provider: string | null; status: string | null; search: string }): SessionRecord[] {
+function getFilteredSorted(sessions: Record<string, SessionRecord>, filters: { provider: string | null; status: string | null; search: string }, subagentSessionIds: Set<string>): SessionRecord[] {
   return Object.values(sessions)
     .filter((s) => {
+      if (subagentSessionIds.has(s.sessionId)) return false
       if (filters.provider && s.provider !== filters.provider) return false
       if (filters.status && s.status !== filters.status) return false
       if (filters.search && !s.workspacePath.toLowerCase().includes(filters.search.toLowerCase())) return false
@@ -30,7 +31,9 @@ export function useActiveSessions(): SessionRecord[] {
   const cacheRef = useRef<SessionRecord[]>([])
 
   return useStore((state) => {
-    const next = Object.values(state.sessions).filter((s) => s.status === 'active')
+    const next = Object.values(state.sessions).filter(
+      (s) => s.status === 'active' && !state.subagentSessionIds.has(s.sessionId),
+    )
     if (shallowArrayEqual(cacheRef.current, next)) {
       return cacheRef.current
     }
@@ -49,7 +52,7 @@ export function useFilteredSessions(): SessionRecord[] {
   const cacheRef = useRef<SessionRecord[]>([])
 
   return useStore((state) => {
-    const next = getFilteredSorted(state.sessions, state.filters)
+    const next = getFilteredSorted(state.sessions, state.filters, state.subagentSessionIds)
     if (shallowArrayEqual(cacheRef.current, next)) {
       return cacheRef.current
     }

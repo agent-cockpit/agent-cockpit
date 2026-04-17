@@ -10,7 +10,7 @@ import {
 import { applyEventToSessions } from './sessionsSlice.js'
 import { applyEventToEvents } from './eventsSlice.js'
 import { applyEventToApprovals } from './approvalsSlice.js'
-import type { ApprovalsSlice } from './approvalsSlice.js'
+import type { ApprovalsSlice, PendingApproval } from './approvalsSlice.js'
 
 export type SessionStatus = 'active' | 'ended' | 'error'
 export const PLAYER_CHARACTER_STORAGE_KEY = 'cockpit.player.character.v1'
@@ -132,6 +132,7 @@ export type PopupTabId = PanelId | 'chat'
 interface SessionsSlice {
   sessions: Record<string, SessionRecord>
   characterBag: CharacterType[]
+  subagentSessionIds: Set<string>
   applyEvent: (event: NormalizedEvent) => void
   applyEventsBatch: (events: NormalizedEvent[]) => void
 }
@@ -175,9 +176,9 @@ interface HistorySlice {
 export type AppStore = SessionsSlice & UiSlice & WsSlice & EventsSlice & HistorySlice & ApprovalsSlice
 
 function reduceStoreWithEvent(
-  state: Pick<AppStore, 'sessions' | 'events' | 'pendingApprovalsBySession' | 'characterBag'>,
+  state: Pick<AppStore, 'sessions' | 'events' | 'pendingApprovalsBySession' | 'characterBag' | 'subagentSessionIds'>,
   event: NormalizedEvent,
-): Pick<AppStore, 'sessions' | 'events' | 'pendingApprovalsBySession' | 'characterBag'> {
+): Pick<AppStore, 'sessions' | 'events' | 'pendingApprovalsBySession' | 'characterBag' | 'subagentSessionIds'> {
   let characterBag = state.characterBag
   let character: CharacterType | undefined
   if (event.type === 'session_start') {
@@ -202,11 +203,17 @@ function reduceStoreWithEvent(
   const sessionsPatch = applyEventToSessions(state, event, character)
   const eventsPatch = applyEventToEvents(state, event)
   const { pendingApprovalsBySession } = applyEventToApprovals(state, event)
+  let subagentSessionIds = state.subagentSessionIds
+  if (event.type === 'subagent_spawn') {
+    subagentSessionIds = new Set(subagentSessionIds)
+    subagentSessionIds.add(event.subagentSessionId)
+  }
   return {
     sessions: sessionsPatch.sessions,
     events: eventsPatch.events,
     pendingApprovalsBySession,
     characterBag,
+    subagentSessionIds,
   }
 }
 
@@ -215,17 +222,19 @@ export const useStore = create<AppStore>()(
     // sessionsSlice
     sessions: {},
     characterBag: newCharacterBag(),
+    subagentSessionIds: new Set<string>(),
     applyEvent: (event) =>
       set((state) => reduceStoreWithEvent(state, event)),
     applyEventsBatch: (events) =>
       set((state) => {
         if (events.length === 0) return {}
 
-        let nextState: Pick<AppStore, 'sessions' | 'events' | 'pendingApprovalsBySession' | 'characterBag'> = {
+        let nextState: Pick<AppStore, 'sessions' | 'events' | 'pendingApprovalsBySession' | 'characterBag' | 'subagentSessionIds'> = {
           sessions: state.sessions,
           events: state.events,
           pendingApprovalsBySession: state.pendingApprovalsBySession,
           characterBag: state.characterBag,
+          subagentSessionIds: state.subagentSessionIds,
         }
 
         for (const event of events) {
@@ -242,13 +251,26 @@ export const useStore = create<AppStore>()(
 
     // approvalsSlice
     pendingApprovalsBySession: {},
+    hydratePendingApprovals: (sessionId, approvals) =>
+      set((s) => {
+        const sessions = s.sessions[sessionId]
+          ? {
+              ...s.sessions,
+              [sessionId]: { ...s.sessions[sessionId]!, pendingApprovals: approvals.length },
+            }
+          : s.sessions
+        return {
+          pendingApprovalsBySession: { ...s.pendingApprovalsBySession, [sessionId]: approvals },
+          sessions,
+        }
+      }),
 
     // uiSlice
     selectedSessionId: null,
     selectedPlayerCharacter: readStoredPlayerCharacter(),
     activePanel: 'approvals',
     popupPreferredTab: null,
-    filters: { provider: null, status: null, search: '' },
+    filters: { provider: null, status: 'active', search: '' },
     sessionDetailOpen: false,
     selectSession: (id) => set({ selectedSessionId: id }),
     setSelectedPlayerCharacter: (character) => {

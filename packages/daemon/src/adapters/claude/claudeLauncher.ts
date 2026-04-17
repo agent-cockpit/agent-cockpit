@@ -54,18 +54,18 @@ export class ClaudeLauncher {
 
   async launch(sessionId: string, workspacePath: string): Promise<ManagedClaudeRuntime> {
     // 1. Build settings object — claude hook format uses type:"command" with curl, not type:"http"
-    const hookCmd = `curl -sf -X POST http://localhost:${this.hookPort}/hook -d @- -H 'Content-Type: application/json'`;
+    const HOOK_TIMEOUT_S = 60;
+    const hookCmd = `curl -sf --max-time ${HOOK_TIMEOUT_S - 5} -X POST http://localhost:${this.hookPort}/hook -d @- -H 'Content-Type: application/json'`;
     const hookEntry = (matcher?: string) => ({
       ...(matcher !== undefined ? { matcher } : {}),
-      hooks: [{ type: 'command', command: hookCmd }],
+      hooks: [{ type: 'command', command: hookCmd, timeout: HOOK_TIMEOUT_S }],
     });
     const settings = {
       hooks: {
-        SessionStart: [hookEntry()],
+        SessionStart: [{ matcher: 'startup', hooks: [{ type: 'command', command: hookCmd, timeout: HOOK_TIMEOUT_S }] }],
         SessionEnd: [hookEntry()],
         PreToolUse: [hookEntry('')],
         PostToolUse: [hookEntry('')],
-        PermissionRequest: [hookEntry('')],
         SubagentStart: [hookEntry()],
         SubagentStop: [hookEntry()],
         Notification: [hookEntry()],

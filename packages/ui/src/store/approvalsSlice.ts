@@ -13,6 +13,7 @@ export interface PendingApproval {
 
 export interface ApprovalsSlice {
   pendingApprovalsBySession: Record<string, PendingApproval[]>
+  hydratePendingApprovals: (sessionId: string, approvals: PendingApproval[]) => void
 }
 
 // Module-level constant to avoid creating new [] references for empty sessions

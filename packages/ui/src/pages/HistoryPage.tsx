@@ -25,7 +25,9 @@ export function HistoryPage({ onSessionOpen }: HistoryPageProps) {
       .catch(() => {})
   }, [bulkApplySessions])
 
-  const sessions = Object.values(historySessions)
+  const sessions = Object.values(historySessions).sort(
+    (a, b) => new Date(b.startedAt).getTime() - new Date(a.startedAt).getTime(),
+  )
 
   // Derive unique workspace paths for the project filter select
   const uniqueProjects = useMemo(
