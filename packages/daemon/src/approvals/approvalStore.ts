@@ -98,6 +98,16 @@ export function updateApprovalDecision(
   });
 }
 
+export function getApprovalsBySession(db: Database.Database, sessionId: string): ApprovalRow[] {
+  const rows = db.prepare('SELECT * FROM approvals WHERE session_id = ? ORDER BY created_at ASC').all(sessionId) as RawApprovalRow[];
+  return rows.map(mapRow);
+}
+
+export function getAllPendingApprovals(db: Database.Database): ApprovalRow[] {
+  const rows = db.prepare("SELECT * FROM approvals WHERE status = 'pending' ORDER BY created_at ASC").all() as RawApprovalRow[];
+  return rows.map(mapRow);
+}
+
 export function insertAlwaysAllowRule(db: Database.Database, params: AlwaysAllowRuleParams): void {
   db.prepare(`
     INSERT INTO always_allow_rules (session_id, tool_name, pattern, created_at)

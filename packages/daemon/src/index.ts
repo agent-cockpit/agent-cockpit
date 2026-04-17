@@ -4,6 +4,7 @@ import { createWsServer, broadcast } from './ws/server.js';
 import { createHookServer, initStartedSessions } from './adapters/claude/hookServer.js';
 import { setClaudeSessionCache, setClaudeSessionDb } from './adapters/claude/hookParser.js';
 import { approvalQueue } from './approvals/approvalQueue.js';
+import { getAllPendingApprovals } from './approvals/approvalStore.js';
 import { eventBus } from './eventBus.js';
 import { logger } from './logger.js';
 import { ingestExternalCodexCliSessions } from './adapters/codex/externalSessionIngest.js';
@@ -44,7 +45,8 @@ hookServer.once('listening', () => {
 
 const { wss, httpServer } = createWsServer(db, WS_PORT);
 
-// Event pipeline: eventBus → persist → broadcast
+// Event pipeline: eventBus → persist → broadcast.
+// Must be wired before stale approval expiry so approval_resolved events are persisted.
 eventBus.on('event', (rawEvent) => {
   logger.debug('daemon', `Event pipeline: ${rawEvent.type}`, { sessionId: rawEvent.sessionId });
   const saved = persistEvent(db, rawEvent);
@@ -54,6 +56,16 @@ eventBus.on('event', (rawEvent) => {
   });
   broadcast(wss, JSON.stringify(saved), db);
 });
+
+// Expire approvals that were pending when the daemon last stopped.
+// Runs after eventBus listener is wired so approval_resolved events are persisted and replayed.
+const stale = getAllPendingApprovals(db);
+if (stale.length > 0) {
+  logger.info('daemon', `Expiring ${stale.length} stale pending approval(s) from previous run`);
+  for (const row of stale) {
+    approvalQueue.handleTimeout(row.approvalId, db);
+  }
+}
 
 function importExternalCodexSessions(): void {
   try {

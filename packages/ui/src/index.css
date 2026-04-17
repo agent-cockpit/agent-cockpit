@@ -15,7 +15,7 @@
   --color-cockpit-green:  oklch(0.68 0.20 155);
   --color-cockpit-amber:  oklch(0.75 0.16 75);
   --color-cockpit-red:    oklch(0.60 0.22 25);
-  --color-cockpit-dim:    oklch(0.35 0.04 220);
+  --color-cockpit-dim:    oklch(0.50 0.04 220);
   --color-panel-surface:  oklch(0.185 0.025 250);
   --color-provider-claude:            #c15f3c;
   --color-provider-codex:             #605de6;
@@ -92,7 +92,7 @@
   font-family: var(--font-mono-data);
   font-size: 0.7rem;
   color: var(--color-cockpit-accent);
-  text-shadow: 0 0 4px var(--color-cockpit-accent);
+  text-shadow: 0 0 2px var(--color-cockpit-accent);
 }
 
 /* Dim/inactive readout */
@@ -177,7 +177,7 @@
 .cockpit-tab[data-active="true"] {
   color: var(--color-cockpit-accent);
   border-bottom-color: var(--color-cockpit-accent);
-  text-shadow: 0 0 4px var(--color-cockpit-accent);
+  text-shadow: 0 0 2px var(--color-cockpit-accent);
 }
 .cockpit-tab:hover:not(.active):not([data-active="true"]) {
   color: var(--color-foreground);

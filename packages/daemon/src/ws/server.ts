@@ -14,6 +14,7 @@ import { eventBus } from '../eventBus.js';
 import { getEventsBySession, searchAll, getAllSessions, getSessionSummary, persistEvent, type SessionSummary } from '../db/queries.js';
 import { resolveClaudeMdPath, resolveAutoMemoryPath, readFileSafe, writeFileSafe, getWorkspacePath } from '../memory/memoryReader.js';
 import { insertNote, listNotes, deleteNote } from '../memory/memoryNotes.js';
+import { getApprovalsBySession } from '../approvals/approvalStore.js';
 
 // Pending agent-suggested memory writes: memoryKey → { workspace, value }
 const pendingSuggestions = new Map<string, { workspace: string; value: string }>();
@@ -279,6 +280,16 @@ export function createWsServer(
       const sessions = getAllSessions(db).map((summary) => applyRuntimeCapabilityState(summary, runtimeRegistry));
       res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
       res.end(JSON.stringify(sessions));
+      return;
+    }
+
+    // GET /api/sessions/:id/approvals
+    const approvalsMatch = req.method === 'GET' && req.url?.match(/^\/api\/sessions\/([^/]+)\/approvals$/);
+    if (approvalsMatch) {
+      const sessionId = approvalsMatch[1]!;
+      const approvals = getApprovalsBySession(db, sessionId);
+      res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
+      res.end(JSON.stringify(approvals));
       return;
     }
 
