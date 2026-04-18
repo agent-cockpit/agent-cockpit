@@ -2,6 +2,7 @@ import { createServer } from 'node:http';
 import http from 'node:http';
 import crypto from 'node:crypto';
 import fs from 'node:fs';
+import path from 'node:path';
 import { WebSocketServer, WebSocket } from 'ws';
 import { logger } from '../logger.js';
 import type Database from 'better-sqlite3';
@@ -82,6 +83,8 @@ function applyRuntimeCapabilityState(
   }
 }
 
+const MAX_BODY = 1_048_576;
+
 function handleLaunchSession(
   req: http.IncomingMessage,
   res: http.ServerResponse,
@@ -89,7 +92,14 @@ function handleLaunchSession(
   runtimeRegistry: ManagedSessionRegistry,
 ): void {
   let body = '';
-  req.on('data', (chunk) => { body += chunk; });
+  req.on('data', (chunk) => {
+    body += chunk;
+    if (body.length > MAX_BODY) {
+      res.writeHead(413, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: 'payload too large' }));
+      req.destroy();
+    }
+  });
   req.on('end', () => {
     void (async () => {
       try {
@@ -114,7 +124,16 @@ function handleLaunchSession(
           const launcher = new ClaudeLauncher(hookPort, db);
           await launcher.preflight(workspacePath);
           logger.info('launch', 'Launching claude session', { sessionId, workspacePath });
-          const runtime = await launcher.launch(sessionId, workspacePath);
+          const runtime = await launcher.launch(sessionId, workspacePath, () => {
+            runtimeRegistry.unregister(sessionId);
+            eventBus.emit('event', {
+              schemaVersion: 1,
+              sessionId,
+              type: 'session_end',
+              provider: 'claude',
+              timestamp: new Date().toISOString(),
+            } as NormalizedEvent);
+          });
           runtimeRegistry.register(sessionId, {
             provider: 'claude',
             sendMessage: (message) => runtime.sendMessage(message),
@@ -315,18 +334,26 @@ export function createWsServer(
       const dirPath = rawPath.startsWith('~')
         ? rawPath.replace('~', process.env['HOME'] ?? '/')
         : rawPath;
+      const resolved = path.resolve(dirPath);
+      const allowedRoots = [process.env['HOME'] ?? '/', '/tmp'];
+      if (!allowedRoots.some((r) => resolved.startsWith(r))) {
+        res.writeHead(403, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: 'access denied' }));
+        return;
+      }
       try {
-        const entries = fs.readdirSync(dirPath, { withFileTypes: true });
+        const entries = fs.readdirSync(resolved, { withFileTypes: true });
         const dirs = entries
           .filter((e) => e.isDirectory() && !e.name.startsWith('.'))
-          .map((e) => ({ name: e.name, fullPath: `${dirPath.replace(/\/$/, '')}/${e.name}` }))
+          .map((e) => ({ name: e.name, fullPath: `${resolved.replace(/\/$/, '')}/${e.name}` }))
           .sort((a, b) => a.name.localeCompare(b.name));
-        const parent = dirPath !== '/' ? dirPath.split('/').slice(0, -1).join('/') || '/' : null;
+        const parent = resolved !== '/' ? resolved.split('/').slice(0, -1).join('/') || '/' : null;
         res.writeHead(200, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ path: dirPath, parent, entries: dirs }));
-      } catch {
+        res.end(JSON.stringify({ path: resolved, parent, entries: dirs }));
+      } catch (err) {
+        logger.error('browse', 'Cannot read directory', { dirPath: resolved, err });
         res.writeHead(422, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ error: `Cannot read directory: ${dirPath}` }));
+        res.end(JSON.stringify({ error: 'Cannot read directory' }));
       }
       return;
     }
@@ -385,7 +412,14 @@ export function createWsServer(
     // POST /api/memory/notes
     if (req.method === 'POST' && req.url === '/api/memory/notes') {
       let body = '';
-      req.on('data', (c) => { body += c; });
+      req.on('data', (c) => {
+        body += c;
+        if (body.length > MAX_BODY) {
+          res.writeHead(413, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ error: 'payload too large' }));
+          req.destroy();
+        }
+      });
       req.on('end', () => {
         try {
           const { workspace, content, pinned } = JSON.parse(body) as { workspace: string; content: string; pinned?: boolean };

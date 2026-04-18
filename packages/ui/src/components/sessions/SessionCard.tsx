@@ -7,6 +7,7 @@ interface SessionCardProps {
   onTerminate?: () => void
   isTerminating?: boolean
   terminateError?: string
+  activeSubagentCount?: number
 }
 
 const STATUS_DOT: Record<SessionRecord['status'], string> = {
@@ -27,6 +28,7 @@ export function SessionCard({
   onTerminate,
   isTerminating = false,
   terminateError,
+  activeSubagentCount = 0,
 }: SessionCardProps) {
   const projectName = session.workspacePath.split('/').at(-1) ?? session.workspacePath
   const showTerminateButton =
@@ -56,6 +58,16 @@ export function SessionCard({
 
           {/* Project name */}
           <span className="flex-1 truncate text-sm font-medium">{projectName}</span>
+
+          {/* Active subagent badge */}
+          {activeSubagentCount > 0 && (
+            <span
+              className="shrink-0 rounded-full bg-violet-500 px-1.5 py-0.5 text-xs text-white animate-pulse"
+              title={`${activeSubagentCount} subagent${activeSubagentCount > 1 ? 's' : ''} running`}
+            >
+              ⎇{activeSubagentCount}
+            </span>
+          )}
 
           {/* Pending approvals badge */}
           {session.pendingApprovals > 0 && (

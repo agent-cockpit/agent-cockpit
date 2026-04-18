@@ -1,10 +1,7 @@
 import { useEffect } from 'react'
 import type { NormalizedEvent } from '@cockpit/shared'
 import { useStore } from '../store/index.js'
-
-// WS_URL defaults to the daemon's WebSocket port.
-// Override via VITE_WS_URL env var for staging/production deployments.
-const WS_URL = import.meta.env['VITE_WS_URL'] ?? 'ws://localhost:3001'
+import { WS_URL } from '../lib/daemonUrl.js'
 const MAX_RETRIES = 12
 
 // Module-level singleton — one connection per app instance, survives navigation

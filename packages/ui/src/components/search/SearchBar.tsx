@@ -41,8 +41,7 @@ export function SearchBar() {
             <li key={i} className="rounded bg-muted p-2 text-xs">
               <span className="font-medium text-muted-foreground">{r.sourceType}</span>
               {' — '}
-              {/* Strip HTML tags from snippet for plain text display */}
-              <span dangerouslySetInnerHTML={{ __html: r.snippet }} />
+              <span dangerouslySetInnerHTML={{ __html: r.snippet.replace(/<b>/g, '<mark>').replace(/<\/b>/g, '</mark>').replace(/<(?!\/?mark)[^>]+>/g, '') }} />
             </li>
           ))}
         </ul>

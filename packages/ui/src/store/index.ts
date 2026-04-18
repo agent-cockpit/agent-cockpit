@@ -133,6 +133,7 @@ interface SessionsSlice {
   sessions: Record<string, SessionRecord>
   characterBag: CharacterType[]
   subagentSessionIds: Set<string>
+  activeSubagentParents: Record<string, number>
   applyEvent: (event: NormalizedEvent) => void
   applyEventsBatch: (events: NormalizedEvent[]) => void
 }
@@ -176,9 +177,9 @@ interface HistorySlice {
 export type AppStore = SessionsSlice & UiSlice & WsSlice & EventsSlice & HistorySlice & ApprovalsSlice
 
 function reduceStoreWithEvent(
-  state: Pick<AppStore, 'sessions' | 'events' | 'pendingApprovalsBySession' | 'characterBag' | 'subagentSessionIds'>,
+  state: Pick<AppStore, 'sessions' | 'events' | 'pendingApprovalsBySession' | 'characterBag' | 'subagentSessionIds' | 'activeSubagentParents'>,
   event: NormalizedEvent,
-): Pick<AppStore, 'sessions' | 'events' | 'pendingApprovalsBySession' | 'characterBag' | 'subagentSessionIds'> {
+): Pick<AppStore, 'sessions' | 'events' | 'pendingApprovalsBySession' | 'characterBag' | 'subagentSessionIds' | 'activeSubagentParents'> {
   let characterBag = state.characterBag
   let character: CharacterType | undefined
   if (event.type === 'session_start') {
@@ -204,9 +205,23 @@ function reduceStoreWithEvent(
   const eventsPatch = applyEventToEvents(state, event)
   const { pendingApprovalsBySession } = applyEventToApprovals(state, event)
   let subagentSessionIds = state.subagentSessionIds
+  let activeSubagentParents = state.activeSubagentParents
   if (event.type === 'subagent_spawn') {
     subagentSessionIds = new Set(subagentSessionIds)
     subagentSessionIds.add(event.subagentSessionId)
+    activeSubagentParents = {
+      ...activeSubagentParents,
+      [event.sessionId]: (activeSubagentParents[event.sessionId] ?? 0) + 1,
+    }
+  }
+  if (event.type === 'subagent_complete') {
+    const next = (activeSubagentParents[event.sessionId] ?? 1) - 1
+    activeSubagentParents = { ...activeSubagentParents }
+    if (next <= 0) {
+      delete activeSubagentParents[event.sessionId]
+    } else {
+      activeSubagentParents[event.sessionId] = next
+    }
   }
   return {
     sessions: sessionsPatch.sessions,
@@ -214,6 +229,7 @@ function reduceStoreWithEvent(
     pendingApprovalsBySession,
     characterBag,
     subagentSessionIds,
+    activeSubagentParents,
   }
 }
 
@@ -223,18 +239,20 @@ export const useStore = create<AppStore>()(
     sessions: {},
     characterBag: newCharacterBag(),
     subagentSessionIds: new Set<string>(),
+    activeSubagentParents: {},
     applyEvent: (event) =>
       set((state) => reduceStoreWithEvent(state, event)),
     applyEventsBatch: (events) =>
       set((state) => {
         if (events.length === 0) return {}
 
-        let nextState: Pick<AppStore, 'sessions' | 'events' | 'pendingApprovalsBySession' | 'characterBag' | 'subagentSessionIds'> = {
+        let nextState: Pick<AppStore, 'sessions' | 'events' | 'pendingApprovalsBySession' | 'characterBag' | 'subagentSessionIds' | 'activeSubagentParents'> = {
           sessions: state.sessions,
           events: state.events,
           pendingApprovalsBySession: state.pendingApprovalsBySession,
           characterBag: state.characterBag,
           subagentSessionIds: state.subagentSessionIds,
+          activeSubagentParents: state.activeSubagentParents,
         }
 
         for (const event of events) {

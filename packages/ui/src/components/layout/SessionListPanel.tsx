@@ -14,6 +14,7 @@ export function SessionListPanel() {
   const navigate = useNavigate()
   const sessions = useFilteredSessions()
   const selectedSessionId = useStore((s) => s.selectedSessionId)
+  const activeSubagentParents = useStore((s) => s.activeSubagentParents)
   const setHistoryMode = useStore((s) => s.setHistoryMode)
   const sessionsById = useStore((s) => s.sessions)
   const wsStatus = useStore((s) => s.wsStatus)
@@ -152,6 +153,7 @@ export function SessionListPanel() {
               onTerminate={() => handleTerminate(session.sessionId)}
               isTerminating={terminatingSessionId === session.sessionId}
               terminateError={terminateErrors[session.sessionId]}
+              activeSubagentCount={activeSubagentParents[session.sessionId] ?? 0}
             />
           ))
         )}
