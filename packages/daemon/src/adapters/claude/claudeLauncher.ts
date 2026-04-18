@@ -52,7 +52,7 @@ export class ClaudeLauncher {
     }
   }
 
-  async launch(sessionId: string, workspacePath: string): Promise<ManagedClaudeRuntime> {
+  async launch(sessionId: string, workspacePath: string, onExit?: () => void): Promise<ManagedClaudeRuntime> {
     // 1. Build settings object — claude hook format uses type:"command" with curl, not type:"http"
     const HOOK_TIMEOUT_S = 60;
     const hookCmd = `curl -sf --max-time ${HOOK_TIMEOUT_S - 5} -X POST http://localhost:${this.hookPort}/hook -d @- -H 'Content-Type: application/json'`;
@@ -119,6 +119,7 @@ export class ClaudeLauncher {
         if (settled) return;
         settled = true;
         if (startupTimer) clearTimeout(startupTimer);
+        try { fs.unlinkSync(settingsPath); } catch { /* already gone */ }
         resolve(runtime);
       };
 
@@ -145,7 +146,7 @@ export class ClaudeLauncher {
             settleReject(new LaunchError('SPAWN_FAILED', `claude exited during startup with code ${proc.exitCode}: ${stderr}`));
             return;
           }
-          settleResolve({
+          const runtime: ManagedClaudeRuntime = {
             sendMessage: async (message: string) => {
               const hasExited = proc.exitCode !== null && proc.exitCode !== undefined;
               if (!proc.stdin?.writable || proc.killed || hasExited) {
@@ -175,6 +176,10 @@ export class ClaudeLauncher {
               }
             },
             isActive: () => !proc.killed && (proc.exitCode === null || proc.exitCode === undefined),
+          };
+          settleResolve(runtime);
+          proc.on('exit', () => {
+            onExit?.();
           });
         }, 500);
       });

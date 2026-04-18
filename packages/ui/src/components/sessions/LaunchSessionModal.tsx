@@ -1,7 +1,6 @@
 import { useState } from 'react'
 import { getProviderAccentStyle } from '../providerAccent.js'
-
-const DAEMON_URL = import.meta.env['VITE_DAEMON_URL'] ?? 'http://localhost:3001'
+import { DAEMON_URL } from '../../lib/daemonUrl.js'
 
 interface LaunchSessionModalProps {
   open: boolean
