@@ -1,21 +1,20 @@
-import { createServer } from 'node:http';
-import http from 'node:http';
+import type { NormalizedEvent } from '@cockpit/shared';
+import type Database from 'better-sqlite3';
 import crypto from 'node:crypto';
 import fs from 'node:fs';
+import http, { createServer } from 'node:http';
 import path from 'node:path';
-import { WebSocketServer, WebSocket } from 'ws';
-import { logger } from '../logger.js';
-import type Database from 'better-sqlite3';
-import type { NormalizedEvent } from '@cockpit/shared';
-import { handleConnection } from './handlers.js';
-import { CodexAdapter } from '../adapters/codex/codexAdapter.js';
+import { WebSocket, WebSocketServer } from 'ws';
 import { ClaudeLauncher, LaunchError } from '../adapters/claude/claudeLauncher.js';
 import { markSessionStarted } from '../adapters/claude/hookServer.js';
-import { eventBus } from '../eventBus.js';
-import { getEventsBySession, searchAll, getAllSessions, getSessionSummary, persistEvent, type SessionSummary } from '../db/queries.js';
-import { resolveClaudeMdPath, resolveAutoMemoryPath, readFileSafe, writeFileSafe, getWorkspacePath } from '../memory/memoryReader.js';
-import { insertNote, listNotes, deleteNote } from '../memory/memoryNotes.js';
+import { CodexAdapter } from '../adapters/codex/codexAdapter.js';
 import { getApprovalsBySession } from '../approvals/approvalStore.js';
+import { deleteSessionRecords, getAllSessions, getEventsBySession, getSessionSummary, persistEvent, searchAll, type SessionSummary } from '../db/queries.js';
+import { eventBus } from '../eventBus.js';
+import { logger } from '../logger.js';
+import { deleteNote, insertNote, listNotes } from '../memory/memoryNotes.js';
+import { getWorkspacePath, readFileSafe, resolveAutoMemoryPath, resolveClaudeMdPath, writeFileSafe } from '../memory/memoryReader.js';
+import { handleConnection } from './handlers.js';
 
 // Pending agent-suggested memory writes: memoryKey → { workspace, value }
 const pendingSuggestions = new Map<string, { workspace: string; value: string }>();
@@ -299,6 +298,99 @@ export function createWsServer(
       const sessions = getAllSessions(db).map((summary) => applyRuntimeCapabilityState(summary, runtimeRegistry));
       res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
       res.end(JSON.stringify(sessions));
+      return;
+    }
+
+    // DELETE /api/sessions (bulk)
+    if (req.method === 'DELETE' && req.url === '/api/sessions') {
+      let body = '';
+      req.on('data', (chunk) => {
+        body += chunk;
+        if (body.length > MAX_BODY) {
+          res.writeHead(413, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ error: 'payload too large' }));
+          req.destroy();
+        }
+      });
+      req.on('end', () => {
+        void (async () => {
+          try {
+            const parsed = body
+              ? JSON.parse(body) as { sessionIds?: unknown; terminateActive?: unknown; deleteAll?: unknown }
+              : {};
+
+            const terminateActive = parsed.terminateActive === true;
+            const deleteAll = parsed.deleteAll === true;
+            const sessionIds = Array.isArray(parsed.sessionIds)
+              ? parsed.sessionIds.filter((id): id is string => typeof id === 'string' && id.length > 0)
+              : [];
+
+            if (!deleteAll && sessionIds.length === 0) {
+              res.writeHead(400, { 'Content-Type': 'application/json' });
+              res.end(JSON.stringify({ error: 'sessionIds is required when deleteAll is false' }));
+              return;
+            }
+
+            const summaries = getAllSessions(db);
+            const byId = new Map(summaries.map((summary) => [summary.sessionId, summary]));
+            const targetIds = deleteAll
+              ? summaries.map((summary) => summary.sessionId)
+              : Array.from(new Set(sessionIds));
+
+            const deletedSessionIds: string[] = [];
+            const terminatedSessionIds: string[] = [];
+            const skipped: Array<{ sessionId: string; reason: string }> = [];
+
+            for (const sessionId of targetIds) {
+              const summary = byId.get(sessionId);
+              if (!summary) {
+                skipped.push({ sessionId, reason: 'Session was not found.' });
+                continue;
+              }
+
+              if (summary.finalStatus === 'active') {
+                if (!terminateActive) {
+                  skipped.push({ sessionId, reason: 'Session is active. Confirm termination before deleting.' });
+                  continue;
+                }
+
+                const runtimeAwareSummary = applyRuntimeCapabilityState(summary, runtimeRegistry);
+                if (runtimeAwareSummary.capabilities.canTerminateSession !== true) {
+                  skipped.push({
+                    sessionId,
+                    reason: runtimeAwareSummary.capabilities.reason ?? 'Active session cannot be terminated by daemon.',
+                  });
+                  continue;
+                }
+
+                const runtime = runtimeRegistry.get(sessionId);
+                if (!runtime?.terminateSession) {
+                  skipped.push({ sessionId, reason: 'Managed session runtime is not available for terminate.' });
+                  continue;
+                }
+
+                try {
+                  await Promise.resolve(runtime.terminateSession());
+                  runtimeRegistry.unregister(sessionId);
+                  terminatedSessionIds.push(sessionId);
+                } catch (err) {
+                  skipped.push({ sessionId, reason: `Failed to terminate session: ${String(err)}` });
+                  continue;
+                }
+              }
+
+              deleteSessionRecords(db, sessionId);
+              deletedSessionIds.push(sessionId);
+            }
+
+            res.writeHead(200, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ deletedSessionIds, terminatedSessionIds, skipped }));
+          } catch {
+            res.writeHead(400, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ error: 'invalid JSON body' }));
+          }
+        })();
+      });
       return;
     }
 
