@@ -1,5 +1,5 @@
-import type Database from 'better-sqlite3';
 import type { NormalizedEvent } from '@cockpit/shared';
+import type Database from 'better-sqlite3';
 
 export interface SearchResult {
   sourceType: 'event' | 'approval' | 'memory_note'
@@ -295,4 +295,17 @@ export function setClaudeSessionId(
   db.prepare(
     'INSERT OR IGNORE INTO claude_sessions (session_id, claude_id, workspace, created_at) VALUES (?, ?, ?, ?)'
   ).run(sessionId, claudeId, workspace, new Date().toISOString());
+}
+
+export function deleteSessionRecords(db: Database.Database, sessionId: string): void {
+  const remove = db.transaction((id: string) => {
+    db.prepare('DELETE FROM search_fts WHERE session_id = ?').run(id);
+    db.prepare('DELETE FROM always_allow_rules WHERE session_id = ?').run(id);
+    db.prepare('DELETE FROM approvals WHERE session_id = ?').run(id);
+    db.prepare('DELETE FROM events WHERE session_id = ?').run(id);
+    db.prepare('DELETE FROM codex_sessions WHERE session_id = ?').run(id);
+    db.prepare('DELETE FROM claude_sessions WHERE session_id = ?').run(id);
+  });
+
+  remove(sessionId);
 }

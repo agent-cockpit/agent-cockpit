@@ -1,7 +1,8 @@
 import { useEffect } from 'react'
-import { useParams, NavLink, Outlet } from 'react-router'
-import { useStore } from '../../store/index.js'
+import { NavLink, Outlet, useParams } from 'react-router'
+import { getSessionTitle } from '../../lib/sessionTitle.js'
 import type { PanelId } from '../../store/index.js'
+import { useStore } from '../../store/index.js'
 import { getProviderAccentStyle } from '../providerAccent.js'
 
 const TABS: { id: PanelId; label: string }[] = [
@@ -47,7 +48,7 @@ export function SessionDetailPanel() {
     )
   }
 
-  const projectName = session.workspacePath.split('/').at(-1) ?? session.workspacePath
+  const projectName = getSessionTitle(session.workspacePath, session.sessionId)
 
   return (
     <div className="flex flex-col h-full" style={getProviderAccentStyle(session.provider)}>

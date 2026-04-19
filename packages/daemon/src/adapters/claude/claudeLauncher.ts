@@ -1,8 +1,8 @@
+import type Database from 'better-sqlite3';
+import type { ChildProcess } from 'node:child_process';
+import { execFile, execFileSync, spawn } from 'node:child_process';
 import fs from 'node:fs';
 import os from 'node:os';
-import { execFile, execFileSync, spawn } from 'node:child_process';
-import type { ChildProcess } from 'node:child_process';
-import type Database from 'better-sqlite3';
 import { setClaudeSessionId } from '../../db/queries.js';
 
 export class LaunchError extends Error {
@@ -114,12 +114,22 @@ export class ClaudeLauncher {
       let settled = false;
       let stderr = '';
       let startupTimer: NodeJS.Timeout | null = null;
+      let cleanedUpSettings = false;
+
+      const cleanupSettings = (): void => {
+        if (cleanedUpSettings) return;
+        cleanedUpSettings = true;
+        try {
+          fs.unlinkSync(settingsPath);
+        } catch {
+          // Temp settings may already be removed; ignore cleanup races.
+        }
+      };
 
       const settleResolve = (runtime: ManagedClaudeRuntime): void => {
         if (settled) return;
         settled = true;
         if (startupTimer) clearTimeout(startupTimer);
-        try { fs.unlinkSync(settingsPath); } catch { /* already gone */ }
         resolve(runtime);
       };
 
@@ -127,6 +137,7 @@ export class ClaudeLauncher {
         if (settled) return;
         settled = true;
         if (startupTimer) clearTimeout(startupTimer);
+        cleanupSettings();
         reject(error);
       };
 
@@ -179,6 +190,7 @@ export class ClaudeLauncher {
           };
           settleResolve(runtime);
           proc.on('exit', () => {
+            cleanupSettings();
             onExit?.();
           });
         }, 500);

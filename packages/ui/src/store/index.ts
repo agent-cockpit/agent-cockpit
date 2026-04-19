@@ -1,16 +1,16 @@
+import type { NormalizedEvent } from '@cockpit/shared'
 import { create } from 'zustand'
 import { subscribeWithSelector } from 'zustand/middleware'
-import type { NormalizedEvent } from '@cockpit/shared'
 import {
-  CHARACTER_TYPES,
-  type CharacterType,
-  newCharacterBag,
-  drawFromBag,
+    CHARACTER_TYPES,
+    type CharacterType,
+    drawFromBag,
+    newCharacterBag,
 } from '../components/office/characterMapping.js'
-import { applyEventToSessions } from './sessionsSlice.js'
-import { applyEventToEvents } from './eventsSlice.js'
+import type { ApprovalsSlice } from './approvalsSlice.js'
 import { applyEventToApprovals } from './approvalsSlice.js'
-import type { ApprovalsSlice, PendingApproval } from './approvalsSlice.js'
+import { applyEventToEvents } from './eventsSlice.js'
+import { applyEventToSessions } from './sessionsSlice.js'
 
 export type SessionStatus = 'active' | 'ended' | 'error'
 export const PLAYER_CHARACTER_STORAGE_KEY = 'cockpit.player.character.v1'
@@ -170,6 +170,7 @@ interface HistorySlice {
   historyMode: boolean
   compareSelectionIds: string[]
   bulkApplySessions: (sessions: SessionSummary[]) => void
+  removeHistorySessions: (sessionIds: string[]) => void
   setHistoryMode: (on: boolean) => void
   toggleCompareSelection: (id: string) => void
 }
@@ -324,6 +325,21 @@ export const useStore = create<AppStore>()(
           ...Object.fromEntries(sessions.map((sess) => [sess.sessionId, sess])),
         },
       })),
+    removeHistorySessions: (sessionIds) =>
+      set((s) => {
+        if (sessionIds.length === 0) return {}
+
+        const ids = new Set(sessionIds)
+        const nextHistorySessions = { ...s.historySessions }
+        ids.forEach((sessionId) => {
+          delete nextHistorySessions[sessionId]
+        })
+
+        return {
+          historySessions: nextHistorySessions,
+          compareSelectionIds: s.compareSelectionIds.filter((id) => !ids.has(id)),
+        }
+      }),
     setHistoryMode: (on) => set({ historyMode: on }),
     toggleCompareSelection: (id) =>
       set((s) => {

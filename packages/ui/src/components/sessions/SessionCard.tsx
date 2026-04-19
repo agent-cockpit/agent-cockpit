@@ -1,3 +1,4 @@
+import { getSessionTitle } from '../../lib/sessionTitle.js'
 import type { SessionRecord } from '../../store/index.js'
 
 interface SessionCardProps {
@@ -30,7 +31,7 @@ export function SessionCard({
   terminateError,
   activeSubagentCount = 0,
 }: SessionCardProps) {
-  const projectName = session.workspacePath.split('/').at(-1) ?? session.workspacePath
+  const projectName = getSessionTitle(session.workspacePath, session.sessionId)
   const showTerminateButton =
     session.status === 'active' && session.canTerminateSession === true && !!onTerminate
   const showUnsupportedTerminate =

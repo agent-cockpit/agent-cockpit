@@ -1,10 +1,11 @@
 import { useState } from 'react'
-import { useActiveSessions } from '../../store/selectors.js'
-import { useStore } from '../../store/index.js'
+import { getSessionTitle } from '../../lib/sessionTitle.js'
 import type { SessionStatus } from '../../store/index.js'
-import { LaunchSessionModal } from '../sessions/LaunchSessionModal.js'
-import { characterFaceUrl } from '../office/characterMapping.js'
+import { useStore } from '../../store/index.js'
+import { useActiveSessions } from '../../store/selectors.js'
 import type { CharacterType } from '../office/characterMapping.js'
+import { characterFaceUrl } from '../office/characterMapping.js'
+import { LaunchSessionModal } from '../sessions/LaunchSessionModal.js'
 
 interface Props {
   onFocusSession: (sessionId: string) => void
@@ -89,7 +90,7 @@ export function MapSidebar({ onFocusSession }: Props) {
       ) : (
         <div className="flex flex-1 gap-2 overflow-x-auto min-w-0 py-1">
           {rows.map((session) => {
-            const projectName = session.workspacePath.split('/').at(-1) ?? session.sessionId
+            const projectName = getSessionTitle(session.workspacePath, session.sessionId)
             const providerLabel = session.provider === 'claude' ? 'Claude' : 'Codex'
             const statusStyle = STATUS_STYLES[session.status]
             const isSelected = selectedSessionId === session.sessionId

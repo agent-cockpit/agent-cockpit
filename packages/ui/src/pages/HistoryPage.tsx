@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useState } from 'react'
-import { useStore, type SessionSummary } from '../store/index.js'
+import { useNavigate } from 'react-router'
 import { ComparePanel } from '../components/panels/ComparePanel.js'
 import { DAEMON_URL } from '../lib/daemonUrl.js'
+import { useStore, type SessionSummary } from '../store/index.js'
 
 type ProviderFilter = 'all' | string
 type StatusFilter = 'all' | 'active' | 'ended' | 'error'
@@ -12,11 +13,26 @@ interface HistoryPageProps {
 }
 
 export function HistoryPage({ onSessionOpen }: HistoryPageProps) {
-  const { historySessions, bulkApplySessions, setHistoryMode, compareSelectionIds, toggleCompareSelection, selectSession, setSessionDetailOpen } = useStore()
+  const navigate = useNavigate()
+  const {
+    historySessions,
+    bulkApplySessions,
+    removeHistorySessions,
+    setHistoryMode,
+    compareSelectionIds,
+    toggleCompareSelection,
+    selectSession,
+    setSessionDetailOpen,
+  } = useStore()
   const [providerFilter, setProviderFilter] = useState<ProviderFilter>('all')
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all')
   const [projectFilter, setProjectFilter] = useState<string>('all')
   const [dateFilter, setDateFilter] = useState<DateFilter>('all')
+  const [deleteSelectionIds, setDeleteSelectionIds] = useState<string[]>([])
+  const [deleteTargets, setDeleteTargets] = useState<string[]>([])
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false)
+  const [isDeleting, setIsDeleting] = useState(false)
+  const [deleteError, setDeleteError] = useState<string | null>(null)
 
   useEffect(() => {
     fetch(`${DAEMON_URL}/api/sessions`)
@@ -51,11 +67,122 @@ export function HistoryPage({ onSessionOpen }: HistoryPageProps) {
   const compareLeft = compareSelectionIds[0] ? historySessions[compareSelectionIds[0]] : null
   const compareRight = compareSelectionIds[1] ? historySessions[compareSelectionIds[1]] : null
 
+  const selectedSet = useMemo(() => new Set(deleteSelectionIds), [deleteSelectionIds])
+
+  const activeDeleteTargets = useMemo(
+    () => deleteTargets.map((id) => historySessions[id]).filter((s): s is SessionSummary => !!s && s.finalStatus === 'active'),
+    [deleteTargets, historySessions],
+  )
+
+  const nonTerminableActiveTargets = useMemo(
+    () => activeDeleteTargets.filter((s) => s.capabilities?.canTerminateSession === false),
+    [activeDeleteTargets],
+  )
+
+  const canConfirmDelete = !isDeleting && deleteTargets.length > 0 && nonTerminableActiveTargets.length === 0
+  const canCompare = deleteSelectionIds.length === 2
+  const isCompareOpen = compareSelectionIds.length === 2 && !!compareLeft && !!compareRight
+
+  useEffect(() => {
+    // Keep selection in sync after refreshes/deletions.
+    setDeleteSelectionIds((current) => current.filter((id) => !!historySessions[id]))
+  }, [historySessions])
+
   function openSession(sessionId: string) {
     setHistoryMode(true)
     selectSession(sessionId)
     setSessionDetailOpen(true)
+    navigate(`/session/${sessionId}/timeline`)
     onSessionOpen?.()
+  }
+
+  function toggleDeleteSelection(sessionId: string): void {
+    setDeleteSelectionIds((current) => {
+      if (current.includes(sessionId)) {
+        return current.filter((id) => id !== sessionId)
+      }
+      return [...current, sessionId]
+    })
+  }
+
+  function applyCompareSelection(nextIds: string[]): void {
+    compareSelectionIds.forEach((id) => toggleCompareSelection(id))
+    nextIds.forEach((id) => toggleCompareSelection(id))
+  }
+
+  function handleCompareAction(): void {
+    if (isCompareOpen) {
+      compareSelectionIds.forEach((id) => toggleCompareSelection(id))
+      return
+    }
+    if (!canCompare) return
+    applyCompareSelection(deleteSelectionIds)
+  }
+
+  function requestDeleteSelected(): void {
+    if (deleteSelectionIds.length === 0) return
+    setDeleteError(null)
+    setDeleteTargets(deleteSelectionIds)
+    setIsDeleteDialogOpen(true)
+  }
+
+  function requestDeleteAll(): void {
+    if (sessions.length === 0) return
+    setDeleteError(null)
+    setDeleteTargets(sessions.map((s) => s.sessionId))
+    setIsDeleteDialogOpen(true)
+  }
+
+  function closeDeleteDialog(): void {
+    if (isDeleting) return
+    setIsDeleteDialogOpen(false)
+    setDeleteTargets([])
+  }
+
+  async function confirmDelete(): Promise<void> {
+    if (!canConfirmDelete) return
+
+    setDeleteError(null)
+    setIsDeleting(true)
+    try {
+      const terminateActive = activeDeleteTargets.length > 0
+      const response = await fetch(`${DAEMON_URL}/api/sessions`, {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          sessionIds: deleteTargets,
+          terminateActive,
+        }),
+      })
+
+      const payload = (await response.json().catch(() => null)) as
+        | { deletedSessionIds?: string[]; skipped?: Array<{ reason?: string }> }
+        | null
+
+      if (!response.ok) {
+        const skippedReason = payload?.skipped?.[0]?.reason
+        throw new Error(skippedReason || 'Failed to delete sessions.')
+      }
+
+      const deletedSessionIds = payload?.deletedSessionIds ?? []
+      if (deletedSessionIds.length > 0) {
+        removeHistorySessions(deletedSessionIds)
+      }
+
+      setDeleteSelectionIds((current) => current.filter((id) => !deletedSessionIds.includes(id)))
+
+      if ((payload?.skipped?.length ?? 0) > 0) {
+        const firstReason = payload?.skipped?.[0]?.reason ?? 'Some sessions could not be deleted.'
+        setDeleteError(firstReason)
+      } else {
+        setIsDeleteDialogOpen(false)
+        setDeleteTargets([])
+      }
+    } catch (error) {
+      setDeleteError(error instanceof Error ? error.message : 'Failed to delete sessions.')
+    } finally {
+      setIsDeleting(false)
+    }
   }
 
   const selectClass =
@@ -63,10 +190,43 @@ export function HistoryPage({ onSessionOpen }: HistoryPageProps) {
 
   return (
     <div className="flex flex-col h-full" data-testid="history-page">
-      <header className="flex flex-wrap items-center gap-3 border-b border-border px-4 py-2 bg-[var(--color-panel-surface)]">
-        <h2 className="cockpit-label">Session Archive</h2>
+      <header className="border-b border-border bg-[var(--color-panel-surface)] px-4 py-2">
+        <div className="flex flex-wrap items-center gap-3" data-testid="history-actions-row">
+          <h2 className="cockpit-label">Actions</h2>
 
-        {/* Provider filter */}
+          <button
+            type="button"
+            onClick={handleCompareAction}
+            className="cockpit-btn disabled:cursor-not-allowed disabled:opacity-45"
+            disabled={!canCompare && !isCompareOpen}
+            data-testid="compare-action"
+          >
+            {isCompareOpen ? 'Close compare' : 'Compare'}
+          </button>
+
+          <button
+            type="button"
+            onClick={requestDeleteSelected}
+            className="cockpit-btn border-red-500/60 text-red-300 hover:bg-red-500/15 disabled:cursor-not-allowed disabled:opacity-45"
+            disabled={deleteSelectionIds.length === 0}
+            data-testid="delete-selected"
+          >
+            Delete selected ({deleteSelectionIds.length})
+          </button>
+
+          <button
+            type="button"
+            onClick={requestDeleteAll}
+            className="cockpit-btn border-red-500/60 text-red-300 hover:bg-red-500/15 disabled:cursor-not-allowed disabled:opacity-45"
+            disabled={sessions.length === 0}
+            data-testid="delete-all"
+          >
+            Delete all
+          </button>
+        </div>
+
+        <div className="mt-2 flex flex-wrap items-center gap-3" data-testid="history-filters-row">
+          {/* Provider filter */}
         <select
           value={providerFilter}
           onChange={(e) => setProviderFilter(e.target.value)}
@@ -118,18 +278,7 @@ export function HistoryPage({ onSessionOpen }: HistoryPageProps) {
           <option value="30d">Last 30 days</option>
         </select>
 
-        {compareSelectionIds.length === 2 && (
-          <button
-            onClick={() => {
-              toggleCompareSelection(compareSelectionIds[0]!)
-              toggleCompareSelection(compareSelectionIds[1]!)
-            }}
-            className="ml-auto cockpit-btn"
-            data-testid="clear-comparison"
-          >
-            Clear compare
-          </button>
-        )}
+        </div>
       </header>
 
       {compareLeft && compareRight && (
@@ -152,12 +301,12 @@ export function HistoryPage({ onSessionOpen }: HistoryPageProps) {
             >
               <input
                 type="checkbox"
-                checked={compareSelectionIds.includes(s.sessionId)}
-                onChange={() => toggleCompareSelection(s.sessionId)}
+                checked={selectedSet.has(s.sessionId)}
+                onChange={() => toggleDeleteSelection(s.sessionId)}
                 onClick={(e) => e.stopPropagation()}
-                aria-label={`Select ${s.sessionId} for comparison`}
-                data-testid={`compare-checkbox-${s.sessionId}`}
-                className="accent-[var(--color-cockpit-cyan)]"
+                aria-label={`Select ${s.sessionId} for actions`}
+                data-testid={`selection-checkbox-${s.sessionId}`}
+                className="accent-[var(--color-cockpit-red)]"
               />
               <button
                 className="flex flex-1 items-center gap-3 text-left"
@@ -186,6 +335,77 @@ export function HistoryPage({ onSessionOpen }: HistoryPageProps) {
           </li>
         )}
       </ul>
+
+      {isDeleteDialogOpen && (
+        <div
+          className="fixed inset-0 z-[75] flex items-center justify-center bg-[radial-gradient(circle_at_center,rgba(16,28,40,0.72),rgba(3,8,17,0.9))] px-4 backdrop-blur-[1px]"
+          role="alertdialog"
+          aria-modal="true"
+          aria-labelledby="history-delete-dialog-title"
+          aria-describedby="history-delete-dialog-description"
+          data-testid="delete-history-dialog"
+        >
+          <div className="cockpit-frame-full w-full max-w-lg rounded-none border border-red-500/55 bg-[var(--color-panel-surface)] shadow-[0_0_24px_rgba(239,68,68,0.28),0_14px_46px_rgba(0,0,0,0.7)]">
+            <span className="cockpit-corner cockpit-corner-tl" aria-hidden />
+            <span className="cockpit-corner cockpit-corner-tr" aria-hidden />
+            <span className="cockpit-corner cockpit-corner-bl" aria-hidden />
+            <span className="cockpit-corner cockpit-corner-br" aria-hidden />
+
+            <div className="flex items-center gap-2 border-b border-red-500/35 px-4 py-3">
+              <p
+                id="history-delete-dialog-title"
+                className="[font-family:var(--font-mono-data)] text-[11px] font-semibold uppercase tracking-[0.18em] text-red-300"
+              >
+                Confirm Session Deletion
+              </p>
+            </div>
+
+            <div className="space-y-3 px-4 py-4">
+              <p
+                id="history-delete-dialog-description"
+                className="[font-family:var(--font-mono-data)] text-xs text-foreground"
+              >
+                Delete {deleteTargets.length} selected session(s)?
+              </p>
+              {activeDeleteTargets.length > 0 && (
+                <p className="[font-family:var(--font-mono-data)] text-[11px] text-yellow-300" data-testid="delete-active-warning">
+                  {activeDeleteTargets.length} active session(s) will be terminated before deletion. Continue?
+                </p>
+              )}
+              {nonTerminableActiveTargets.length > 0 && (
+                <p className="[font-family:var(--font-mono-data)] text-[11px] text-red-300" data-testid="delete-active-blocked-warning">
+                  {nonTerminableActiveTargets.length} active session(s) cannot be terminated by daemon and cannot be deleted.
+                </p>
+              )}
+              {deleteError && (
+                <p className="[font-family:var(--font-mono-data)] text-[11px] text-red-300" data-testid="delete-history-error">
+                  {deleteError}
+                </p>
+              )}
+            </div>
+
+            <div className="flex justify-end gap-2 border-t border-border/60 px-4 py-3">
+              <button
+                type="button"
+                onClick={closeDeleteDialog}
+                disabled={isDeleting}
+                className="cockpit-btn min-w-24 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => void confirmDelete()}
+                disabled={!canConfirmDelete}
+                className="cockpit-btn min-w-40 border-red-500/70 text-red-300 hover:bg-red-500/15 disabled:cursor-not-allowed disabled:opacity-50"
+                data-testid="confirm-delete-history"
+              >
+                {isDeleting ? 'Deleting...' : 'Delete sessions'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
