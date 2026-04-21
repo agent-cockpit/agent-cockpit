@@ -51,7 +51,7 @@ describe('classifyRisk', () => {
 // ─── Unit tests: hookParser ───────────────────────────────────────────────────
 
 describe('parseHookPayload', () => {
-  let parseHookPayload: (payload: Record<string, unknown>) => {
+  let parseHookPayload: (payload: import('../adapters/claude/hookParser.js').HookPayload) => {
     event: NormalizedEvent;
     requiresApproval: boolean;
   };
@@ -68,8 +68,8 @@ describe('parseHookPayload', () => {
       cwd: '/proj',
     });
     expect(result.event.type).toBe('session_start');
-    expect(result.event.provider).toBe('claude');
     if (result.event.type === 'session_start') {
+      expect(result.event.provider).toBe('claude');
       expect(result.event.workspacePath).toBe('/proj');
     }
   });
@@ -393,6 +393,61 @@ describe('hookServer', () => {
     };
     expect(parsed.hookSpecificOutput.hookEventName).toBe('PermissionRequest');
     expect(parsed.hookSpecificOutput.decision.behavior).toBe('allow');
+  });
+
+  it('Test 16b: Elicitation hook type returns correct Elicitation envelope on allow', async () => {
+    const decisions: Array<{ approvalId: string }> = [];
+    server = createHookServer(
+      port,
+      () => {},
+      (approvalId) => decisions.push({ approvalId }),
+    );
+    await new Promise<void>((resolve) => server.once('listening', resolve));
+
+    const addr = server.address() as { port: number };
+    let responseBody = '';
+    const responsePromise = new Promise<void>((resolve, reject) => {
+      const data = JSON.stringify({
+        hook_event_name: 'Elicitation',
+        session_id: 'test-sess-16b',
+        mcp_server_name: 'github',
+        mode: 'url',
+        url: 'https://example.com/auth',
+        message: 'Authenticate',
+      });
+      const req = http.request(
+        {
+          hostname: '127.0.0.1',
+          port: addr.port,
+          path: '/hook',
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Content-Length': Buffer.byteLength(data),
+          },
+        },
+        (res) => {
+          res.on('data', (chunk: Buffer) => { responseBody += chunk.toString(); });
+          res.on('end', () => resolve());
+        },
+      );
+      req.on('error', reject);
+      req.write(data);
+      req.end();
+    });
+
+    await new Promise<void>((r) => setTimeout(r, 100));
+    expect(decisions).toHaveLength(1);
+    const { approvalId } = decisions[0]!;
+
+    resolveApproval(approvalId, 'allow');
+    await responsePromise;
+
+    const parsed = JSON.parse(responseBody) as {
+      hookSpecificOutput: { hookEventName: string; action: string };
+    };
+    expect(parsed.hookSpecificOutput.hookEventName).toBe('Elicitation');
+    expect(parsed.hookSpecificOutput.action).toBe('accept');
   });
 
   it('Test 17: double resolveApproval on same approvalId — second call is a no-op (no throw, response not double-ended)', async () => {

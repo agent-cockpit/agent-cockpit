@@ -125,20 +125,43 @@ export class ClaudeLauncher {
     workspacePath: string,
     onExit?: () => void,
     onAssistantOutput?: (text: string) => void,
+    skipPermissions?: boolean,
   ): Promise<ManagedClaudeRuntime> {
     const HOOK_TIMEOUT_S = 60;
-    const hookCmd = `curl -sf --max-time ${HOOK_TIMEOUT_S - 5} -X POST http://localhost:${this.hookPort}/hook -d @- -H 'Content-Type: application/json'`;
+    const hookHost = process.env['COCKPIT_HOOK_HOST'] ?? '127.0.0.1';
+    const hookCmd = `curl -sf --max-time ${HOOK_TIMEOUT_S - 5} -X POST http://${hookHost}:${this.hookPort}/hook -d @- -H 'Content-Type: application/json'`;
     const hookEntry = (matcher?: string) => ({
       ...(matcher !== undefined ? { matcher } : {}),
       hooks: [{ type: 'command', command: hookCmd, timeout: HOOK_TIMEOUT_S }],
     });
     const settings = {
+      // Tools in allow list are auto-approved; everything else (Bash, WebFetch, WebSearch,
+      // MCP tools) triggers PermissionRequest, which the daemon holds for user approval.
+      // Omitted when skipPermissions=true since --dangerously-skip-permissions bypasses all checks.
+      ...(!skipPermissions && {
+        permissions: {
+          allow: [
+            'Read',
+            'Glob',
+            'Grep',
+            'Write',
+            'Edit',
+            'MultiEdit',
+            'Agent',
+            'AskUserQuestion',
+          ],
+          deny: [] as string[],
+        },
+      }),
       hooks: {
         SessionStart: [{ matcher: 'startup', hooks: [{ type: 'command', command: hookCmd, timeout: HOOK_TIMEOUT_S }] }],
         SessionEnd: [hookEntry()],
         PreToolUse: [hookEntry('')],
         PostToolUse: [hookEntry('')],
         PermissionRequest: [hookEntry('')],
+        PermissionDenied: [hookEntry('')],
+        Elicitation: [hookEntry()],
+        ElicitationResult: [hookEntry()],
         SubagentStart: [hookEntry()],
         SubagentStop: [hookEntry()],
         Notification: [hookEntry()],
@@ -163,8 +186,7 @@ export class ClaudeLauncher {
       sessionId,
       '--settings',
       settingsPath,
-      '--permission-mode',
-      'default',
+      ...(skipPermissions ? ['--dangerously-skip-permissions'] : ['--permission-mode', 'default']),
     ];
 
     console.log(`[ClaudeLauncher] spawning claude ${args.join(' ')} in cwd=${workspacePath}`);

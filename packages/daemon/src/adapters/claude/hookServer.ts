@@ -49,6 +49,10 @@ function stableStringify(value: unknown): string {
 }
 
 function buildApprovalDedupeKey(payload: HookPayload, event: NormalizedEvent): string {
+  const elicitationId = typeof payload.elicitation_id === 'string' ? payload.elicitation_id.trim() : '';
+  if (elicitationId.length > 0) {
+    return `${event.sessionId}|${payload.hook_event_name}|${elicitationId}`;
+  }
   const toolUseId = typeof payload.tool_use_id === 'string' ? payload.tool_use_id.trim() : '';
   if (toolUseId.length > 0) {
     return `${event.sessionId}|${payload.hook_event_name}|${toolUseId}`;
@@ -72,6 +76,16 @@ function buildPermissionRequestEnvelope(decision: 'allow' | 'deny'): string {
     hookSpecificOutput: {
       hookEventName: 'PermissionRequest',
       decision: { behavior: decision },
+    },
+  });
+}
+
+function buildElicitationEnvelope(decision: 'allow' | 'deny'): string {
+  return JSON.stringify({
+    hookSpecificOutput: {
+      hookEventName: 'Elicitation',
+      action: decision === 'allow' ? 'accept' : 'decline',
+      content: {},
     },
   });
 }
@@ -107,8 +121,9 @@ export function resolveApproval(
   let body: string;
   if (hookEventName === 'PermissionRequest') {
     body = buildPermissionRequestEnvelope(effectiveDecision);
+  } else if (hookEventName === 'Elicitation') {
+    body = buildElicitationEnvelope(effectiveDecision);
   } else {
-    // PreToolUse
     body = buildPreToolUseEnvelope(effectiveDecision, reason);
   }
 
@@ -303,6 +318,8 @@ function handleRequest(
           const body =
             pending.hookEventName === 'PermissionRequest'
               ? buildPermissionRequestEnvelope('deny')
+              : pending.hookEventName === 'Elicitation'
+                ? buildElicitationEnvelope('deny')
               : buildPreToolUseEnvelope('deny', 'approval timeout');
           pendingRes.writeHead(200, { 'Content-Type': 'application/json' });
           pendingRes.end(body);
@@ -343,6 +360,7 @@ export function createHookServer(
     handleRequest(req, res, onEvent, onDecisionNeeded, onApprovalTimeout);
   });
 
-  server.listen(port);
+  const host = process.env['COCKPIT_HOOK_HOST'] ?? '127.0.0.1';
+  server.listen(port, host);
   return server;
 }

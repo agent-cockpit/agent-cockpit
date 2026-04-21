@@ -104,7 +104,7 @@ describe('ClaudeLauncher.launch()', () => {
     );
   });
 
-  it('written settings file contains all 8 hook event types with command hook payloads', async () => {
+  it('written settings file contains all required hook event types with command hook payloads', async () => {
     const { ClaudeLauncher } = await import('../adapters/claude/claudeLauncher.js');
     const mockProc = makeMockProc();
     const procFactory = vi.fn(() => mockProc);
@@ -116,20 +116,61 @@ describe('ClaudeLauncher.launch()', () => {
     const writeCall = vi.mocked(fs.writeFileSync).mock.calls[0];
     expect(writeCall).toBeDefined();
     const written = JSON.parse(writeCall[1] as string) as {
+      permissions?: { allow: string[]; deny: string[] };
       hooks: Record<string, Array<{ matcher?: string; hooks: Array<{ type: string; command: string }> }>>;
     };
 
+    // permissions.allow must be present so Claude fires PermissionRequest for unlisted tools
+    expect(written.permissions?.allow).toBeDefined();
+    expect(Array.isArray(written.permissions?.allow)).toBe(true);
+    // Safe tools are in the allow list (auto-approved)
+    expect(written.permissions?.allow).toContain('Read');
+    expect(written.permissions?.allow).toContain('Glob');
+    expect(written.permissions?.allow).toContain('Grep');
+    // Dangerous tools must NOT be in allow list (so Claude fires PermissionRequest)
+    expect(written.permissions?.allow).not.toContain('Bash');
+    expect(written.permissions?.allow).not.toContain('WebFetch');
+    expect(written.permissions?.allow).not.toContain('WebSearch');
+
     const hookEvents = [
-      'SessionStart', 'SessionEnd', 'PreToolUse', 'PostToolUse',
-      'PermissionRequest', 'SubagentStart', 'SubagentStop', 'Notification',
+      'SessionStart',
+      'SessionEnd',
+      'PreToolUse',
+      'PostToolUse',
+      'PermissionRequest',
+      'PermissionDenied',
+      'Elicitation',
+      'ElicitationResult',
+      'SubagentStart',
+      'SubagentStop',
+      'Notification',
     ];
     for (const event of hookEvents) {
       expect(written.hooks[event]).toBeDefined();
       expect(written.hooks[event][0]?.hooks[0]?.type).toBe('command');
-      expect(written.hooks[event][0]?.hooks[0]?.command).toContain('http://localhost:4444/hook');
+      expect(written.hooks[event][0]?.hooks[0]?.command).toContain('http://127.0.0.1:4444/hook');
     }
     expect(written.hooks['PreToolUse'][0]?.matcher).toBe('');
     expect(written.hooks['PermissionRequest'][0]?.matcher).toBe('');
+  });
+
+  it('skipPermissions=true writes settings without permissions block and uses --dangerously-skip-permissions', async () => {
+    const { ClaudeLauncher } = await import('../adapters/claude/claudeLauncher.js');
+    const mockProc = makeMockProc();
+    const procFactory = vi.fn(() => mockProc);
+    const launcher = new ClaudeLauncher(5555, db, procFactory as never);
+
+    const sessionId = 'aaaaaaaa-0000-0000-0000-000000000099';
+    await launchReady(launcher.launch(sessionId, '/tmp', undefined, undefined, true));
+
+    const writeCall = vi.mocked(fs.writeFileSync).mock.calls[0];
+    expect(writeCall).toBeDefined();
+    const written = JSON.parse(writeCall[1] as string) as { permissions?: unknown };
+    expect(written.permissions).toBeUndefined();
+
+    const [, args] = (procFactory.mock.calls[0] as unknown) as [string, string[], unknown];
+    expect(args).toContain('--dangerously-skip-permissions');
+    expect(args).not.toContain('--permission-mode');
   });
 
   it('calls spawn with stream-json args, --session-id and --settings', async () => {

@@ -138,6 +138,42 @@ describe('parseHookPayload notification chat mapping', () => {
   });
 });
 
+describe('parseHookPayload elicitation mapping', () => {
+  let db: BetterSqlite3.Database;
+
+  beforeEach(() => {
+    db = openDatabase(':memory:');
+    setClaudeSessionDb(db);
+    setClaudeSessionCache(new Map());
+  });
+
+  afterEach(() => {
+    setClaudeSessionDb(null);
+    setClaudeSessionCache(new Map());
+    db.close();
+  });
+
+  it('maps Elicitation payload to provider-driven approval_request', () => {
+    const payload: HookPayload = {
+      session_id: 'elicitation-1',
+      hook_event_name: 'Elicitation',
+      cwd: '/workspace',
+      mcp_server_name: 'github',
+      mode: 'url',
+      url: 'https://example.com/auth',
+      message: 'Authenticate with GitHub',
+    };
+
+    const result = parseHookPayload(payload);
+    expect(result.requiresApproval).toBe(true);
+    expect(result.event.type).toBe('approval_request');
+    if (result.event.type !== 'approval_request') return;
+    expect(result.event.actionType).toBe('user_input');
+    expect(result.event.proposedAction).toContain('Authenticate with GitHub');
+    expect(result.event.whyRisky).toContain('MCP auth required via URL');
+  });
+});
+
 describe('parseHookPayload file change mapping', () => {
   let db: BetterSqlite3.Database;
 

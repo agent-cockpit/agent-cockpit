@@ -11,9 +11,16 @@ export type HookPayload = {
   tool_name?: string;
   tool_use_id?: string;
   tool_input?: Record<string, unknown>;
+  permission_suggestions?: Array<Record<string, unknown>>;
   message?: string;
   content?: string;
+  notification_type?: string;
   agent_id?: string;
+  mcp_server_name?: string;
+  mode?: string;
+  url?: string;
+  elicitation_id?: string;
+  requested_schema?: Record<string, unknown>;
   transcript_path?: string;
   permission_mode?: string;
 };
@@ -279,6 +286,29 @@ export function parseHookPayload(payload: HookPayload): {
           proposedAction: JSON.stringify(toolInput),
           affectedPaths: [],
           whyRisky: classification.whyRisky,
+        },
+        requiresApproval: true,
+      };
+    }
+
+    case 'Elicitation': {
+      const mode = typeof payload.mode === 'string' ? payload.mode : 'form';
+      const serverName = payload.mcp_server_name ?? 'unknown';
+      const promptMessage = extractChatText(payload.message) ?? 'Provider requested user input';
+
+      return {
+        event: {
+          ...base,
+          type: 'approval_request',
+          approvalId: randomUUID(),
+          actionType: 'user_input',
+          riskLevel: 'medium',
+          proposedAction: promptMessage,
+          affectedPaths: [],
+          whyRisky:
+            mode === 'url' && payload.url
+              ? `MCP auth required via URL (${serverName}): ${payload.url}`
+              : `MCP user input required (${serverName}, mode=${mode})`,
         },
         requiresApproval: true,
       };

@@ -102,7 +102,7 @@ function handleLaunchSession(
   req.on('end', () => {
     void (async () => {
       try {
-        const { provider, workspacePath } = JSON.parse(body) as { provider?: string; workspacePath?: string };
+        const { provider, workspacePath, skipPermissions } = JSON.parse(body) as { provider?: string; workspacePath?: string; skipPermissions?: boolean };
         if (!provider || !workspacePath) {
           res.writeHead(400, { 'Content-Type': 'application/json' });
           res.end(JSON.stringify({ error: 'provider and workspacePath are required' }));
@@ -122,7 +122,7 @@ function handleLaunchSession(
         if (provider === 'claude') {
           const launcher = new ClaudeLauncher(hookPort, db);
           await launcher.preflight(workspacePath);
-          logger.info('launch', 'Launching claude session', { sessionId, workspacePath });
+          logger.info('launch', 'Launching claude session', { sessionId, workspacePath, skipPermissions: skipPermissions ?? false });
           const runtime = await launcher.launch(sessionId, workspacePath, () => {
             runtimeRegistry.unregister(sessionId);
             eventBus.emit('event', {
@@ -145,7 +145,7 @@ function handleLaunchSession(
               content,
               timestamp: new Date().toISOString(),
             } as NormalizedEvent);
-          });
+          }, skipPermissions);
           runtimeRegistry.register(sessionId, {
             provider: 'claude',
             sendMessage: (message) => runtime.sendMessage(message),
