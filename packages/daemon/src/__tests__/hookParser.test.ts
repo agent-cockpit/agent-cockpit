@@ -292,10 +292,10 @@ describe('parseHookPayload subagent integrity under approval flows', () => {
     const subResult = parseHookPayload(subagentStartPayload);
     expect(subResult.event.type).toBe('subagent_spawn');
 
-    // Approval PreToolUse (requires approval)
+    // Approval PermissionRequest (provider-driven approval)
     const approvalPayload: HookPayload = {
       session_id: 'parent-appr-sess',
-      hook_event_name: 'PreToolUse',
+      hook_event_name: 'PermissionRequest',
       tool_name: 'Bash',
       tool_input: { command: 'rm -rf /tmp/important' },
       cwd: '/workspace',
@@ -315,5 +315,19 @@ describe('parseHookPayload subagent integrity under approval flows', () => {
     expect(subStopResult.event.type).toBe('subagent_complete');
     // SessionId must be consistent across all events
     expect(subStopResult.event.sessionId).toBe(parentSessionId);
+  });
+
+  it('PreToolUse remains tool_call even for high-risk command (provider-driven approvals)', () => {
+    const payload: HookPayload = {
+      session_id: 'provider-driven-pretool',
+      hook_event_name: 'PreToolUse',
+      tool_name: 'Bash',
+      tool_input: { command: 'rm -rf /tmp/provider-driven' },
+      cwd: '/workspace',
+    };
+
+    const result = parseHookPayload(payload);
+    expect(result.event.type).toBe('tool_call');
+    expect(result.requiresApproval).toBe(false);
   });
 });

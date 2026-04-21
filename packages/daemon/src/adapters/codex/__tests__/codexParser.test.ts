@@ -222,6 +222,24 @@ describe('classifyCodexApproval', () => {
     expect(result.proposedAction).toBe('rm -rf /tmp');
   });
 
+  it('commandExecution read-only network (curl) → shell_command medium', () => {
+    const result = classifyCodexApproval('item/commandExecution/requestApproval', {
+      item: { command: ['curl', 'https://example.com'] },
+    });
+    expect(result.actionType).toBe('shell_command');
+    expect(result.riskLevel).toBe('medium');
+    expect(result.proposedAction).toBe('curl https://example.com');
+  });
+
+  it('commandExecution side-effect network (git push) → shell_command high', () => {
+    const result = classifyCodexApproval('item/commandExecution/requestApproval', {
+      item: { command: ['git', 'push', 'origin', 'main'] },
+    });
+    expect(result.actionType).toBe('shell_command');
+    expect(result.riskLevel).toBe('high');
+    expect(result.proposedAction).toBe('git push origin main');
+  });
+
   it('fileChange → file_change medium with affectedPaths', () => {
     const result = classifyCodexApproval('item/fileChange/requestApproval', {
       item: { path: '/x.ts', changeType: 'modified' },

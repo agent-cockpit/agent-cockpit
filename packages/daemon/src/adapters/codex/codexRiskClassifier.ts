@@ -8,17 +8,47 @@ export type ActionType =
 
 export type RiskLevel = 'low' | 'medium' | 'high' | 'critical';
 
-// High-risk command keywords — destructive, privilege-escalating, or network-fetching
-const HIGH_RISK_COMMANDS = new Set([
+// High-risk command tokens — destructive or privilege-escalating operations.
+const HIGH_RISK_COMMAND_TOKENS = new Set([
   'rm',
   'sudo',
   'chmod',
   'chown',
   'kill',
   'pkill',
-  'curl',
-  'wget',
+  'reboot',
+  'shutdown',
+  'mkfs',
+  'dd',
 ]);
+
+// High-risk command pairs — operations with clear external side effects.
+const HIGH_RISK_COMMAND_PAIRS: ReadonlyArray<readonly [string, string]> = [
+  ['git', 'push'],
+  ['npm', 'publish'],
+  ['pnpm', 'publish'],
+  ['yarn', 'publish'],
+];
+
+function findHighRiskCommandMatch(command: string[]): string | null {
+  const normalized = command.map((token) => token.toLowerCase());
+
+  for (const token of normalized) {
+    if (HIGH_RISK_COMMAND_TOKENS.has(token)) return token;
+  }
+
+  for (let i = 0; i < normalized.length - 1; i += 1) {
+    const first = normalized[i];
+    const second = normalized[i + 1];
+    if (!first || !second) continue;
+
+    if (HIGH_RISK_COMMAND_PAIRS.some(([a, b]) => a === first && b === second)) {
+      return `${first} ${second}`;
+    }
+  }
+
+  return null;
+}
 
 export function classifyCodexApproval(
   method: string,
@@ -35,14 +65,14 @@ export function classifyCodexApproval(
     const command = (item?.['command'] as string[] | undefined) ?? [];
     const proposedAction = command.join(' ');
 
-    const isHighRisk = command.some((token) => HIGH_RISK_COMMANDS.has(token));
+    const highRiskMatch = findHighRiskCommandMatch(command);
 
     return {
       actionType: 'shell_command',
-      riskLevel: isHighRisk ? 'high' : 'medium',
+      riskLevel: highRiskMatch ? 'high' : 'medium',
       proposedAction,
-      whyRisky: isHighRisk
-        ? `Command contains high-risk token: ${command.find((t) => HIGH_RISK_COMMANDS.has(t))}`
+      whyRisky: highRiskMatch
+        ? `Command contains high-risk operation: ${highRiskMatch}`
         : undefined,
     };
   }

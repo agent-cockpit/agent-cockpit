@@ -132,6 +132,19 @@ function handleLaunchSession(
               provider: 'claude',
               timestamp: new Date().toISOString(),
             } as NormalizedEvent);
+          }, (assistantText) => {
+            const content = assistantText;
+            if (!content) return;
+            logger.info('launch', 'Claude assistant output captured', { sessionId, chars: content.length });
+            eventBus.emit('event', {
+              schemaVersion: 1,
+              sessionId,
+              type: 'session_chat_message',
+              provider: 'claude',
+              role: 'assistant',
+              content,
+              timestamp: new Date().toISOString(),
+            } as NormalizedEvent);
           });
           runtimeRegistry.register(sessionId, {
             provider: 'claude',

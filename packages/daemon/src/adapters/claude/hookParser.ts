@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import type { NormalizedEvent } from '@cockpit/shared';
 import type Database from 'better-sqlite3';
-import { classifyRisk, requiresHumanApproval } from './riskClassifier.js';
+import { classifyRisk } from './riskClassifier.js';
 import { getClaudeSessionId, setClaudeSessionId } from '../../db/queries.js';
 
 export type HookPayload = {
@@ -194,23 +194,6 @@ export function parseHookPayload(payload: HookPayload): {
     case 'PreToolUse': {
       const toolName = payload.tool_name ?? 'Unknown';
       const toolInput = payload.tool_input ?? {};
-
-      if (requiresHumanApproval(toolName, toolInput)) {
-        const classification = classifyRisk(toolName, toolInput);
-        return {
-          event: {
-            ...base,
-            type: 'approval_request',
-            approvalId: randomUUID(),
-            actionType: classification.actionType,
-            riskLevel: classification.riskLevel,
-            proposedAction: JSON.stringify(toolInput),
-            affectedPaths: [],
-            whyRisky: classification.whyRisky,
-          },
-          requiresApproval: true,
-        };
-      }
 
       return {
         event: {
