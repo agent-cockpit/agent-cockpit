@@ -1,34 +1,14 @@
 {
   "version": "1.0.0",
-  "totalObjects": 22,
+  "totalObjects": 68,
   "objects": [
-    {
-      "id": "3caf37bd-a97e-4723-b8ee-add6beec6b4c",
-      "name": "Object 0",
-      "filename": "3caf37bd-a97e-4723-b8ee-add6beec6b4c.png",
-      "boundingBox": {
-        "x": 330,
-        "y": 57,
-        "width": 91,
-        "height": 63
-      },
-      "layer": 29,
-      "visible": true,
-      "locked": false,
-      "description": "computer desk table",
-      "metadata": {
-        "lastEdited": "2026-04-10T22:23:35.786512",
-        "generatedAt": "2026-04-10T22:01:11.164Z"
-      },
-      "isProgress": false
-    },
     {
       "id": "040bf22f-19db-41f3-af4c-b2a1947f82e1",
       "name": "Object 0 (Copy)",
       "filename": "040bf22f-19db-41f3-af4c-b2a1947f82e1.png",
       "boundingBox": {
-        "x": 487,
-        "y": 58,
+        "x": 496,
+        "y": 75,
         "width": 91,
         "height": 63
       },
@@ -47,8 +27,8 @@
       "name": "Object 0",
       "filename": "3a3677b5-8711-41ab-8aa4-1c1e4b12291f.png",
       "boundingBox": {
-        "x": 339.6009950310329,
-        "y": 209.60099503103288,
+        "x": 321.6009950310329,
+        "y": 227.60099503103288,
         "width": 44,
         "height": 54
       },
@@ -63,92 +43,12 @@
       "isProgress": false
     },
     {
-      "id": "f49ad1a2-249e-4d78-bfd2-4357422cbfd5",
-      "name": "Object 0",
-      "filename": "f49ad1a2-249e-4d78-bfd2-4357422cbfd5.png",
-      "boundingBox": {
-        "x": 398,
-        "y": 433,
-        "width": 46,
-        "height": 79
-      },
-      "layer": 16,
-      "visible": true,
-      "locked": false,
-      "description": "Arcade cabinet\n",
-      "metadata": {
-        "lastEdited": "2026-04-11T14:46:36.987008",
-        "generatedAt": "2026-04-11T05:21:42.003Z"
-      },
-      "isProgress": false
-    },
-    {
-      "id": "f997d2d7-b3e1-4848-9195-5c41ce0f6246",
-      "name": "Object 0 (Copy)",
-      "filename": "f997d2d7-b3e1-4848-9195-5c41ce0f6246.png",
-      "boundingBox": {
-        "x": 446,
-        "y": 435,
-        "width": 46,
-        "height": 79
-      },
-      "layer": 16,
-      "visible": true,
-      "locked": false,
-      "description": "Arcade cabinet\n",
-      "metadata": {
-        "lastEdited": "2026-04-11T14:46:36.987008",
-        "generatedAt": "2026-04-11T05:22:08.900Z"
-      },
-      "isProgress": false
-    },
-    {
-      "id": "b470662c-a8b9-4818-b408-29dbdfa49bc6",
-      "name": "Object 0 (Copy) (Copy)",
-      "filename": "b470662c-a8b9-4818-b408-29dbdfa49bc6.png",
-      "boundingBox": {
-        "x": 496,
-        "y": 431,
-        "width": 46,
-        "height": 79
-      },
-      "layer": 16,
-      "visible": true,
-      "locked": false,
-      "description": "Arcade cabinet\n",
-      "metadata": {
-        "lastEdited": "2026-04-11T14:46:36.987008",
-        "generatedAt": "2026-04-11T05:22:09.133Z"
-      },
-      "isProgress": false
-    },
-    {
-      "id": "79c8481e-a6d2-4e5b-bd85-4b863cb77229",
-      "name": "Object 0",
-      "filename": "79c8481e-a6d2-4e5b-bd85-4b863cb77229.png",
-      "boundingBox": {
-        "x": 545,
-        "y": 443,
-        "width": 98,
-        "height": 48
-      },
-      "layer": 19,
-      "visible": true,
-      "locked": false,
-      "description": "Slot Casino machines",
-      "metadata": {
-        "lastEdited": "2026-04-11T14:46:36.987008",
-        "generatedAt": "2026-04-11T05:26:38.435Z"
-      },
-      "isProgress": false
-    },
-    {
       "id": "2e1781ed-883f-4393-9b1a-4ea61be3157b",
       "name": "Object 0",
       "filename": "2e1781ed-883f-4393-9b1a-4ea61be3157b.png",
       "boundingBox": {
-        "x": 1020,
-        "y": 71,
+        "x": 1027,
+        "y": 88,
         "width": 58,
         "height": 77
       },
@@ -163,52 +63,12 @@
       "isProgress": false
     },
     {
-      "id": "b7628625-fe6e-4557-9470-a436234c19f0",
-      "name": "Object 0",
-      "filename": "b7628625-fe6e-4557-9470-a436234c19f0.png",
-      "boundingBox": {
-        "x": 796,
-        "y": 414,
-        "width": 64,
-        "height": 105
-      },
-      "layer": 24,
-      "visible": true,
-      "locked": false,
-      "description": "\n\nModern pixel art, top-down slight angle, ancient stone idol statue, hollow glowing eyes, cracked pedestal base, mossy texture, eerie inner glow, clean pixel art",
-      "metadata": {
-        "lastEdited": "2026-04-11T15:52:08.224983",
-        "generatedAt": "2026-04-11T15:41:44.920Z"
-      },
-      "isProgress": false
-    },
-    {
-      "id": "2518bf6e-2b5b-41c1-b822-04df0194b935",
-      "name": "Object 0",
-      "filename": "2518bf6e-2b5b-41c1-b822-04df0194b935.png",
-      "boundingBox": {
-        "x": 938,
-        "y": 433,
-        "width": 56,
-        "height": 83
-      },
-      "layer": 25,
-      "visible": true,
-      "locked": false,
-      "description": "Modern pixel art, top-down slight angle, crystal ball on ornate metal claw stand, swirling purple inner light, floor reflection glow, clean pixel art",
-      "metadata": {
-        "lastEdited": "2026-04-11T15:52:08.224983",
-        "generatedAt": "2026-04-11T15:44:28.703Z"
-      },
-      "isProgress": false
-    },
-    {
       "id": "d16207b0-73ec-4097-b627-74a5738ed980",
       "name": "Object 0",
       "filename": "d16207b0-73ec-4097-b627-74a5738ed980.png",
       "boundingBox": {
-        "x": 721,
-        "y": 62,
+        "x": 705,
+        "y": 65,
         "width": 120,
         "height": 120
       },
@@ -227,8 +87,8 @@
       "name": "Object 0",
       "filename": "921d5736-b7e8-4fae-927f-a6da55e06e99.png",
       "boundingBox": {
-        "x": 962,
-        "y": 61,
+        "x": 968,
+        "y": 69,
         "width": 56,
         "height": 75
       },
@@ -243,32 +103,12 @@
       "isProgress": false
     },
     {
-      "id": "307f9292-9cd7-4c8e-84fb-7cd0a5917800",
-      "name": "Object 0",
-      "filename": "307f9292-9cd7-4c8e-84fb-7cd0a5917800.png",
-      "boundingBox": {
-        "x": 875,
-        "y": 69,
-        "width": 77,
-        "height": 79
-      },
-      "layer": 28,
-      "visible": true,
-      "locked": false,
-      "description": "Wardrobe\nA tall two-door metal locker-style wardrobe, slightly ajar door revealing hanging clothes inside, a sticker or name tag on the front.\n\nModern pixel art, top-down slight angle, tall metal wardrobe locker, one door slightly open, hanging clothes visible inside, small label sticker on door, clean pixel art",
-      "metadata": {
-        "lastEdited": "2026-04-11T15:52:08.224983",
-        "generatedAt": "2026-04-11T15:50:56.497Z"
-      },
-      "isProgress": false
-    },
-    {
       "id": "1e7c45a2-de62-4f91-b4b8-0de96a536496",
       "name": "Object 0",
       "filename": "1e7c45a2-de62-4f91-b4b8-0de96a536496.png",
       "boundingBox": {
-        "x": 579,
-        "y": 62,
+        "x": 591,
+        "y": 84,
         "width": 66,
         "height": 47
       },
@@ -287,7 +127,7 @@
       "name": "Object 0",
       "filename": "28909e44-a281-4c66-9601-fcf468cf7736.png",
       "boundingBox": {
-        "x": 44,
+        "x": 38,
         "y": 49,
         "width": 52,
         "height": 93
@@ -317,6 +157,7 @@
       "locked": false,
       "description": "Chemical Shelf\nA wall-mounted shelf holding several glass bottles and vials of different colors, some with labels, one slightly bubbling.\n\nModern pixel art, top-down slight angle, wall shelf with glass chemical bottles and vials, various colors, small labels, one bubbling bottle, laboratory setting, clean pixel art",
       "metadata": {
+        "lastEdited": "2026-04-13T16:04:43.150947",
         "generatedAt": "2026-04-13T15:52:59.022Z"
       },
       "isProgress": false
@@ -336,83 +177,8 @@
       "locked": false,
       "description": "Chemical Shelf\nA wall-mounted shelf holding several glass bottles and vials of different colors, some with labels, one slightly bubbling.\n\nModern pixel art, top-down slight angle, wall shelf with glass chemical bottles and vials, various colors, small labels, one bubbling bottle, laboratory setting, clean pixel art",
       "metadata": {
+        "lastEdited": "2026-04-13T16:04:43.150947",
         "generatedAt": "2026-04-13T15:53:24.298Z"
-      },
-      "isProgress": false
-    },
-    {
-      "id": "cf19c520-f776-4ced-b6f5-fa393c29e60e",
-      "name": "Object 0",
-      "filename": "cf19c520-f776-4ced-b6f5-fa393c29e60e.png",
-      "boundingBox": {
-        "x": 103,
-        "y": 150,
-        "width": 112,
-        "height": 96
-      },
-      "layer": 21,
-      "visible": true,
-      "locked": false,
-      "description": "whit table\n",
-      "metadata": {
-        "generatedAt": "2026-04-13T15:59:05.032Z"
-      },
-      "isProgress": false
-    },
-    {
-      "id": "67c459d5-1871-4e6b-9807-9320a2ed341d",
-      "name": "Object 0",
-      "filename": "67c459d5-1871-4e6b-9807-9320a2ed341d.png",
-      "boundingBox": {
-        "x": 560,
-        "y": 636,
-        "width": 120,
-        "height": 95
-      },
-      "layer": 21,
-      "visible": true,
-      "locked": false,
-      "description": "big rectangle wood vintage table",
-      "metadata": {
-        "generatedAt": "2026-04-13T16:03:02.657Z"
-      },
-      "isProgress": false
-    },
-    {
-      "id": "e408fb9d-5bba-4030-a18a-61a609dfb065",
-      "name": "Object 0 (Copy)",
-      "filename": "e408fb9d-5bba-4030-a18a-61a609dfb065.png",
-      "boundingBox": {
-        "x": 679,
-        "y": 635,
-        "width": 120,
-        "height": 95
-      },
-      "layer": 21,
-      "visible": true,
-      "locked": false,
-      "description": "big rectangle wood vintage table",
-      "metadata": {
-        "generatedAt": "2026-04-13T16:03:12.924Z"
-      },
-      "isProgress": false
-    },
-    {
-      "id": "43977394-07a4-4fff-a839-ab361882f9f6",
-      "name": "Object 0 (Copy) (Copy)",
-      "filename": "43977394-07a4-4fff-a839-ab361882f9f6.png",
-      "boundingBox": {
-        "x": 798,
-        "y": 635,
-        "width": 120,
-        "height": 95
-      },
-      "layer": 21,
-      "visible": true,
-      "locked": false,
-      "description": "big rectangle wood vintage table",
-      "metadata": {
-        "generatedAt": "2026-04-13T16:03:22.890Z"
       },
       "isProgress": false
     },
@@ -421,8 +187,8 @@
       "name": "Object 0 (Copy)",
       "filename": "476bf040-20a5-48e8-90fd-474ac008d6e0.png",
       "boundingBox": {
-        "x": 421,
-        "y": 63,
+        "x": 432,
+        "y": 80,
         "width": 66,
         "height": 47
       },
@@ -431,8 +197,1150 @@
       "locked": false,
       "description": "Desk with Personal Items\nA compact metal desk with a lit lamp, a few scattered papers, a pen holder, and a framed photo.\n\nModern pixel art, top-down slight angle, small metal desk, glowing desk lamp, scattered papers, pen holder, framed photo, personal and lived-in feel, clean pixel art",
       "metadata": {
-        "lastEdited": "2026-04-11T16:03:24.390714",
+        "lastEdited": "2026-04-13T18:11:14.941679",
         "generatedAt": "2026-04-13T18:07:04.529Z"
+      },
+      "isProgress": false
+    },
+    {
+      "id": "5d60e9f0-558f-462e-b32d-3d6c66ede816",
+      "name": "Object 0",
+      "filename": "5d60e9f0-558f-462e-b32d-3d6c66ede816.png",
+      "boundingBox": {
+        "x": 156,
+        "y": 149,
+        "width": 134,
+        "height": 50
+      },
+      "layer": 23,
+      "visible": true,
+      "locked": false,
+      "description": "modern and rectangle glass white table",
+      "metadata": {
+        "lastEdited": "2026-04-16T10:46:28.535065",
+        "generatedAt": "2026-04-16T10:37:57.435Z"
+      },
+      "isProgress": false
+    },
+    {
+      "id": "0c1696e3-7d03-44d7-8718-e5005ebf1402",
+      "name": "Object 0 (Copy)",
+      "filename": "0c1696e3-7d03-44d7-8718-e5005ebf1402.png",
+      "boundingBox": {
+        "x": 155,
+        "y": 238,
+        "width": 134,
+        "height": 50
+      },
+      "layer": 36,
+      "visible": true,
+      "locked": false,
+      "description": "modern and rectangle glass white table",
+      "metadata": {
+        "lastEdited": "2026-04-16T10:46:28.535065",
+        "generatedAt": "2026-04-16T10:39:13.638Z"
+      },
+      "isProgress": false
+    },
+    {
+      "id": "7d30bab8-94c6-4bf4-9c16-a5633829ea1e",
+      "name": "Object 0",
+      "filename": "7d30bab8-94c6-4bf4-9c16-a5633829ea1e.png",
+      "boundingBox": {
+        "x": 405,
+        "y": 551,
+        "width": 102,
+        "height": 61
+      },
+      "layer": 17,
+      "visible": true,
+      "locked": false,
+      "description": "make a desk with a macbook\n",
+      "metadata": {
+        "lastEdited": "2026-04-16T20:00:40.089196",
+        "generatedAt": "2026-04-16T18:38:57.408Z"
+      },
+      "isProgress": false
+    },
+    {
+      "id": "0be40c6c-1285-4ec6-81bf-9a01c5daa892",
+      "name": "Object 0 (Copy)",
+      "filename": "0be40c6c-1285-4ec6-81bf-9a01c5daa892.png",
+      "boundingBox": {
+        "x": 560,
+        "y": 650,
+        "width": 102,
+        "height": 61
+      },
+      "layer": 17,
+      "visible": true,
+      "locked": false,
+      "description": "make a desk with a macbook\n",
+      "metadata": {
+        "lastEdited": "2026-04-16T20:00:40.089196",
+        "generatedAt": "2026-04-16T18:50:13.290Z"
+      },
+      "isProgress": false
+    },
+    {
+      "id": "6d24cdce-c370-4c7e-bf1f-7320372794e3",
+      "name": "Object 0 (Copy) (Copy)",
+      "filename": "6d24cdce-c370-4c7e-bf1f-7320372794e3.png",
+      "boundingBox": {
+        "x": 405,
+        "y": 650,
+        "width": 102,
+        "height": 61
+      },
+      "layer": 17,
+      "visible": true,
+      "locked": false,
+      "description": "make a desk with a macbook\n",
+      "metadata": {
+        "lastEdited": "2026-04-16T20:00:40.089196",
+        "generatedAt": "2026-04-16T18:50:13.926Z"
+      },
+      "isProgress": false
+    },
+    {
+      "id": "98d65ce0-a595-474f-8ba7-ab0cf951395e",
+      "name": "Object 0 (Copy) (Copy) (Copy)",
+      "filename": "98d65ce0-a595-474f-8ba7-ab0cf951395e.png",
+      "boundingBox": {
+        "x": 560,
+        "y": 550,
+        "width": 102,
+        "height": 61
+      },
+      "layer": 17,
+      "visible": true,
+      "locked": false,
+      "description": "make a desk with a macbook\n",
+      "metadata": {
+        "lastEdited": "2026-04-16T20:00:40.089196",
+        "generatedAt": "2026-04-16T18:50:14.440Z"
+      },
+      "isProgress": false
+    },
+    {
+      "id": "b0b622a3-a6ad-4f95-97e5-6e9b2b61ea48",
+      "name": "Object 0 (Copy) (Copy)",
+      "filename": "b0b622a3-a6ad-4f95-97e5-6e9b2b61ea48.png",
+      "boundingBox": {
+        "x": 560,
+        "y": 750,
+        "width": 102,
+        "height": 61
+      },
+      "layer": 17,
+      "visible": true,
+      "locked": false,
+      "description": "make a desk with a macbook\n",
+      "metadata": {
+        "lastEdited": "2026-04-16T20:00:40.089196",
+        "generatedAt": "2026-04-16T18:50:38.393Z"
+      },
+      "isProgress": false
+    },
+    {
+      "id": "64006f76-c732-46e0-9c23-3411f1a5aa67",
+      "name": "Object 0 (Copy) (Copy) (Copy)",
+      "filename": "64006f76-c732-46e0-9c23-3411f1a5aa67.png",
+      "boundingBox": {
+        "x": 405,
+        "y": 749,
+        "width": 102,
+        "height": 61
+      },
+      "layer": 17,
+      "visible": true,
+      "locked": false,
+      "description": "make a desk with a macbook\n",
+      "metadata": {
+        "lastEdited": "2026-04-16T20:00:40.089196",
+        "generatedAt": "2026-04-16T18:50:40.038Z"
+      },
+      "isProgress": false
+    },
+    {
+      "id": "03c38aec-4ff8-46e9-b5b6-d019d2b14e26",
+      "name": "Object 0 (Copy) (Copy) (Copy)",
+      "filename": "03c38aec-4ff8-46e9-b5b6-d019d2b14e26.png",
+      "boundingBox": {
+        "x": 793,
+        "y": 550,
+        "width": 102,
+        "height": 61
+      },
+      "layer": 17,
+      "visible": true,
+      "locked": false,
+      "description": "make a desk with a macbook\n",
+      "metadata": {
+        "lastEdited": "2026-04-16T20:00:40.089196",
+        "generatedAt": "2026-04-16T18:51:03.987Z"
+      },
+      "isProgress": false
+    },
+    {
+      "id": "d9529a0e-4028-4c68-879c-adf3df0ed13c",
+      "name": "Object 0 (Copy) (Copy) (Copy) (Copy)",
+      "filename": "d9529a0e-4028-4c68-879c-adf3df0ed13c.png",
+      "boundingBox": {
+        "x": 954,
+        "y": 550,
+        "width": 102,
+        "height": 61
+      },
+      "layer": 17,
+      "visible": true,
+      "locked": false,
+      "description": "make a desk with a macbook\n",
+      "metadata": {
+        "lastEdited": "2026-04-16T20:00:40.089196",
+        "generatedAt": "2026-04-16T18:51:04.470Z"
+      },
+      "isProgress": false
+    },
+    {
+      "id": "66003019-2f5d-4880-9d44-b30cc00d4bd7",
+      "name": "Object 0 (Copy) (Copy) (Copy) (Copy)",
+      "filename": "66003019-2f5d-4880-9d44-b30cc00d4bd7.png",
+      "boundingBox": {
+        "x": 793,
+        "y": 649,
+        "width": 102,
+        "height": 61
+      },
+      "layer": 17,
+      "visible": true,
+      "locked": false,
+      "description": "make a desk with a macbook\n",
+      "metadata": {
+        "lastEdited": "2026-04-16T20:00:40.089196",
+        "generatedAt": "2026-04-16T18:52:12.434Z"
+      },
+      "isProgress": false
+    },
+    {
+      "id": "c5683116-6be6-405d-8608-192eb0fae488",
+      "name": "Object 0 (Copy) (Copy) (Copy) (Copy) (Copy)",
+      "filename": "c5683116-6be6-405d-8608-192eb0fae488.png",
+      "boundingBox": {
+        "x": 953,
+        "y": 646,
+        "width": 102,
+        "height": 61
+      },
+      "layer": 17,
+      "visible": true,
+      "locked": false,
+      "description": "make a desk with a macbook\n",
+      "metadata": {
+        "lastEdited": "2026-04-16T20:00:40.089196",
+        "generatedAt": "2026-04-16T18:52:12.783Z"
+      },
+      "isProgress": false
+    },
+    {
+      "id": "27fd1ca9-665c-4852-af9d-9e082ccfdf5c",
+      "name": "Object 0",
+      "filename": "27fd1ca9-665c-4852-af9d-9e082ccfdf5c.png",
+      "boundingBox": {
+        "x": 321,
+        "y": 78,
+        "width": 105,
+        "height": 77
+      },
+      "layer": 25,
+      "visible": true,
+      "locked": false,
+      "description": "big L formatt couch, and a chair in front of it\n",
+      "metadata": {
+        "lastEdited": "2026-04-16T20:00:40.089196",
+        "generatedAt": "2026-04-16T19:40:45.526Z"
+      },
+      "isProgress": false
+    },
+    {
+      "id": "749ba739-f332-411b-8cda-8a72c39b2d56",
+      "name": "Object 0",
+      "filename": "749ba739-f332-411b-8cda-8a72c39b2d56.png",
+      "boundingBox": {
+        "x": 389,
+        "y": 813,
+        "width": 33,
+        "height": 51
+      },
+      "layer": 25,
+      "visible": true,
+      "locked": false,
+      "description": "cactus on a vase\n",
+      "metadata": {
+        "lastEdited": "2026-04-16T20:00:40.089196",
+        "generatedAt": "2026-04-16T19:45:14.518Z"
+      },
+      "isProgress": false
+    },
+    {
+      "id": "361ebbca-3454-4e13-a2a8-5ec760a280d1",
+      "name": "Object 0 (Copy)",
+      "filename": "361ebbca-3454-4e13-a2a8-5ec760a280d1.png",
+      "boundingBox": {
+        "x": 1014,
+        "y": 463,
+        "width": 33,
+        "height": 51
+      },
+      "layer": 25,
+      "visible": true,
+      "locked": false,
+      "description": "cactus on a vase\n",
+      "metadata": {
+        "lastEdited": "2026-04-16T20:00:40.089196",
+        "generatedAt": "2026-04-16T19:46:11.848Z"
+      },
+      "isProgress": false
+    },
+    {
+      "id": "6cba5a48-8e2d-4d89-b6f1-6f0a418065b2",
+      "name": "Object 0",
+      "filename": "6cba5a48-8e2d-4d89-b6f1-6f0a418065b2.png",
+      "boundingBox": {
+        "x": 386,
+        "y": 451,
+        "width": 43,
+        "height": 67
+      },
+      "layer": 27,
+      "visible": true,
+      "locked": false,
+      "description": "plant on a vase\n",
+      "metadata": {
+        "lastEdited": "2026-04-16T20:00:40.089196",
+        "generatedAt": "2026-04-16T19:47:31.726Z"
+      },
+      "isProgress": false
+    },
+    {
+      "id": "b56301ec-b5c0-4344-821b-fd1560ea4195",
+      "name": "Object 0",
+      "filename": "b56301ec-b5c0-4344-821b-fd1560ea4195.png",
+      "boundingBox": {
+        "x": 439,
+        "y": 439,
+        "width": 76,
+        "height": 74
+      },
+      "layer": 28,
+      "visible": true,
+      "locked": false,
+      "description": "a wooden bookshelf with books\n",
+      "metadata": {
+        "lastEdited": "2026-04-16T20:00:40.089196",
+        "generatedAt": "2026-04-16T19:53:32.372Z"
+      },
+      "isProgress": false
+    },
+    {
+      "id": "ca9188fa-4c89-4d71-9edf-b21fad7ce810",
+      "name": "Object 0 (Copy)",
+      "filename": "ca9188fa-4c89-4d71-9edf-b21fad7ce810.png",
+      "boundingBox": {
+        "x": 516,
+        "y": 438,
+        "width": 76,
+        "height": 74
+      },
+      "layer": 28,
+      "visible": true,
+      "locked": false,
+      "description": "a wooden bookshelf with books\n",
+      "metadata": {
+        "lastEdited": "2026-04-16T20:00:40.089196",
+        "generatedAt": "2026-04-16T19:54:13.166Z"
+      },
+      "isProgress": false
+    },
+    {
+      "id": "e5cc86f7-ed1f-424c-a96a-0a6d68b4b92a",
+      "name": "Object 0 (Copy) (Copy)",
+      "filename": "e5cc86f7-ed1f-424c-a96a-0a6d68b4b92a.png",
+      "boundingBox": {
+        "x": 757,
+        "y": 434,
+        "width": 76,
+        "height": 74
+      },
+      "layer": 28,
+      "visible": true,
+      "locked": false,
+      "description": "a wooden bookshelf with books\n",
+      "metadata": {
+        "lastEdited": "2026-04-16T20:00:40.089196",
+        "generatedAt": "2026-04-16T19:54:13.566Z"
+      },
+      "isProgress": false
+    },
+    {
+      "id": "757fcb66-3ca9-46f7-91cd-83b358283923",
+      "name": "Object 0 (Copy) (Copy) (Copy)",
+      "filename": "757fcb66-3ca9-46f7-91cd-83b358283923.png",
+      "boundingBox": {
+        "x": 833,
+        "y": 434,
+        "width": 76,
+        "height": 74
+      },
+      "layer": 28,
+      "visible": true,
+      "locked": false,
+      "description": "a wooden bookshelf with books\n",
+      "metadata": {
+        "lastEdited": "2026-04-16T20:00:40.089196",
+        "generatedAt": "2026-04-16T19:54:27.032Z"
+      },
+      "isProgress": false
+    },
+    {
+      "id": "0be57219-279d-4e0c-b84f-7c005af62d33",
+      "name": "Object 0 (Copy) (Copy) (Copy) (Copy)",
+      "filename": "0be57219-279d-4e0c-b84f-7c005af62d33.png",
+      "boundingBox": {
+        "x": 909,
+        "y": 434,
+        "width": 76,
+        "height": 74
+      },
+      "layer": 28,
+      "visible": true,
+      "locked": false,
+      "description": "a wooden bookshelf with books\n",
+      "metadata": {
+        "lastEdited": "2026-04-16T20:00:40.089196",
+        "generatedAt": "2026-04-16T19:55:34.927Z"
+      },
+      "isProgress": false
+    },
+    {
+      "id": "72dd46d3-2fc5-4a7e-aacb-b22ca593d2d8",
+      "name": "Object 0",
+      "filename": "72dd46d3-2fc5-4a7e-aacb-b22ca593d2d8.png",
+      "boundingBox": {
+        "x": 164,
+        "y": 442,
+        "width": 60,
+        "height": 59
+      },
+      "layer": 33,
+      "visible": true,
+      "locked": false,
+      "description": "metal cabinet with multiple shelves",
+      "metadata": {
+        "lastEdited": "2026-04-17T14:20:01.744512",
+        "generatedAt": "2026-04-17T13:44:30.377Z"
+      },
+      "isProgress": false
+    },
+    {
+      "id": "32eba66b-2b0d-4b9a-b10f-daef16b8dd35",
+      "name": "Object 0 (Copy)",
+      "filename": "32eba66b-2b0d-4b9a-b10f-daef16b8dd35.png",
+      "boundingBox": {
+        "x": 224,
+        "y": 442,
+        "width": 60,
+        "height": 59
+      },
+      "layer": 33,
+      "visible": true,
+      "locked": false,
+      "description": "metal cabinet with multiple shelves",
+      "metadata": {
+        "lastEdited": "2026-04-17T14:20:01.744512",
+        "generatedAt": "2026-04-17T13:44:45.139Z"
+      },
+      "isProgress": false
+    },
+    {
+      "id": "b0052741-a789-4794-ad46-1c08657c8dbf",
+      "name": "Object 0",
+      "filename": "b0052741-a789-4794-ad46-1c08657c8dbf.png",
+      "boundingBox": {
+        "x": 290,
+        "y": 445,
+        "width": 56,
+        "height": 41
+      },
+      "layer": 35,
+      "visible": true,
+      "locked": false,
+      "description": "top-down wall monitor, pixel art, sci-fi screen with green data interface, minimal UI, among us style",
+      "metadata": {
+        "lastEdited": "2026-04-17T14:20:01.744512",
+        "generatedAt": "2026-04-17T13:50:55.126Z"
+      },
+      "isProgress": false
+    },
+    {
+      "id": "5f5abdc3-f5a9-4a04-bbb4-5e1741127e01",
+      "name": "Object 0",
+      "filename": "5f5abdc3-f5a9-4a04-bbb4-5e1741127e01.png",
+      "boundingBox": {
+        "x": 280,
+        "y": 514,
+        "width": 72,
+        "height": 57
+      },
+      "layer": 36,
+      "visible": true,
+      "locked": false,
+      "description": "top-down admin control table, pixel art, futuristic interface, glowing screens, simple UI, among us style, clean shading",
+      "metadata": {
+        "lastEdited": "2026-04-17T14:20:01.744512",
+        "generatedAt": "2026-04-17T13:54:22.590Z"
+      },
+      "isProgress": false
+    },
+    {
+      "id": "2ef85af0-5679-4e05-9642-0ceb09a4ea62",
+      "name": "Object 0 (Copy)",
+      "filename": "2ef85af0-5679-4e05-9642-0ceb09a4ea62.png",
+      "boundingBox": {
+        "x": 209,
+        "y": 514,
+        "width": 72,
+        "height": 57
+      },
+      "layer": 36,
+      "visible": true,
+      "locked": false,
+      "description": "top-down admin control table, pixel art, futuristic interface, glowing screens, simple UI, among us style, clean shading",
+      "metadata": {
+        "lastEdited": "2026-04-17T14:20:01.744512",
+        "generatedAt": "2026-04-17T13:55:21.696Z"
+      },
+      "isProgress": false
+    },
+    {
+      "id": "8f639c56-714a-44ef-af55-32716184e2da",
+      "name": "Object 0",
+      "filename": "8f639c56-714a-44ef-af55-32716184e2da.png",
+      "boundingBox": {
+        "x": 305,
+        "y": 614,
+        "width": 46,
+        "height": 53
+      },
+      "layer": 38,
+      "visible": true,
+      "locked": false,
+      "description": "top-down metal filing cabinet, pixel art, multiple drawers, simple shading, among us style",
+      "metadata": {
+        "lastEdited": "2026-04-17T14:20:01.744512",
+        "generatedAt": "2026-04-17T14:02:37.394Z"
+      },
+      "isProgress": false
+    },
+    {
+      "id": "57fb79e3-4f8e-41ec-bf66-efcc6ba5679e",
+      "name": "Object 0",
+      "filename": "57fb79e3-4f8e-41ec-bf66-efcc6ba5679e.png",
+      "boundingBox": {
+        "x": 717,
+        "y": 249,
+        "width": 56,
+        "height": 27
+      },
+      "layer": 39,
+      "visible": true,
+      "locked": false,
+      "description": "small dog sleeping",
+      "metadata": {
+        "lastEdited": "2026-04-17T14:20:01.744512",
+        "generatedAt": "2026-04-17T14:08:35.093Z"
+      },
+      "isProgress": false
+    },
+    {
+      "id": "1df56ff5-c6c6-4b78-81f6-52dd5b4fe591",
+      "name": "Object 0",
+      "filename": "1df56ff5-c6c6-4b78-81f6-52dd5b4fe591.png",
+      "boundingBox": {
+        "x": 897,
+        "y": 61,
+        "width": 66,
+        "height": 68
+      },
+      "layer": 40,
+      "visible": true,
+      "locked": false,
+      "description": "Open closet with a lot of clothes",
+      "metadata": {
+        "lastEdited": "2026-04-17T14:50:27.057700",
+        "generatedAt": "2026-04-17T14:36:51.576Z"
+      },
+      "isProgress": false
+    },
+    {
+      "id": "f4c0fc49-278d-48a1-ae24-8b86788b1521",
+      "name": "Object 0 (Copy)",
+      "filename": "f4c0fc49-278d-48a1-ae24-8b86788b1521.png",
+      "boundingBox": {
+        "x": 832,
+        "y": 61,
+        "width": 66,
+        "height": 68
+      },
+      "layer": 40,
+      "visible": true,
+      "locked": false,
+      "description": "Open closet with a lot of clothes",
+      "metadata": {
+        "lastEdited": "2026-04-17T14:50:27.057700",
+        "generatedAt": "2026-04-17T14:37:42.332Z"
+      },
+      "isProgress": false
+    },
+    {
+      "id": "e1a1241d-c064-4664-a1c2-ea588034a87f",
+      "name": "Object 0",
+      "filename": "e1a1241d-c064-4664-a1c2-ea588034a87f.png",
+      "boundingBox": {
+        "x": 231,
+        "y": 612,
+        "width": 72,
+        "height": 60
+      },
+      "layer": 41,
+      "visible": true,
+      "locked": false,
+      "description": "modern glass desk",
+      "metadata": {
+        "lastEdited": "2026-04-17T14:50:27.057700",
+        "generatedAt": "2026-04-17T14:45:31.270Z"
+      },
+      "isProgress": false
+    },
+    {
+      "id": "4b9689b4-e897-4c2e-a1a2-254f56b63633",
+      "name": "Object 0",
+      "filename": "4b9689b4-e897-4c2e-a1a2-254f56b63633.png",
+      "boundingBox": {
+        "x": 164,
+        "y": 619,
+        "width": 24,
+        "height": 83
+      },
+      "layer": 42,
+      "visible": true,
+      "locked": false,
+      "description": "top-down tall floor lamp, pixel art, futuristic design, metal pole with glowing light on top, soft blue light, simple shapes, among us style",
+      "metadata": {
+        "lastEdited": "2026-04-17T14:50:27.057700",
+        "generatedAt": "2026-04-17T14:49:07.855Z"
+      },
+      "isProgress": false
+    },
+    {
+      "id": "650dc706-89d1-40ff-9d82-fe7308355f42",
+      "name": "Object 0",
+      "filename": "650dc706-89d1-40ff-9d82-fe7308355f42.png",
+      "boundingBox": {
+        "x": 274,
+        "y": 790,
+        "width": 66,
+        "height": 61
+      },
+      "layer": 43,
+      "visible": true,
+      "locked": false,
+      "description": "top-down deep hatch opening, pixel art, subtle inner shadow, metallic rim, sci-fi style, among us style",
+      "metadata": {
+        "lastEdited": "2026-04-17T15:32:46.598899",
+        "generatedAt": "2026-04-17T15:16:59.223Z"
+      },
+      "isProgress": false
+    },
+    {
+      "id": "e1b26325-d240-4ee0-9847-13527201b63f",
+      "name": "Object 0",
+      "filename": "e1b26325-d240-4ee0-9847-13527201b63f.png",
+      "boundingBox": {
+        "x": 285,
+        "y": 738,
+        "width": 47,
+        "height": 38
+      },
+      "layer": 44,
+      "visible": true,
+      "locked": false,
+      "description": "yellow warning sign",
+      "metadata": {
+        "lastEdited": "2026-04-17T15:32:46.598899",
+        "generatedAt": "2026-04-17T15:20:12.348Z"
+      },
+      "isProgress": false
+    },
+    {
+      "id": "1310f540-e692-4d81-9720-69756c08654d",
+      "name": "Object 0",
+      "filename": "1310f540-e692-4d81-9720-69756c08654d.png",
+      "boundingBox": {
+        "x": 227,
+        "y": 741,
+        "width": 32,
+        "height": 32
+      },
+      "layer": 45,
+      "visible": true,
+      "locked": false,
+      "description": "SMALL top-down emergency wall switch, pixel art, red button protected by transparent glass cover, metallic box, simple design, sci-fi style, among us style",
+      "metadata": {
+        "lastEdited": "2026-04-17T15:32:46.598899",
+        "generatedAt": "2026-04-17T15:31:23.134Z"
+      },
+      "isProgress": false
+    },
+    {
+      "id": "553373f3-d554-4a62-aabc-3e835d8f1890",
+      "name": "Object 0",
+      "filename": "553373f3-d554-4a62-aabc-3e835d8f1890.png",
+      "boundingBox": {
+        "x": 597,
+        "y": 424,
+        "width": 30,
+        "height": 88
+      },
+      "layer": 46,
+      "visible": true,
+      "locked": false,
+      "description": "top-down tall floor lamp, pixel art, futuristic design, metal pole with glowing light on top, soft yellow light, simple shapes, among us style",
+      "metadata": {
+        "lastEdited": "2026-04-17T16:02:27.846147",
+        "generatedAt": "2026-04-17T15:41:53.419Z"
+      },
+      "isProgress": false
+    },
+    {
+      "id": "b8eeadf0-846d-48f7-84ce-caf9a0219965",
+      "name": "Object 0",
+      "filename": "b8eeadf0-846d-48f7-84ce-caf9a0219965.png",
+      "boundingBox": {
+        "x": 34,
+        "y": 336,
+        "width": 30,
+        "height": 46
+      },
+      "layer": 46,
+      "visible": true,
+      "locked": false,
+      "description": "beauty plant on a vase",
+      "metadata": {
+        "lastEdited": "2026-04-17T16:04:27.481682",
+        "generatedAt": "2026-04-17T16:03:51.261Z"
+      },
+      "isProgress": false
+    },
+    {
+      "id": "a1d27873-13d5-49fa-9a81-b4eb894220dd",
+      "name": "Object 0 (Copy)",
+      "filename": "a1d27873-13d5-49fa-9a81-b4eb894220dd.png",
+      "boundingBox": {
+        "x": 723,
+        "y": 422,
+        "width": 30,
+        "height": 88
+      },
+      "layer": 66,
+      "visible": true,
+      "locked": false,
+      "description": "top-down tall floor lamp, pixel art, futuristic design, metal pole with glowing light on top, soft yellow light, simple shapes, among us style",
+      "metadata": {
+        "lastEdited": "2026-04-17T16:02:27.846147",
+        "generatedAt": "2026-04-17T15:42:29.944Z"
+      },
+      "isProgress": false
+    },
+    {
+      "id": "740b650b-3e1d-4871-b851-8d04e3462d78",
+      "name": "Object 0 (Copy)",
+      "filename": "740b650b-3e1d-4871-b851-8d04e3462d78.png",
+      "boundingBox": {
+        "x": 621,
+        "y": 216,
+        "width": 43,
+        "height": 67
+      },
+      "layer": 27,
+      "visible": true,
+      "locked": false,
+      "description": "plant on a vase\n",
+      "metadata": {
+        "lastEdited": "2026-04-17T22:15:26.478603",
+        "generatedAt": "2026-04-17T22:12:49.704Z"
+      },
+      "isProgress": false
+    },
+    {
+      "id": "e26bb3aa-d53c-4ccb-ae6e-8c5d2f6868ec",
+      "name": "Object 0",
+      "filename": "e26bb3aa-d53c-4ccb-ae6e-8c5d2f6868ec.png",
+      "boundingBox": {
+        "x": 192,
+        "y": 33,
+        "width": 31,
+        "height": 7
+      },
+      "layer": 50,
+      "visible": true,
+      "locked": false,
+      "description": "white",
+      "metadata": {
+        "lastEdited": "2026-04-17T23:53:50.750517",
+        "generatedAt": "2026-04-17T23:53:03.354Z"
+      },
+      "isProgress": false
+    },
+    {
+      "id": "365ccc6b-72d1-4ea3-ac0c-8645780d562c",
+      "name": "Object 0",
+      "filename": "365ccc6b-72d1-4ea3-ac0c-8645780d562c.png",
+      "boundingBox": {
+        "x": 170,
+        "y": 312,
+        "width": 57,
+        "height": 48
+      },
+      "layer": 51,
+      "visible": true,
+      "locked": false,
+      "description": "white",
+      "metadata": {
+        "generatedAt": "2026-04-22T01:55:16.003Z"
+      },
+      "isProgress": false
+    },
+    {
+      "id": "87c29c47-0842-478d-88b9-78ad70ae50ba",
+      "name": "Object 0 (Copy)",
+      "filename": "87c29c47-0842-478d-88b9-78ad70ae50ba.png",
+      "boundingBox": {
+        "x": 212,
+        "y": 312,
+        "width": 57,
+        "height": 48
+      },
+      "layer": 51,
+      "visible": true,
+      "locked": false,
+      "description": "white",
+      "metadata": {
+        "generatedAt": "2026-04-22T01:55:27.914Z"
+      },
+      "isProgress": false
+    },
+    {
+      "id": "a8b4ef3d-208c-49bb-811b-fb2ff1bb5fac",
+      "name": "Object 0 (Copy) (Copy)",
+      "filename": "a8b4ef3d-208c-49bb-811b-fb2ff1bb5fac.png",
+      "boundingBox": {
+        "x": 257,
+        "y": 312,
+        "width": 57,
+        "height": 48
+      },
+      "layer": 51,
+      "visible": true,
+      "locked": false,
+      "description": "white",
+      "metadata": {
+        "generatedAt": "2026-04-22T01:55:49.014Z"
+      },
+      "isProgress": false
+    },
+    {
+      "id": "8692a297-54b2-4dc8-94f2-a2e85164ca71",
+      "name": "Object 0 (Copy) (Copy) (Copy)",
+      "filename": "8692a297-54b2-4dc8-94f2-a2e85164ca71.png",
+      "boundingBox": {
+        "x": 299,
+        "y": 312,
+        "width": 57,
+        "height": 48
+      },
+      "layer": 51,
+      "visible": true,
+      "locked": false,
+      "description": "white",
+      "metadata": {
+        "generatedAt": "2026-04-22T01:55:58.297Z"
+      },
+      "isProgress": false
+    },
+    {
+      "id": "a05820a9-96be-4ac4-8eb5-7e2bb455bf35",
+      "name": "Object 0 (Copy) (Copy) (Copy) (Copy)",
+      "filename": "a05820a9-96be-4ac4-8eb5-7e2bb455bf35.png",
+      "boundingBox": {
+        "x": 342,
+        "y": 312,
+        "width": 57,
+        "height": 48
+      },
+      "layer": 51,
+      "visible": true,
+      "locked": false,
+      "description": "white",
+      "metadata": {
+        "generatedAt": "2026-04-22T01:56:16.114Z"
+      },
+      "isProgress": false
+    },
+    {
+      "id": "9c6ef604-ed21-42b2-b683-d817ce7ab521",
+      "name": "Object 0 (Copy) (Copy) (Copy) (Copy) (Copy)",
+      "filename": "9c6ef604-ed21-42b2-b683-d817ce7ab521.png",
+      "boundingBox": {
+        "x": 381,
+        "y": 312,
+        "width": 57,
+        "height": 48
+      },
+      "layer": 51,
+      "visible": true,
+      "locked": false,
+      "description": "white",
+      "metadata": {
+        "generatedAt": "2026-04-22T01:56:36.047Z"
+      },
+      "isProgress": false
+    },
+    {
+      "id": "8cf3ec12-4459-48e8-8a26-afce6880d630",
+      "name": "Object 0 (Copy) (Copy) (Copy) (Copy) (Copy) (Copy)",
+      "filename": "8cf3ec12-4459-48e8-8a26-afce6880d630.png",
+      "boundingBox": {
+        "x": 546,
+        "y": 312,
+        "width": 57,
+        "height": 48
+      },
+      "layer": 51,
+      "visible": true,
+      "locked": false,
+      "description": "white",
+      "metadata": {
+        "generatedAt": "2026-04-22T01:56:47.964Z"
+      },
+      "isProgress": false
+    },
+    {
+      "id": "e7e7a3b9-b1f6-426a-8a4e-a77ceb82d59a",
+      "name": "Object 0 (Copy) (Copy) (Copy) (Copy) (Copy) (Copy) (Copy)",
+      "filename": "e7e7a3b9-b1f6-426a-8a4e-a77ceb82d59a.png",
+      "boundingBox": {
+        "x": 595,
+        "y": 312,
+        "width": 57,
+        "height": 48
+      },
+      "layer": 51,
+      "visible": true,
+      "locked": false,
+      "description": "white",
+      "metadata": {
+        "generatedAt": "2026-04-22T01:56:53.997Z"
+      },
+      "isProgress": false
+    },
+    {
+      "id": "c89b88a3-9985-4d22-8056-7c497aa17822",
+      "name": "Object 0 (Copy) (Copy) (Copy) (Copy) (Copy) (Copy) (Copy) (Copy)",
+      "filename": "c89b88a3-9985-4d22-8056-7c497aa17822.png",
+      "boundingBox": {
+        "x": 645,
+        "y": 312,
+        "width": 57,
+        "height": 48
+      },
+      "layer": 51,
+      "visible": true,
+      "locked": false,
+      "description": "white",
+      "metadata": {
+        "generatedAt": "2026-04-22T01:57:04.714Z"
+      },
+      "isProgress": false
+    },
+    {
+      "id": "b5bcd0ca-0bbf-4c1a-be68-2820437a638d",
+      "name": "Object 0 (Copy) (Copy) (Copy) (Copy) (Copy) (Copy) (Copy) (Copy) (Copy)",
+      "filename": "b5bcd0ca-0bbf-4c1a-be68-2820437a638d.png",
+      "boundingBox": {
+        "x": 692,
+        "y": 312,
+        "width": 57,
+        "height": 48
+      },
+      "layer": 51,
+      "visible": true,
+      "locked": false,
+      "description": "white",
+      "metadata": {
+        "generatedAt": "2026-04-22T01:57:11.964Z"
+      },
+      "isProgress": false
+    },
+    {
+      "id": "505133f2-6ce2-45d6-83bb-0e8d40dc771b",
+      "name": "Object 0 (Copy) (Copy) (Copy) (Copy) (Copy) (Copy) (Copy) (Copy) (Copy) (Copy)",
+      "filename": "505133f2-6ce2-45d6-83bb-0e8d40dc771b.png",
+      "boundingBox": {
+        "x": 736,
+        "y": 312,
+        "width": 57,
+        "height": 48
+      },
+      "layer": 51,
+      "visible": true,
+      "locked": false,
+      "description": "white",
+      "metadata": {
+        "generatedAt": "2026-04-22T01:57:27.798Z"
+      },
+      "isProgress": false
+    },
+    {
+      "id": "377e58cb-c420-4139-a628-502983f3313b",
+      "name": "Object 0 (Copy) (Copy) (Copy) (Copy) (Copy) (Copy) (Copy) (Copy) (Copy) (Copy) (Copy)",
+      "filename": "377e58cb-c420-4139-a628-502983f3313b.png",
+      "boundingBox": {
+        "x": 782,
+        "y": 312,
+        "width": 57,
+        "height": 48
+      },
+      "layer": 51,
+      "visible": true,
+      "locked": false,
+      "description": "white",
+      "metadata": {
+        "generatedAt": "2026-04-22T01:57:34.215Z"
+      },
+      "isProgress": false
+    },
+    {
+      "id": "dd409883-1556-4419-9f61-18a26ef0ac51",
+      "name": "Object 0 (Copy) (Copy) (Copy) (Copy) (Copy) (Copy) (Copy) (Copy) (Copy) (Copy) (Copy) (Copy)",
+      "filename": "dd409883-1556-4419-9f61-18a26ef0ac51.png",
+      "boundingBox": {
+        "x": 828,
+        "y": 312,
+        "width": 57,
+        "height": 48
+      },
+      "layer": 51,
+      "visible": true,
+      "locked": false,
+      "description": "white",
+      "metadata": {
+        "generatedAt": "2026-04-22T01:57:51.969Z"
+      },
+      "isProgress": false
+    },
+    {
+      "id": "5cd30fce-7b8d-4059-8405-180a7545819a",
+      "name": "Object 0 (Copy) (Copy) (Copy) (Copy) (Copy) (Copy) (Copy) (Copy) (Copy) (Copy) (Copy) (Copy) (Copy)",
+      "filename": "5cd30fce-7b8d-4059-8405-180a7545819a.png",
+      "boundingBox": {
+        "x": 993,
+        "y": 312,
+        "width": 57,
+        "height": 48
+      },
+      "layer": 51,
+      "visible": true,
+      "locked": false,
+      "description": "white",
+      "metadata": {
+        "generatedAt": "2026-04-22T01:58:00.515Z"
+      },
+      "isProgress": false
+    },
+    {
+      "id": "9ed0c1f1-38b2-4322-8725-1e6be2bf1410",
+      "name": "Object 0 (Copy) (Copy) (Copy) (Copy) (Copy) (Copy) (Copy) (Copy) (Copy) (Copy) (Copy) (Copy) (Copy) (Copy)",
+      "filename": "9ed0c1f1-38b2-4322-8725-1e6be2bf1410.png",
+      "boundingBox": {
+        "x": 1028,
+        "y": 312,
+        "width": 57,
+        "height": 48
+      },
+      "layer": 51,
+      "visible": true,
+      "locked": false,
+      "description": "white",
+      "metadata": {
+        "generatedAt": "2026-04-22T01:58:36.132Z"
+      },
+      "isProgress": false
+    },
+    {
+      "id": "86474068-ae86-47d4-b0b8-f153eb2d45a6",
+      "name": "Object 0 (Copy)",
+      "filename": "86474068-ae86-47d4-b0b8-f153eb2d45a6.png",
+      "boundingBox": {
+        "x": 129,
+        "y": 728,
+        "width": 57,
+        "height": 48
+      },
+      "layer": 51,
+      "visible": true,
+      "locked": false,
+      "description": "white",
+      "metadata": {
+        "generatedAt": "2026-04-22T01:58:53.986Z"
+      },
+      "isProgress": false
+    },
+    {
+      "id": "c08dfc69-e9e4-4f39-94b6-8773717f1f92",
+      "name": "Object 0 (Copy) (Copy)",
+      "filename": "c08dfc69-e9e4-4f39-94b6-8773717f1f92.png",
+      "boundingBox": {
+        "x": 165,
+        "y": 728,
+        "width": 57,
+        "height": 48
+      },
+      "layer": 51,
+      "visible": true,
+      "locked": false,
+      "description": "white",
+      "metadata": {
+        "generatedAt": "2026-04-22T01:59:01.848Z"
+      },
+      "isProgress": false
+    },
+    {
+      "id": "5ea38311-485c-4cd2-9ce6-7cdd0645e642",
+      "name": "Object 0",
+      "filename": "5ea38311-485c-4cd2-9ce6-7cdd0645e642.png",
+      "boundingBox": {
+        "x": 128,
+        "y": 510,
+        "width": 32,
+        "height": 41
+      },
+      "layer": 68,
+      "visible": true,
+      "locked": false,
+      "description": "poster",
+      "metadata": {
+        "generatedAt": "2026-04-22T02:07:30.293Z"
       },
       "isProgress": false
     }
