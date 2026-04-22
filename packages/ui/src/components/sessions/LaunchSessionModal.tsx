@@ -17,6 +17,7 @@ interface BrowseResult { path: string; parent: string | null; entries: BrowseEnt
 
 export function LaunchSessionModal({ open, onClose }: LaunchSessionModalProps) {
   const [provider, setProvider] = useState<'claude' | 'codex'>('claude')
+  const [permissionMode, setPermissionMode] = useState<'default' | 'dangerously_skip'>('default')
   const [workspacePath, setWorkspacePath] = useState('')
   const [state, setState] = useState<SubmitState>({ type: 'idle' })
   const [browseOpen, setBrowseOpen] = useState(false)
@@ -51,10 +52,14 @@ export function LaunchSessionModal({ open, onClose }: LaunchSessionModalProps) {
     e.preventDefault()
     setState({ type: 'loading' })
     try {
+      const launchPayload =
+        provider === 'claude'
+          ? { provider, workspacePath, permissionMode }
+          : { provider, workspacePath }
       const res = await fetch(`${DAEMON_URL}/api/sessions`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ provider, workspacePath }),
+        body: JSON.stringify(launchPayload),
       })
       const raw = await res.text()
       let data: {
@@ -85,6 +90,7 @@ export function LaunchSessionModal({ open, onClose }: LaunchSessionModalProps) {
     setState({ type: 'idle' })
     setWorkspacePath('')
     setProvider('claude')
+    setPermissionMode('default')
     onClose()
   }
 
@@ -201,6 +207,28 @@ export function LaunchSessionModal({ open, onClose }: LaunchSessionModalProps) {
                 </div>
               )}
             </div>
+
+            {provider === 'claude' && (
+              <div>
+                <label htmlFor="launch-permission-mode" className="cockpit-label block mb-1.5">
+                  Permission Level
+                </label>
+                <select
+                  id="launch-permission-mode"
+                  value={permissionMode}
+                  onChange={(e) => setPermissionMode(e.target.value as 'default' | 'dangerously_skip')}
+                  className="block w-full rounded-none border border-border/80 bg-[var(--color-panel-surface)] px-3 py-2 [font-family:var(--font-mono-data)] text-xs text-foreground focus:outline-none focus:border-[color-mix(in_srgb,var(--color-cockpit-accent)_60%,transparent)]"
+                >
+                  <option value="default">default (approval queue)</option>
+                  <option value="dangerously_skip">dangerously skip permissions</option>
+                </select>
+                {permissionMode === 'dangerously_skip' && (
+                  <p className="mt-1 [font-family:var(--font-mono-data)] text-[10px]" style={{ color: 'var(--color-cockpit-red)' }}>
+                    All tool permissions will be bypassed.
+                  </p>
+                )}
+              </div>
+            )}
 
             {state.type === 'error' && (
               <p className="[font-family:var(--font-mono-data)] text-xs" style={{ color: 'var(--color-cockpit-red)' }}>

@@ -20,7 +20,7 @@ const itemStartedCommandFixture = JSON.stringify({
     item: {
       type: 'commandExecution',
       id: 'item_1',
-      command: ['bash', '-c', 'echo hello'],
+      command: 'bash -c echo hello',
     },
   },
 });
@@ -31,7 +31,7 @@ const itemStartedFileChangeFixture = JSON.stringify({
     item: {
       type: 'fileChange',
       id: 'item_2',
-      path: '/workspace/src/index.ts',
+      changes: [{ path: '/workspace/src/index.ts' }],
     },
   },
 });
@@ -40,11 +40,8 @@ const requestApprovalCommandFixture = JSON.stringify({
   method: 'item/commandExecution/requestApproval',
   id: 'req_1',
   params: {
-    item: {
-      type: 'commandExecution',
-      id: 'item_1',
-      command: ['rm', '-rf', '/tmp/test'],
-    },
+    command: 'rm -rf /tmp/test',
+    cwd: '/workspace',
   },
 });
 
@@ -72,6 +69,40 @@ const itemCompletedAssistantFixture = JSON.stringify({
       type: 'assistantMessage',
       id: 'item_assistant_1',
       content: [{ type: 'text', text: 'Hello from Codex' }],
+    },
+  },
+});
+
+const agentMessageDeltaFixture = JSON.stringify({
+  method: 'item/agentMessage/delta',
+  params: {
+    threadId: 'thr_1',
+    turnId: 'turn_1',
+    itemId: 'agent_item_1',
+    delta: 'Hello ',
+  },
+});
+
+const itemCompletedAgentMessageFixture = JSON.stringify({
+  method: 'item/completed',
+  params: {
+    item: {
+      type: 'agentMessage',
+      id: 'agent_item_1',
+      text: 'Hello from Codex',
+    },
+  },
+});
+
+const requestApprovalPermissionsFixture = JSON.stringify({
+  method: 'item/permissions/requestApproval',
+  id: 'req_perm_1',
+  params: {
+    reason: 'Need write access',
+    permissions: {
+      fileSystem: {
+        write: ['/workspace/src'],
+      },
     },
   },
 });
@@ -163,6 +194,14 @@ describe('parseCodexLine', () => {
     expect((event as { type: string; _codexServerId: unknown })._codexServerId).toBe('req_2');
   });
 
+  it('item/permissions/requestApproval → returns approval_request event with actionType sandbox_escalation', () => {
+    const event = parseCodexLine(requestApprovalPermissionsFixture, ctx);
+    expect(event).not.toBeNull();
+    expect(event!.type).toBe('approval_request');
+    expect((event as { actionType: string }).actionType).toBe('sandbox_escalation');
+    expect((event as { riskLevel: string }).riskLevel).toBe('high');
+  });
+
   it('turn/completed with status completed → returns null (turn end is not session end)', () => {
     const event = parseCodexLine(turnCompletedFixture, ctx);
     expect(event).toBeNull();
@@ -174,6 +213,33 @@ describe('parseCodexLine', () => {
     expect(event!.type).toBe('session_chat_message');
     expect((event as { role: string }).role).toBe('assistant');
     expect((event as { content: string }).content).toBe('Hello from Codex');
+  });
+
+  it('item/agentMessage/delta emits assistant chunks and suppresses duplicate completed item for same itemId', () => {
+    const deltaEvent = parseCodexLine(agentMessageDeltaFixture, ctx);
+    expect(deltaEvent).not.toBeNull();
+    expect(deltaEvent!.type).toBe('session_chat_message');
+    expect((deltaEvent as { role: string }).role).toBe('assistant');
+    expect((deltaEvent as { content: string }).content).toBe('Hello ');
+
+    const completedEvent = parseCodexLine(itemCompletedAgentMessageFixture, ctx);
+    expect(completedEvent).toBeNull();
+  });
+
+  it('item/agentMessage/delta preserves whitespace-only chunks', () => {
+    const whitespaceDeltaFixture = JSON.stringify({
+      method: 'item/agentMessage/delta',
+      params: {
+        threadId: 'thr_1',
+        turnId: 'turn_1',
+        itemId: 'agent_item_2',
+        delta: ' ',
+      },
+    });
+    const event = parseCodexLine(whitespaceDeltaFixture, ctx);
+    expect(event).not.toBeNull();
+    expect(event!.type).toBe('session_chat_message');
+    expect((event as { content: string }).content).toBe(' ');
   });
 
   it('codex/event/stream_error → returns session_chat_error with reason', () => {
@@ -222,13 +288,53 @@ describe('classifyCodexApproval', () => {
     expect(result.proposedAction).toBe('rm -rf /tmp');
   });
 
+  it('commandExecution read-only network (curl) → shell_command medium', () => {
+    const result = classifyCodexApproval('item/commandExecution/requestApproval', {
+      item: { command: ['curl', 'https://example.com'] },
+    });
+    expect(result.actionType).toBe('shell_command');
+    expect(result.riskLevel).toBe('medium');
+    expect(result.proposedAction).toBe('curl https://example.com');
+  });
+
+  it('commandExecution side-effect network (git push) → shell_command high', () => {
+    const result = classifyCodexApproval('item/commandExecution/requestApproval', {
+      item: { command: ['git', 'push', 'origin', 'main'] },
+    });
+    expect(result.actionType).toBe('shell_command');
+    expect(result.riskLevel).toBe('high');
+    expect(result.proposedAction).toBe('git push origin main');
+  });
+
   it('fileChange → file_change medium with affectedPaths', () => {
     const result = classifyCodexApproval('item/fileChange/requestApproval', {
       item: { path: '/x.ts', changeType: 'modified' },
     });
     expect(result.actionType).toBe('file_change');
     expect(result.riskLevel).toBe('medium');
-    expect(result.proposedAction).toBe('modify /x.ts');
+    expect(result.proposedAction).toContain('/x.ts');
     expect(result.affectedPaths).toEqual(['/x.ts']);
+  });
+
+  it('execCommandApproval command array → shell_command high for risky command', () => {
+    const result = classifyCodexApproval('execCommandApproval', {
+      command: ['git', 'push', 'origin', 'main'],
+    });
+    expect(result.actionType).toBe('shell_command');
+    expect(result.riskLevel).toBe('high');
+    expect(result.proposedAction).toBe('git push origin main');
+  });
+
+  it('permissions approval → sandbox_escalation high with paths', () => {
+    const result = classifyCodexApproval('item/permissions/requestApproval', {
+      reason: 'Need write access',
+      permissions: {
+        fileSystem: { write: ['/workspace/src'] },
+      },
+    });
+    expect(result.actionType).toBe('sandbox_escalation');
+    expect(result.riskLevel).toBe('high');
+    expect(result.proposedAction).toBe('Need write access');
+    expect(result.affectedPaths).toEqual(['/workspace/src']);
   });
 });

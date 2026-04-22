@@ -28,11 +28,14 @@ const BUILTIN_TOOLS = new Set([
   'AskUserQuestion',
 ]);
 
-// Critical patterns: destructive, privilege escalation, pipe-to-shell
-const CRITICAL_BASH_PATTERN = /rm\s+-rf|sudo|chmod\s+777|curl.*\|.*sh|wget.*\|.*sh/i;
+// Critical patterns: destructive, privilege escalation, or remote code execution.
+const CRITICAL_BASH_PATTERN = /\brm\s+-rf\b|\bsudo\b|\bchmod\s+777\b|\bcurl\b[^\n|]*\|\s*sh\b|\bwget\b[^\n|]*\|\s*sh\b/i;
 
-// High-risk network/publish patterns
-const HIGH_BASH_PATTERN = /\bcurl\b|\bwget\b|\bssh\b|git\s+push\b|npm\s+publish\b/i;
+// High-risk patterns: external side effects (remote execution/publish).
+const HIGH_BASH_PATTERN = /\bssh\b|\bscp\b|\brsync\b|git\s+push\b|npm\s+publish\b|pnpm\s+publish\b|yarn\s+publish\b|twine\s+upload\b/i;
+
+// Medium-risk network fetch patterns: read-only retrieval.
+const MEDIUM_NETWORK_BASH_PATTERN = /\bcurl\b|\bwget\b/i;
 
 export function classifyRisk(
   toolName: string,
@@ -53,7 +56,15 @@ export function classifyRisk(
       return {
         actionType: 'network_access',
         riskLevel: 'high',
-        whyRisky: `Command performs network operation: ${command.slice(0, 120)}`,
+        whyRisky: `Command performs side-effect network operation: ${command.slice(0, 120)}`,
+      };
+    }
+
+    if (MEDIUM_NETWORK_BASH_PATTERN.test(command)) {
+      return {
+        actionType: 'network_access',
+        riskLevel: 'medium',
+        whyRisky: `Command performs read-only network fetch: ${command.slice(0, 120)}`,
       };
     }
 
@@ -109,12 +120,4 @@ export function classifyRisk(
     riskLevel: 'low',
     whyRisky: `Built-in tool: ${toolName}`,
   };
-}
-
-export function requiresHumanApproval(
-  toolName: string,
-  toolInput: Record<string, unknown>,
-): boolean {
-  const { riskLevel } = classifyRisk(toolName, toolInput);
-  return riskLevel === 'high' || riskLevel === 'critical';
 }

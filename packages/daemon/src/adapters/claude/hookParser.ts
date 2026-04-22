@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import type { NormalizedEvent } from '@cockpit/shared';
 import type Database from 'better-sqlite3';
-import { classifyRisk, requiresHumanApproval } from './riskClassifier.js';
+import { classifyRisk } from './riskClassifier.js';
 import { getClaudeSessionId, setClaudeSessionId } from '../../db/queries.js';
 
 export type HookPayload = {
@@ -11,12 +11,33 @@ export type HookPayload = {
   tool_name?: string;
   tool_use_id?: string;
   tool_input?: Record<string, unknown>;
+  permission_suggestions?: Array<Record<string, unknown>>;
   message?: string;
   content?: string;
+  notification_type?: string;
   agent_id?: string;
+  mcp_server_name?: string;
+  mode?: string;
+  url?: string;
+  elicitation_id?: string;
+  requested_schema?: Record<string, unknown>;
   transcript_path?: string;
   permission_mode?: string;
 };
+
+// Tools auto-approved without user review. Everything NOT in this set triggers an
+// approval_request that the daemon holds open until the user approves or denies.
+// Must match the --allowedTools list passed to Claude in claudeLauncher.ts.
+export const COCKPIT_ALLOWED_TOOLS: ReadonlySet<string> = new Set([
+  'Read',
+  'Glob',
+  'Grep',
+  'Write',
+  'Edit',
+  'MultiEdit',
+  'Agent',
+  'AskUserQuestion',
+]);
 
 // Module-level session ID cache: Claude session_id → UUID
 // Replaced by DB-backed three-tier lookup; initialized at daemon startup
@@ -195,16 +216,16 @@ export function parseHookPayload(payload: HookPayload): {
       const toolName = payload.tool_name ?? 'Unknown';
       const toolInput = payload.tool_input ?? {};
 
-      if (requiresHumanApproval(toolName, toolInput)) {
+      if (!COCKPIT_ALLOWED_TOOLS.has(toolName)) {
         const classification = classifyRisk(toolName, toolInput);
         return {
           event: {
             ...base,
             type: 'approval_request',
-            approvalId: randomUUID(),
+            approvalId: payload.tool_use_id ?? randomUUID(),
             actionType: classification.actionType,
             riskLevel: classification.riskLevel,
-            proposedAction: JSON.stringify(toolInput),
+            proposedAction: `${toolName}: ${JSON.stringify(toolInput)}`,
             affectedPaths: [],
             whyRisky: classification.whyRisky,
           },
@@ -296,6 +317,29 @@ export function parseHookPayload(payload: HookPayload): {
           proposedAction: JSON.stringify(toolInput),
           affectedPaths: [],
           whyRisky: classification.whyRisky,
+        },
+        requiresApproval: true,
+      };
+    }
+
+    case 'Elicitation': {
+      const mode = typeof payload.mode === 'string' ? payload.mode : 'form';
+      const serverName = payload.mcp_server_name ?? 'unknown';
+      const promptMessage = extractChatText(payload.message) ?? 'Provider requested user input';
+
+      return {
+        event: {
+          ...base,
+          type: 'approval_request',
+          approvalId: randomUUID(),
+          actionType: 'user_input',
+          riskLevel: 'medium',
+          proposedAction: promptMessage,
+          affectedPaths: [],
+          whyRisky:
+            mode === 'url' && payload.url
+              ? `MCP auth required via URL (${serverName}): ${payload.url}`
+              : `MCP user input required (${serverName}, mode=${mode})`,
         },
         requiresApproval: true,
       };

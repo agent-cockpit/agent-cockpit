@@ -10,6 +10,7 @@ import { CodexAdapter } from '../codexAdapter.js';
 function makeMockProc(): {
   proc: EventEmitter & {
     killed: boolean;
+    kill: ReturnType<typeof vi.fn>;
     stdin: Pick<Writable, 'write' | 'writable'> & { calls: string[] };
     stderr: EventEmitter | null;
     stdout: null;
@@ -195,6 +196,84 @@ describe('CodexAdapter', () => {
     });
   });
 
+  it('execCommandApproval maps always_allow to approved_for_session review decision', async () => {
+    const adapter = new CodexAdapter(
+      'session-exec-approval',
+      '/workspace',
+      mockDb as unknown as import('better-sqlite3').Database,
+      onEvent,
+      undefined,
+      () => mockProc as unknown as import('node:child_process').ChildProcess,
+    );
+
+    await startAdapter(adapter, mockProc, emitLine);
+    onEvent.mockClear();
+
+    const serverId = 'exec-55';
+    emitLine(JSON.stringify({
+      id: serverId,
+      method: 'execCommandApproval',
+      params: {
+        command: ['git', 'push', 'origin', 'main'],
+        cwd: '/workspace',
+      },
+    }));
+
+    const emittedEvent = onEvent.mock.calls[0][0] as Record<string, unknown>;
+    const approvalId = emittedEvent['approvalId'] as string;
+
+    adapter.resolveApproval(approvalId, 'always_allow');
+
+    const replyWrite = mockProc.stdin.calls
+      .map((s) => JSON.parse(s) as Record<string, unknown>)
+      .find((m) => m['id'] === serverId && (m['result'] as Record<string, unknown>)?.['decision'] !== undefined);
+
+    expect(replyWrite).toBeDefined();
+    expect(replyWrite).toMatchObject({
+      id: serverId,
+      result: { decision: 'approved_for_session' },
+    });
+  });
+
+  it('permissions approval deny responds with empty granted permissions and turn scope', async () => {
+    const adapter = new CodexAdapter(
+      'session-perm-approval',
+      '/workspace',
+      mockDb as unknown as import('better-sqlite3').Database,
+      onEvent,
+      undefined,
+      () => mockProc as unknown as import('node:child_process').ChildProcess,
+    );
+
+    await startAdapter(adapter, mockProc, emitLine);
+    onEvent.mockClear();
+
+    const serverId = 88;
+    emitLine(JSON.stringify({
+      id: serverId,
+      method: 'item/permissions/requestApproval',
+      params: {
+        reason: 'Need write access',
+        permissions: { fileSystem: { write: ['/workspace/src'] } },
+      },
+    }));
+
+    const emittedEvent = onEvent.mock.calls[0][0] as Record<string, unknown>;
+    const approvalId = emittedEvent['approvalId'] as string;
+
+    adapter.resolveApproval(approvalId, 'deny');
+
+    const replyWrite = mockProc.stdin.calls
+      .map((s) => JSON.parse(s) as Record<string, unknown>)
+      .find((m) => m['id'] === serverId && (m['result'] as Record<string, unknown>)?.['scope'] !== undefined);
+
+    expect(replyWrite).toBeDefined();
+    expect(replyWrite).toMatchObject({
+      id: serverId,
+      result: { scope: 'turn', permissions: {} },
+    });
+  });
+
   it('session resume: if threadId exists in DB, calls thread/resume instead of thread/start', async () => {
     const existingThreadId = 'thr_existing_123';
     const mockDbWithThread = {
@@ -227,6 +306,24 @@ describe('CodexAdapter', () => {
 
     const startCall = writtenMessages.find((m) => m['method'] === 'thread/start');
     expect(startCall).toBeUndefined();
+  });
+
+  it('sends initialized notification after initialize response before thread bootstrap', async () => {
+    const adapter = new CodexAdapter(
+      'session-initialized-notification',
+      '/workspace',
+      mockDb as unknown as import('better-sqlite3').Database,
+      onEvent,
+      undefined,
+      () => mockProc as unknown as import('node:child_process').ChildProcess,
+    );
+
+    await startAdapter(adapter, mockProc, emitLine);
+
+    const writtenMessages = mockProc.stdin.calls.map((s) => JSON.parse(s) as Record<string, unknown>);
+    const initializedNotification = writtenMessages.find((m) => m['method'] === 'initialized');
+    expect(initializedNotification).toBeDefined();
+    expect(initializedNotification?.['id']).toBeUndefined();
   });
 
   it('process guard: resolveApproval is a no-op when process has exited (no EPIPE throw)', async () => {
@@ -381,7 +478,7 @@ describe('CodexAdapter', () => {
     expect(turnStartCall).toBeDefined();
     expect(turnStartCall?.['params']).toMatchObject({
       threadId: 'thr_auto',
-      input: [{ type: 'text', text: 'hello codex' }],
+      input: [{ type: 'text', text: 'hello codex', text_elements: [] }],
     });
 
     const requestId = turnStartCall?.['id'];

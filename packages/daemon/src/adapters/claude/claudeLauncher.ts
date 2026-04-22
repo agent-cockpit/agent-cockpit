@@ -1,9 +1,9 @@
 import type Database from 'better-sqlite3';
-import type { ChildProcess } from 'node:child_process';
-import { execFile, execFileSync, spawn } from 'node:child_process';
+import { execFileSync, spawn, type ChildProcessWithoutNullStreams, type SpawnOptionsWithoutStdio } from 'node:child_process';
 import fs from 'node:fs';
 import os from 'node:os';
 import { setClaudeSessionId } from '../../db/queries.js';
+import { COCKPIT_ALLOWED_TOOLS } from './hookParser.js';
 
 export class LaunchError extends Error {
   constructor(
@@ -15,12 +15,88 @@ export class LaunchError extends Error {
   }
 }
 
-type ProcFactory = (args: string[], opts: object) => ChildProcess;
+type ProcFactory = (
+  file: string,
+  args: string[],
+  options: SpawnOptionsWithoutStdio,
+) => ChildProcessWithoutNullStreams;
 
 export interface ManagedClaudeRuntime {
   sendMessage: (message: string) => Promise<string | void>
   terminateSession: () => void
   isActive: () => boolean
+}
+
+export type ClaudePermissionMode = 'default' | 'dangerously_skip'
+
+interface PendingTurn {
+  sawAssistant: boolean;
+  resolve: () => void;
+  reject: (error: Error) => void;
+}
+
+function extractText(value: unknown): string | null {
+  if (typeof value === 'string') {
+    const text = value.trim();
+    return text.length > 0 ? text : null;
+  }
+  if (Array.isArray(value)) {
+    const parts = value
+      .map((entry) => extractText(entry))
+      .filter((entry): entry is string => Boolean(entry));
+    if (parts.length === 0) return null;
+    return parts.join('\n').trim() || null;
+  }
+  if (!value || typeof value !== 'object') return null;
+  const record = value as Record<string, unknown>;
+
+  if (typeof record['text'] === 'string') return extractText(record['text']);
+  if (typeof record['message'] === 'string') return extractText(record['message']);
+  if (typeof record['content'] === 'string') return extractText(record['content']);
+  if ('content' in record) {
+    const nested = extractText(record['content']);
+    if (nested) return nested;
+  }
+  return null;
+}
+
+function extractAssistantTextFromEnvelope(envelope: Record<string, unknown>): string | null {
+  if (envelope['type'] !== 'assistant') return null;
+  const message = envelope['message'];
+  if (!message || typeof message !== 'object') return null;
+  const msg = message as Record<string, unknown>;
+  if (msg['role'] !== 'assistant') return null;
+  return extractText(msg['content']);
+}
+
+function extractAssistantDeltaFromEnvelope(envelope: Record<string, unknown>): string | null {
+  if (envelope['type'] !== 'stream_event') return null;
+  const event = envelope['event'];
+  if (!event || typeof event !== 'object') return null;
+  const ev = event as Record<string, unknown>;
+  if (ev['type'] !== 'content_block_delta') return null;
+  const delta = ev['delta'];
+  if (!delta || typeof delta !== 'object') return null;
+  const d = delta as Record<string, unknown>;
+  if (d['type'] !== 'text_delta') return null;
+  const text = d['text'];
+  if (typeof text !== 'string') return null;
+  return text.length > 0 ? text : null;
+}
+
+function extractResultTextFromEnvelope(envelope: Record<string, unknown>): string | null {
+  if (envelope['type'] !== 'result') return null;
+  return extractText(envelope['result']);
+}
+
+function createUserTurnPayload(content: string): string {
+  return JSON.stringify({
+    type: 'user',
+    message: {
+      role: 'user',
+      content: [{ type: 'text', text: content }],
+    },
+  });
 }
 
 export class ClaudeLauncher {
@@ -45,86 +121,106 @@ export class ClaudeLauncher {
     } catch {
       throw new LaunchError('MISSING_BINARY', 'claude binary not found on PATH');
     }
-    try {
-      execFileSync('which', ['expect'], { stdio: 'pipe' });
-    } catch {
-      throw new LaunchError('MISSING_BINARY', 'expect binary not found on PATH');
-    }
   }
 
-  async launch(sessionId: string, workspacePath: string, onExit?: () => void): Promise<ManagedClaudeRuntime> {
-    // 1. Build settings object — claude hook format uses type:"command" with curl, not type:"http"
+  async launch(
+    sessionId: string,
+    workspacePath: string,
+    onExit?: () => void,
+    onAssistantOutput?: (text: string) => void,
+    permissionMode: ClaudePermissionMode | boolean = 'default',
+  ): Promise<ManagedClaudeRuntime> {
     const HOOK_TIMEOUT_S = 60;
-    const hookCmd = `curl -sf --max-time ${HOOK_TIMEOUT_S - 5} -X POST http://localhost:${this.hookPort}/hook -d @- -H 'Content-Type: application/json'`;
+    const hookHost = process.env['COCKPIT_HOOK_HOST'] ?? '127.0.0.1';
+    const hookCmd = `curl -sf --max-time ${HOOK_TIMEOUT_S - 5} -X POST http://${hookHost}:${this.hookPort}/hook -d @- -H 'Content-Type: application/json'`;
     const hookEntry = (matcher?: string) => ({
       ...(matcher !== undefined ? { matcher } : {}),
       hooks: [{ type: 'command', command: hookCmd, timeout: HOOK_TIMEOUT_S }],
     });
+
     const settings = {
       hooks: {
         SessionStart: [{ matcher: 'startup', hooks: [{ type: 'command', command: hookCmd, timeout: HOOK_TIMEOUT_S }] }],
         SessionEnd: [hookEntry()],
         PreToolUse: [hookEntry('')],
         PostToolUse: [hookEntry('')],
+        PermissionRequest: [hookEntry('')],
+        PermissionDenied: [hookEntry('')],
+        Elicitation: [hookEntry()],
+        ElicitationResult: [hookEntry()],
         SubagentStart: [hookEntry()],
         SubagentStop: [hookEntry()],
         Notification: [hookEntry()],
       },
     };
 
-    // 2. Write settings to temp file
     const settingsPath = `${os.tmpdir()}/cockpit-claude-${sessionId}.json`;
     fs.writeFileSync(settingsPath, JSON.stringify(settings, null, 2));
 
-    // 3. Pre-register the session ID mapping before spawning so hookParser finds it on Tier 1/2
     if (this.db) {
       setClaudeSessionId(this.db, sessionId, sessionId, workspacePath);
     }
 
-    // 4. Spawn claude through an expect-managed PTY.
-    // Claude requires a TTY for interactive sessions; daemon sockets do not provide one.
-    // `expect` is used as a stable PTY bridge so we can still write prompts via stdin.
-    console.log(`[ClaudeLauncher] spawning claude --session-id ${sessionId} --settings ${settingsPath} in cwd=${workspacePath}`);
-    const claudeArgs = ['--session-id', sessionId, '--settings', settingsPath];
-    const spawnOpts = { cwd: workspacePath, stdio: ['pipe', 'pipe', 'pipe'] as ['pipe', 'pipe', 'pipe'], detached: true };
-    const expectScript = [
-      'log_user 0',
-      'set timeout -1',
-      'spawn -noecho claude --session-id $env(COCKPIT_CLAUDE_SESSION_ID) --settings $env(COCKPIT_CLAUDE_SETTINGS_PATH)',
-      'interact',
-    ].join('\n');
+    const effectivePermissionMode: ClaudePermissionMode =
+      permissionMode === true
+        ? 'dangerously_skip'
+        : permissionMode === false
+          ? 'default'
+          : permissionMode;
 
-    const proc = this.procFactory
-      ? this.procFactory(claudeArgs, spawnOpts)
-      : spawn('expect', ['-c', expectScript], {
-        ...spawnOpts,
-        env: {
-          ...process.env,
-          COCKPIT_CLAUDE_SESSION_ID: sessionId,
-          COCKPIT_CLAUDE_SETTINGS_PATH: settingsPath,
-        },
+    const args = [
+      '-p',
+      '--verbose',
+      '--output-format=stream-json',
+      '--input-format=stream-json',
+      '--include-hook-events',
+      '--include-partial-messages',
+      '--session-id',
+      sessionId,
+      '--settings',
+      settingsPath,
+      ...(effectivePermissionMode === 'dangerously_skip'
+        ? ['--dangerously-skip-permissions']
+        : ['--permission-mode', 'default', '--allowedTools', [...COCKPIT_ALLOWED_TOOLS].join(' ')]),
+    ];
+
+    console.log(`[ClaudeLauncher] spawning claude ${args.join(' ')} in cwd=${workspacePath}`);
+
+    let cleanedUpSettings = false;
+    const cleanupSettings = (): void => {
+      if (cleanedUpSettings) return;
+      cleanedUpSettings = true;
+      try {
+        fs.unlinkSync(settingsPath);
+      } catch {
+        // ignore cleanup races
+      }
+    };
+
+    const spawnFn = this.procFactory ?? ((file, spawnArgs, options) => spawn(file, spawnArgs, options));
+
+    let proc: ChildProcessWithoutNullStreams;
+    try {
+      proc = spawnFn('claude', args, {
+        cwd: workspacePath,
+        env: { ...process.env },
+        stdio: 'pipe',
       });
+    } catch (err) {
+      cleanupSettings();
+      const msg = err instanceof Error ? err.message : String(err);
+      throw new LaunchError(
+        msg.includes('ENOENT') ? 'MISSING_BINARY' : 'SPAWN_FAILED',
+        `Failed to spawn claude: ${msg}`,
+      );
+    }
 
-    proc.unref();
-
-    // 5. Wrap in a Promise that resolves only after startup stability.
-    // A spawned process can still fail immediately; keep launch pending briefly
-    // so callers don't register a dead runtime.
     return new Promise<ManagedClaudeRuntime>((resolve, reject) => {
+      let startupOutput = '';
       let settled = false;
-      let stderr = '';
+      let active = true;
       let startupTimer: NodeJS.Timeout | null = null;
-      let cleanedUpSettings = false;
-
-      const cleanupSettings = (): void => {
-        if (cleanedUpSettings) return;
-        cleanedUpSettings = true;
-        try {
-          fs.unlinkSync(settingsPath);
-        } catch {
-          // Temp settings may already be removed; ignore cleanup races.
-        }
-      };
+      const pendingTurns: PendingTurn[] = [];
 
       const settleResolve = (runtime: ManagedClaudeRuntime): void => {
         if (settled) return;
@@ -137,111 +233,149 @@ export class ClaudeLauncher {
         if (settled) return;
         settled = true;
         if (startupTimer) clearTimeout(startupTimer);
+        active = false;
         cleanupSettings();
         reject(error);
       };
 
-      const stderrStream = proc.stderr;
-      if (stderrStream) {
-        stderrStream.on('data', (chunk: Buffer) => {
-          const text = chunk.toString();
-          stderr += text;
-          console.error(`[ClaudeLauncher] stderr: ${text.trim()}`);
-        });
-      }
-
-      proc.once('spawn', () => {
-        console.log(`[ClaudeLauncher] claude process spawned (pid=${proc.pid})`);
-        startupTimer = setTimeout(() => {
-          if (proc.exitCode !== null && proc.exitCode !== undefined) {
-            settleReject(new LaunchError('SPAWN_FAILED', `claude exited during startup with code ${proc.exitCode}: ${stderr}`));
-            return;
-          }
-          const runtime: ManagedClaudeRuntime = {
-            sendMessage: async (message: string) => {
-              const hasExited = proc.exitCode !== null && proc.exitCode !== undefined;
-              if (!proc.stdin?.writable || proc.killed || hasExited) {
-                throw new LaunchError('SPAWN_FAILED', 'claude runtime is not available for chat send');
-              }
-              const content = message.trim();
-              if (!content) return;
-              try {
-                const response = await runPrintMessage(sessionId, workspacePath, content);
-                if (response.length > 0) {
-                  return response;
-                }
-              } catch (err) {
-                console.error('[ClaudeLauncher] print fallback failed, writing to PTY stdin:', err);
-              }
-              proc.stdin.write(`${content}\n`);
-            },
-            terminateSession: () => {
-              const hasExited = proc.exitCode !== null && proc.exitCode !== undefined;
-              if (proc.killed || hasExited) {
-                return;
-              }
-              try {
-                proc.kill();
-              } catch {
-                // Process can exit between state check and kill; terminate remains idempotent.
-              }
-            },
-            isActive: () => !proc.killed && (proc.exitCode === null || proc.exitCode === undefined),
-          };
-          settleResolve(runtime);
-          proc.on('exit', () => {
-            cleanupSettings();
-            onExit?.();
-          });
-        }, 500);
-      });
-
-      proc.once('error', (err: NodeJS.ErrnoException) => {
-        if (err.code === 'ENOENT') {
-          settleReject(new LaunchError('MISSING_BINARY', `claude binary not found: ${err.message}`));
-        } else {
-          settleReject(new LaunchError('SPAWN_FAILED', `Failed to spawn claude: ${err.message}`));
+      const rejectPendingTurns = (error: Error): void => {
+        while (pendingTurns.length > 0) {
+          const pending = pendingTurns.shift();
+          pending?.reject(error);
         }
-      });
+      };
 
-      proc.once('exit', (code, signal) => {
-        if (!settled) {
-          if (signal) {
-            settleReject(new LaunchError('SPAWN_FAILED', `claude exited during startup on signal ${signal}: ${stderr}`));
-            return;
-          }
-          settleReject(new LaunchError('SPAWN_FAILED', `claude exited during startup with code ${code ?? 'unknown'}: ${stderr}`));
-        }
-      });
-    });
-  }
-}
+      const handleJsonLine = (line: string): void => {
+        const trimmed = line.trim();
+        if (!trimmed) return;
+        startupOutput += `${trimmed}\n`;
 
-function runPrintMessage(sessionId: string, workspacePath: string, message: string): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const args = [
-      '--session-id',
-      sessionId,
-      '--print',
-      '--output-format',
-      'text',
-      message,
-    ];
-    execFile(
-      'claude',
-      args,
-      {
-        cwd: workspacePath,
-        timeout: 120_000,
-        maxBuffer: 1024 * 1024,
-      },
-      (error, stdout, stderr) => {
-        if (error) {
-          reject(new LaunchError('SPAWN_FAILED', `claude --print failed: ${(stderr || error.message).trim()}`));
+        let envelope: Record<string, unknown>;
+        try {
+          envelope = JSON.parse(trimmed) as Record<string, unknown>;
+        } catch {
           return;
         }
-        resolve(stdout.trim());
-      },
-    );
-  });
+
+        const activeTurn = pendingTurns[0];
+
+        const assistantDelta = extractAssistantDeltaFromEnvelope(envelope);
+        if (assistantDelta && activeTurn) {
+          activeTurn.sawAssistant = true;
+          onAssistantOutput?.(assistantDelta);
+          return;
+        }
+
+        const assistantText = extractAssistantTextFromEnvelope(envelope);
+        if (assistantText && activeTurn && !activeTurn.sawAssistant) {
+          activeTurn.sawAssistant = true;
+          onAssistantOutput?.(assistantText);
+          return;
+        }
+
+        const isResult = envelope['type'] === 'result';
+        if (!isResult) return;
+
+        const turn = pendingTurns.shift();
+        if (!turn) return;
+
+        const resultText = extractResultTextFromEnvelope(envelope);
+        if (!turn.sawAssistant && resultText) {
+          onAssistantOutput?.(resultText);
+        }
+
+        turn.resolve();
+      };
+
+      const wireLineStream = (onChunk: (line: string) => void): ((chunk: Buffer | string) => void) => {
+        let buffer = '';
+        return (chunk: Buffer | string) => {
+          buffer += chunk.toString();
+          while (true) {
+            const newlineIndex = buffer.indexOf('\n');
+            if (newlineIndex === -1) break;
+            const line = buffer.slice(0, newlineIndex);
+            buffer = buffer.slice(newlineIndex + 1);
+            onChunk(line);
+          }
+        };
+      };
+
+      proc.stdout.on('data', wireLineStream(handleJsonLine));
+      proc.stderr.on('data', wireLineStream(handleJsonLine));
+
+      proc.once('error', (err) => {
+        const msg = err instanceof Error ? err.message : String(err);
+        if (!settled) {
+          settleReject(
+            new LaunchError(
+              msg.includes('ENOENT') ? 'MISSING_BINARY' : 'SPAWN_FAILED',
+              `Failed to spawn claude: ${msg}`,
+            ),
+          );
+        }
+      });
+
+      proc.once('exit', (exitCode, signal) => {
+        active = false;
+        const reason = signal ? `signal ${signal}` : `code ${exitCode ?? 0}`;
+        rejectPendingTurns(new Error(`Claude process exited (${reason})`));
+
+        if (!settled) {
+          settleReject(
+            new LaunchError(
+              'SPAWN_FAILED',
+              `claude exited during startup (${reason}): ${startupOutput.trim()}`,
+            ),
+          );
+          return;
+        }
+
+        console.log(`[ClaudeLauncher] session ${sessionId} exited (${reason})`);
+        cleanupSettings();
+        onExit?.();
+      });
+
+      startupTimer = setTimeout(() => {
+        if (!active) return;
+        settleResolve({
+          sendMessage: async (message) => {
+            if (!active || proc.killed || proc.stdin.destroyed || !proc.stdin.writable) {
+              throw new LaunchError('SPAWN_FAILED', 'claude runtime is not available');
+            }
+            const content = message.trim();
+            if (!content) return;
+            const payload = `${createUserTurnPayload(content)}\n`;
+            console.log('[ClaudeLauncher] writing user turn via stream-json stdin');
+
+            return new Promise<void>((resolveTurn, rejectTurn) => {
+              pendingTurns.push({
+                sawAssistant: false,
+                resolve: resolveTurn,
+                reject: rejectTurn,
+              });
+
+              try {
+                proc.stdin.write(payload);
+              } catch (err) {
+                const pending = pendingTurns.pop();
+                const writeErr = err instanceof Error ? err : new Error(String(err));
+                pending?.reject(writeErr);
+              }
+            });
+          },
+          terminateSession: () => {
+            if (!active) return;
+            active = false;
+            try {
+              proc.kill();
+            } catch {
+              // already exited
+            }
+          },
+          isActive: () => active,
+        });
+      }, 300);
+    });
+  }
 }

@@ -9,6 +9,7 @@ export interface CodexParserContext {
   sessionId: string;
   workspacePath: string;
   sessionStartEmitted: boolean;
+  assistantItemsWithDelta?: Set<string>;
 }
 
 // Extended event type that carries the optional Codex server request ID.
@@ -19,6 +20,36 @@ type CodexNormalizedEvent = NormalizedEvent & { _codexServerId?: unknown };
 function normalizeItemType(itemType: unknown): string {
   if (typeof itemType !== 'string') return '';
   return itemType.replace(/[\s_-]/g, '').toLowerCase();
+}
+
+function toCommandTokens(command: unknown): string[] {
+  if (Array.isArray(command)) {
+    return command.filter((entry): entry is string => typeof entry === 'string' && entry.length > 0);
+  }
+  if (typeof command === 'string') {
+    return command
+      .trim()
+      .split(/\s+/)
+      .filter((entry) => entry.length > 0);
+  }
+  return [];
+}
+
+function extractFileChangePaths(item: Record<string, unknown> | undefined): string[] {
+  const directPath = typeof item?.['path'] === 'string' ? [item['path']] : [];
+  const changes = Array.isArray(item?.['changes'])
+    ? (item['changes'] as Array<Record<string, unknown>>)
+        .map((change) => change?.['path'])
+        .filter((path): path is string => typeof path === 'string' && path.length > 0)
+    : [];
+  return [...new Set([...directPath, ...changes])];
+}
+
+function getAssistantDeltaSet(ctx: CodexParserContext): Set<string> {
+  if (!ctx.assistantItemsWithDelta) {
+    ctx.assistantItemsWithDelta = new Set<string>();
+  }
+  return ctx.assistantItemsWithDelta;
 }
 
 function extractText(value: unknown): string | null {
@@ -52,6 +83,40 @@ function extractText(value: unknown): string | null {
   if ('msg' in record) {
     const fromMsg = extractText(record['msg']);
     if (fromMsg) return fromMsg;
+  }
+  return null;
+}
+
+function extractTextForDelta(value: unknown): string | null {
+  if (typeof value === 'string') {
+    return value.length > 0 ? value : null;
+  }
+  if (Array.isArray(value)) {
+    const parts = value
+      .map((entry) => extractTextForDelta(entry))
+      .filter((entry): entry is string => entry !== null);
+    if (parts.length === 0) return null;
+    return parts.join('');
+  }
+  if (!value || typeof value !== 'object') return null;
+  const record = value as Record<string, unknown>;
+
+  if (typeof record['text'] === 'string') {
+    return extractTextForDelta(record['text']);
+  }
+  if (typeof record['message'] === 'string') {
+    return extractTextForDelta(record['message']);
+  }
+  if (typeof record['content'] === 'string') {
+    return extractTextForDelta(record['content']);
+  }
+  if ('content' in record) {
+    const fromContent = extractTextForDelta(record['content']);
+    if (fromContent !== null) return fromContent;
+  }
+  if ('msg' in record) {
+    const fromMsg = extractTextForDelta(record['msg']);
+    if (fromMsg !== null) return fromMsg;
   }
   return null;
 }
@@ -116,6 +181,7 @@ export function parseCodexLine(
     }
 
     case 'turn/completed': {
+      getAssistantDeltaSet(ctx).clear();
       // Emit the final assistant message if the turn result carries text content.
       // Session lifecycle is still driven by process start/exit — not this event.
       const output = params['output'] ?? params['result'] ?? params['content'];
@@ -148,17 +214,18 @@ export function parseCodexLine(
       const itemType = normalizeItemType(item?.['type']);
 
       if (itemType === 'commandexecution') {
-        const command = (item?.['command'] as string[] | undefined) ?? [];
+        const command = toCommandTokens(item?.['command']);
         return {
           ...base,
           type: 'tool_call',
-          toolName: command.join(' '),
-          input: { command },
+          toolName: command.join(' ') || 'commandExecution',
+          input: { command, raw: item?.['command'] },
         };
       }
 
       if (itemType === 'filechange') {
-        const filePath = (item?.['path'] as string | undefined) ?? '';
+        const paths = extractFileChangePaths(item);
+        const filePath = paths[0] ?? '';
         const changeType = (item?.['changeType'] as 'created' | 'modified' | 'deleted' | undefined) ?? 'modified';
         return {
           ...base,
@@ -175,8 +242,12 @@ export function parseCodexLine(
     case 'item/completed': {
       const item = params['item'] as Record<string, unknown> | undefined;
       const itemType = normalizeItemType(item?.['type']);
-      if (itemType === 'assistantmessage') {
-        const content = extractText(item?.['content']);
+      if (itemType === 'assistantmessage' || itemType === 'agentmessage') {
+        const itemId = typeof item?.['id'] === 'string' ? item['id'] : null;
+        if (itemId && getAssistantDeltaSet(ctx).has(itemId)) {
+          return null;
+        }
+        const content = extractText(item?.['content']) ?? extractText(item?.['text']);
         if (!content) return null;
         return {
           ...base,
@@ -187,6 +258,20 @@ export function parseCodexLine(
         };
       }
       return null;
+    }
+
+    case 'item/agentMessage/delta': {
+      const delta = extractTextForDelta(params['delta']);
+      if (!delta) return null;
+      const itemId = typeof params['itemId'] === 'string' ? params['itemId'] : null;
+      if (itemId) getAssistantDeltaSet(ctx).add(itemId);
+      return {
+        ...base,
+        type: 'session_chat_message',
+        provider: 'codex',
+        role: 'assistant',
+        content: delta,
+      };
     }
 
     case 'codex/event/agent_message': {
@@ -224,7 +309,10 @@ export function parseCodexLine(
     }
 
     case 'item/commandExecution/requestApproval':
-    case 'item/fileChange/requestApproval': {
+    case 'item/fileChange/requestApproval':
+    case 'item/permissions/requestApproval':
+    case 'applyPatchApproval':
+    case 'execCommandApproval': {
       const codexServerId = msg['id'];
       const classification = classifyCodexApproval(method, params);
 

@@ -11,13 +11,17 @@ const APPROVAL_TIMEOUT_MS = parseInt(
 const EXTERNAL_SESSION_REASON = 'External session is approval-only; chat send and terminate are disabled.';
 
 interface PendingApproval {
-  res: ServerResponse;
+  responses: Set<ServerResponse>;
   timer: ReturnType<typeof setTimeout>;
   hookEventName: string;
+  dedupeKey: string;
+  sessionId: string;
 }
 
 // Module-level map of pending approvals (approvalId → state)
 const pendingApprovals = new Map<string, PendingApproval>();
+// Dedupe map for repeated provider hooks about the same approval operation.
+const approvalIdByDedupeKey = new Map<string, string>();
 
 // Sessions for which we've emitted a session_start with non-empty workspace.
 // Pre-populated from DB on startup so daemon restarts don't re-emit for existing sessions.
@@ -34,6 +38,27 @@ export function initStartedSessions(sessionIds: string[]): void {
 
 export function markSessionStarted(sessionId: string): void {
   startedSessions.add(sessionId);
+}
+
+function stableStringify(value: unknown): string {
+  if (value === null || typeof value !== 'object') return JSON.stringify(value);
+  if (Array.isArray(value)) return `[${value.map(stableStringify).join(',')}]`;
+  const obj = value as Record<string, unknown>;
+  const keys = Object.keys(obj).sort();
+  return `{${keys.map((key) => `${JSON.stringify(key)}:${stableStringify(obj[key])}`).join(',')}}`;
+}
+
+function buildApprovalDedupeKey(payload: HookPayload, event: NormalizedEvent): string {
+  const elicitationId = typeof payload.elicitation_id === 'string' ? payload.elicitation_id.trim() : '';
+  if (elicitationId.length > 0) {
+    return `${event.sessionId}|${payload.hook_event_name}|${elicitationId}`;
+  }
+  const toolUseId = typeof payload.tool_use_id === 'string' ? payload.tool_use_id.trim() : '';
+  if (toolUseId.length > 0) {
+    return `${event.sessionId}|${payload.hook_event_name}|${toolUseId}`;
+  }
+  const toolName = payload.tool_name ?? 'Unknown';
+  return `${event.sessionId}|${payload.hook_event_name}|${toolName}|${stableStringify(payload.tool_input ?? {})}`;
 }
 
 function buildPreToolUseEnvelope(decision: 'allow' | 'deny', reason?: string): string {
@@ -55,6 +80,16 @@ function buildPermissionRequestEnvelope(decision: 'allow' | 'deny'): string {
   });
 }
 
+function buildElicitationEnvelope(decision: 'allow' | 'deny'): string {
+  return JSON.stringify({
+    hookSpecificOutput: {
+      hookEventName: 'Elicitation',
+      action: decision === 'allow' ? 'accept' : 'decline',
+      content: {},
+    },
+  });
+}
+
 export function resolveApproval(
   approvalId: string,
   decision: 'allow' | 'deny' | 'always_allow',
@@ -68,14 +103,10 @@ export function resolveApproval(
 
   // Claim: delete first to prevent double-resolution
   pendingApprovals.delete(approvalId);
+  approvalIdByDedupeKey.delete(pending.dedupeKey);
   clearTimeout(pending.timer);
 
-  const { res, hookEventName } = pending;
-
-  if (res.writableEnded) {
-    logger.warn('hook', 'resolveApproval: response already ended (double-resolve race)', { approvalId, decision });
-    return;
-  }
+  const { hookEventName } = pending;
 
   const effectiveDecision = decision === 'always_allow' ? 'allow' : decision;
 
@@ -84,18 +115,23 @@ export function resolveApproval(
     decision,
     effectiveDecision,
     hookEventName,
+    responseCount: pending.responses.size,
   });
 
   let body: string;
   if (hookEventName === 'PermissionRequest') {
     body = buildPermissionRequestEnvelope(effectiveDecision);
+  } else if (hookEventName === 'Elicitation') {
+    body = buildElicitationEnvelope(effectiveDecision);
   } else {
-    // PreToolUse
     body = buildPreToolUseEnvelope(effectiveDecision, reason);
   }
 
-  res.writeHead(200, { 'Content-Type': 'application/json' });
-  res.end(body);
+  for (const res of pending.responses) {
+    if (res.writableEnded) continue;
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(body);
+  }
 }
 
 function handleRequest(
@@ -149,6 +185,7 @@ function handleRequest(
     }
 
     const { event, requiresApproval } = parsed;
+    let suppressEvent = false;
 
     logger.info('hook', `Event parsed: ${event.type}`, {
       sessionId: event.sessionId,
@@ -163,13 +200,29 @@ function handleRequest(
       // Real session_start: track it only when workspace is populated so a later tool event
       // with cwd can still emit a corrected session_start if this one had empty workspace.
       if (payload.cwd) {
-        startedSessions.add(event.sessionId);
-        logger.info('hook', 'Session started (SessionStart hook)', {
+        if (startedSessions.has(event.sessionId)) {
+          suppressEvent = true;
+          logger.debug('hook', 'Duplicate session_start ignored', {
+            sessionId: event.sessionId,
+            cwd: payload.cwd,
+            claude_session_id: payload.session_id,
+          });
+        } else {
+          startedSessions.add(event.sessionId);
+          logger.info('hook', 'Session started (SessionStart hook)', {
+            sessionId: event.sessionId,
+            cwd: payload.cwd,
+            claude_session_id: payload.session_id,
+          });
+        }
+      } else if (startedSessions.has(event.sessionId)) {
+        suppressEvent = true;
+        logger.debug('hook', 'Duplicate session_start without cwd ignored', {
           sessionId: event.sessionId,
-          cwd: payload.cwd,
           claude_session_id: payload.session_id,
         });
       } else {
+        startedSessions.add(event.sessionId);
         logger.debug('hook', 'SessionStart received without cwd — deferring start tracking', {
           sessionId: event.sessionId,
           claude_session_id: payload.session_id,
@@ -199,8 +252,41 @@ function handleRequest(
       } as NormalizedEvent);
     }
 
+    if (
+      payload.hook_event_name === 'PreToolUse' &&
+      event.type === 'tool_call' &&
+      payload.tool_input &&
+      typeof payload.tool_input === 'object' &&
+      (payload.tool_input as Record<string, unknown>)['dangerouslyDisableSandbox'] === true
+    ) {
+      logger.warn('hook', 'PreToolUse reported dangerouslyDisableSandbox=true without PermissionRequest', {
+        sessionId: event.sessionId,
+        tool_name: payload.tool_name ?? 'Unknown',
+        tool_use_id: payload.tool_use_id,
+      });
+    }
+
     if (requiresApproval && event.type === 'approval_request') {
       const { approvalId } = event;
+      const dedupeKey = buildApprovalDedupeKey(payload, event);
+
+      const existingApprovalId = approvalIdByDedupeKey.get(dedupeKey);
+      if (existingApprovalId) {
+        const existingPending = pendingApprovals.get(existingApprovalId);
+        if (existingPending) {
+          existingPending.responses.add(res);
+          logger.info('hook', 'Duplicate approval request deduped', {
+            approvalId: existingApprovalId,
+            sessionId: event.sessionId,
+            hook_event_name: payload.hook_event_name,
+            dedupeKey,
+            responseCount: existingPending.responses.size,
+          });
+          return;
+        }
+        // Stale key safety (shouldn't happen): clear and proceed as new approval.
+        approvalIdByDedupeKey.delete(dedupeKey);
+      }
 
       logger.info('hook', 'Approval request pending', {
         approvalId,
@@ -209,12 +295,16 @@ function handleRequest(
         riskLevel: event.riskLevel,
         hook_event_name: payload.hook_event_name,
         timeoutMs: APPROVAL_TIMEOUT_MS,
+        dedupeKey,
       });
 
       // Set up timeout
       const timer = setTimeout(() => {
+        const pending = pendingApprovals.get(approvalId);
+        if (!pending) return;
         // Delete first (claim)
         pendingApprovals.delete(approvalId);
+        approvalIdByDedupeKey.delete(pending.dedupeKey);
 
         logger.warn('hook', 'Approval timed out — denying', {
           approvalId,
@@ -222,30 +312,38 @@ function handleRequest(
           timeoutMs: APPROVAL_TIMEOUT_MS,
         });
 
-        if (!res.writableEnded) {
+        for (const pendingRes of pending.responses) {
+          if (pendingRes.writableEnded) continue;
           // Deny on timeout
           const body =
-            payload.hook_event_name === 'PermissionRequest'
+            pending.hookEventName === 'PermissionRequest'
               ? buildPermissionRequestEnvelope('deny')
+              : pending.hookEventName === 'Elicitation'
+                ? buildElicitationEnvelope('deny')
               : buildPreToolUseEnvelope('deny', 'approval timeout');
-          res.writeHead(200, { 'Content-Type': 'application/json' });
-          res.end(body);
+          pendingRes.writeHead(200, { 'Content-Type': 'application/json' });
+          pendingRes.end(body);
         }
         // Notify approval queue so it can persist the timeout and emit approval_resolved
         onApprovalTimeout(approvalId);
       }, APPROVAL_TIMEOUT_MS);
 
       pendingApprovals.set(approvalId, {
-        res,
+        responses: new Set([res]),
         timer,
         hookEventName: payload.hook_event_name,
+        dedupeKey,
+        sessionId: event.sessionId,
       });
+      approvalIdByDedupeKey.set(dedupeKey, approvalId);
 
       // Notify caller — do NOT close res
       onDecisionNeeded(approvalId, event);
       // Response intentionally left open
     } else {
-      onEvent(event);
+      if (!suppressEvent) {
+        onEvent(event);
+      }
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({}));
     }
@@ -262,6 +360,7 @@ export function createHookServer(
     handleRequest(req, res, onEvent, onDecisionNeeded, onApprovalTimeout);
   });
 
-  server.listen(port);
+  const host = process.env['COCKPIT_HOOK_HOST'] ?? '127.0.0.1';
+  server.listen(port, host);
   return server;
 }

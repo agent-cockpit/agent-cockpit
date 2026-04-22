@@ -3,8 +3,10 @@ import http from 'node:http';
 import { createWsServer } from '../ws/server.js';
 import { openDatabase } from '../db/database.js';
 import { persistEvent } from '../db/queries.js';
+import { eventBus } from '../eventBus.js';
 import type Database from 'better-sqlite3';
 import type { NormalizedEvent } from '@cockpit/shared';
+import { EventEmitter } from 'node:events';
 
 // Module-level mock for child_process so we can control execFileSync behavior
 vi.mock('node:child_process', async (importOriginal) => {
@@ -12,6 +14,34 @@ vi.mock('node:child_process', async (importOriginal) => {
   return {
     ...actual,
     execFileSync: vi.fn(actual.execFileSync),
+    spawn: vi.fn((file: string) => {
+      const proc = new EventEmitter() as unknown as {
+        stdout: EventEmitter | null;
+        stderr: EventEmitter | null;
+        stdin: { writable: boolean; destroyed: boolean; write: ReturnType<typeof vi.fn> };
+        kill: ReturnType<typeof vi.fn>;
+        pid: number;
+        killed: boolean;
+        on: (event: string, cb: (...args: unknown[]) => void) => unknown;
+        once: (event: string, cb: (...args: unknown[]) => void) => unknown;
+        emit: (event: string, ...args: unknown[]) => boolean;
+      };
+      proc.stdout = file === 'codex' ? null : new EventEmitter();
+      proc.stderr = file === 'codex' ? null : new EventEmitter();
+      proc.stdin = {
+        writable: true,
+        destroyed: false,
+        write: vi.fn(() => true),
+      };
+      proc.pid = 12345;
+      proc.killed = false;
+      proc.kill = vi.fn(() => {
+        proc.killed = true;
+        proc.emit('exit', 0, null);
+        return true;
+      });
+      return proc;
+    }),
   };
 });
 
@@ -87,9 +117,14 @@ function makeSessionEvent(sessionId: string, overrides: Partial<NormalizedEvent>
 let db: Database.Database;
 let httpServer: http.Server;
 let port: number;
+let eventPersistListener: ((event: NormalizedEvent) => void) | null = null;
 
 beforeEach(async () => {
   db = openDatabase(':memory:');
+  eventPersistListener = (event) => {
+    persistEvent(db, event);
+  };
+  eventBus.on('event', eventPersistListener);
   const server = createWsServer(db, 0); // port 0 = OS picks available port
   httpServer = server.httpServer;
   await new Promise<void>((resolve) => {
@@ -102,6 +137,10 @@ beforeEach(async () => {
 
 afterEach(async () => {
   await new Promise<void>((resolve) => httpServer.close(() => resolve()));
+  if (eventPersistListener) {
+    eventBus.off('event', eventPersistListener);
+    eventPersistListener = null;
+  }
   db.close();
   vi.restoreAllMocks();
 });
@@ -147,6 +186,27 @@ describe('POST /api/sessions', () => {
     expect(payload.canTerminateSession).toBe(true);
   });
 
+  it('accepts explicit permissionMode=dangerously_skip for Claude launch', async () => {
+    const { status, data } = await httpPost(port, '/api/sessions', {
+      provider: 'claude',
+      workspacePath: '/tmp',
+      permissionMode: 'dangerously_skip',
+    });
+    expect(status).toBe(200);
+    expect(typeof data.sessionId).toBe('string');
+    expect(data.mode).toBe('initiated');
+  });
+
+  it('accepts legacy skipPermissions=true for backward compatibility', async () => {
+    const { status, data } = await httpPost(port, '/api/sessions', {
+      provider: 'claude',
+      workspacePath: '/tmp',
+      skipPermissions: true,
+    });
+    expect(status).toBe(200);
+    expect(typeof data.sessionId).toBe('string');
+  });
+
   it('returns 200 with { sessionId, mode: "initiated" } for Codex', async () => {
     const { status, data } = await httpPost(port, '/api/sessions', {
       provider: 'codex',
@@ -169,6 +229,16 @@ describe('POST /api/sessions', () => {
       workspacePath: '/tmp',
     });
     expect(status).toBe(400);
+  });
+
+  it('returns 400 for invalid permissionMode on Claude launch', async () => {
+    const { status, data } = await httpPost(port, '/api/sessions', {
+      provider: 'claude',
+      workspacePath: '/tmp',
+      permissionMode: 'invalid-mode',
+    });
+    expect(status).toBe(400);
+    expect(data.error).toContain("permissionMode must be");
   });
 
   it('returns 422 with error_code INVALID_WORKSPACE for non-existent workspacePath', async () => {

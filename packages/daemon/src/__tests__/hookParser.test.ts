@@ -138,6 +138,42 @@ describe('parseHookPayload notification chat mapping', () => {
   });
 });
 
+describe('parseHookPayload elicitation mapping', () => {
+  let db: BetterSqlite3.Database;
+
+  beforeEach(() => {
+    db = openDatabase(':memory:');
+    setClaudeSessionDb(db);
+    setClaudeSessionCache(new Map());
+  });
+
+  afterEach(() => {
+    setClaudeSessionDb(null);
+    setClaudeSessionCache(new Map());
+    db.close();
+  });
+
+  it('maps Elicitation payload to provider-driven approval_request', () => {
+    const payload: HookPayload = {
+      session_id: 'elicitation-1',
+      hook_event_name: 'Elicitation',
+      cwd: '/workspace',
+      mcp_server_name: 'github',
+      mode: 'url',
+      url: 'https://example.com/auth',
+      message: 'Authenticate with GitHub',
+    };
+
+    const result = parseHookPayload(payload);
+    expect(result.requiresApproval).toBe(true);
+    expect(result.event.type).toBe('approval_request');
+    if (result.event.type !== 'approval_request') return;
+    expect(result.event.actionType).toBe('user_input');
+    expect(result.event.proposedAction).toContain('Authenticate with GitHub');
+    expect(result.event.whyRisky).toContain('MCP auth required via URL');
+  });
+});
+
 describe('parseHookPayload file change mapping', () => {
   let db: BetterSqlite3.Database;
 
@@ -292,10 +328,10 @@ describe('parseHookPayload subagent integrity under approval flows', () => {
     const subResult = parseHookPayload(subagentStartPayload);
     expect(subResult.event.type).toBe('subagent_spawn');
 
-    // Approval PreToolUse (requires approval)
+    // Approval PermissionRequest (provider-driven approval)
     const approvalPayload: HookPayload = {
       session_id: 'parent-appr-sess',
-      hook_event_name: 'PreToolUse',
+      hook_event_name: 'PermissionRequest',
       tool_name: 'Bash',
       tool_input: { command: 'rm -rf /tmp/important' },
       cwd: '/workspace',
@@ -315,5 +351,33 @@ describe('parseHookPayload subagent integrity under approval flows', () => {
     expect(subStopResult.event.type).toBe('subagent_complete');
     // SessionId must be consistent across all events
     expect(subStopResult.event.sessionId).toBe(parentSessionId);
+  });
+
+  it('PreToolUse for non-allowed Bash command → approval_request (daemon holds hook for user decision)', () => {
+    const payload: HookPayload = {
+      session_id: 'provider-driven-pretool',
+      hook_event_name: 'PreToolUse',
+      tool_name: 'Bash',
+      tool_input: { command: 'rm -rf /tmp/provider-driven' },
+      cwd: '/workspace',
+    };
+
+    const result = parseHookPayload(payload);
+    expect(result.event.type).toBe('approval_request');
+    expect(result.requiresApproval).toBe(true);
+  });
+
+  it('PreToolUse for allowed tool (Read) → tool_call, auto-approved', () => {
+    const payload: HookPayload = {
+      session_id: 'provider-driven-read',
+      hook_event_name: 'PreToolUse',
+      tool_name: 'Read',
+      tool_input: { file_path: '/workspace/src/index.ts' },
+      cwd: '/workspace',
+    };
+
+    const result = parseHookPayload(payload);
+    expect(result.event.type).toBe('tool_call');
+    expect(result.requiresApproval).toBe(false);
   });
 });

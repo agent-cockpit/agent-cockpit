@@ -23,8 +23,14 @@ describe('classifyRisk', () => {
     expect(result.riskLevel).toBe('critical');
   });
 
-  it('Test 9: Bash curl → network_access / high', () => {
+  it('Test 9: Bash curl → network_access / medium', () => {
     const result = classifyRisk('Bash', { command: 'curl https://example.com' });
+    expect(result.actionType).toBe('network_access');
+    expect(result.riskLevel).toBe('medium');
+  });
+
+  it('Test 9b: Bash git push → network_access / high', () => {
+    const result = classifyRisk('Bash', { command: 'git push origin main' });
     expect(result.actionType).toBe('network_access');
     expect(result.riskLevel).toBe('high');
   });
@@ -45,7 +51,7 @@ describe('classifyRisk', () => {
 // ─── Unit tests: hookParser ───────────────────────────────────────────────────
 
 describe('parseHookPayload', () => {
-  let parseHookPayload: (payload: Record<string, unknown>) => {
+  let parseHookPayload: (payload: import('../adapters/claude/hookParser.js').HookPayload) => {
     event: NormalizedEvent;
     requiresApproval: boolean;
   };
@@ -62,8 +68,8 @@ describe('parseHookPayload', () => {
       cwd: '/proj',
     });
     expect(result.event.type).toBe('session_start');
-    expect(result.event.provider).toBe('claude');
     if (result.event.type === 'session_start') {
+      expect(result.event.provider).toBe('claude');
       expect(result.event.workspacePath).toBe('/proj');
     }
   });
@@ -93,12 +99,23 @@ describe('parseHookPayload', () => {
     expect(result.event.type).toBe('session_end');
   });
 
-  it('Test 4: PreToolUse with non-blocking tool → tool_call, requiresApproval false', () => {
+  it('Test 4: PreToolUse for non-allowed tool (Bash) → approval_request, requiresApproval true', () => {
     const result = parseHookPayload({
       hook_event_name: 'PreToolUse',
       session_id: 'sess-003',
       tool_name: 'Bash',
       tool_input: { command: 'ls' },
+    });
+    expect(result.event.type).toBe('approval_request');
+    expect(result.requiresApproval).toBe(true);
+  });
+
+  it('Test 4b: PreToolUse for allowed tool (Read) → tool_call, requiresApproval false', () => {
+    const result = parseHookPayload({
+      hook_event_name: 'PreToolUse',
+      session_id: 'sess-003b',
+      tool_name: 'Read',
+      tool_input: { file_path: '/tmp/foo.ts' },
     });
     expect(result.event.type).toBe('tool_call');
     expect(result.requiresApproval).toBe(false);
@@ -222,7 +239,7 @@ describe('hookServer', () => {
     expect(events[0]!.type).toBe('session_start');
   });
 
-  it('Test 13: High-risk Bash PreToolUse calls onDecisionNeeded and does NOT close response', async () => {
+  it('Test 13: PermissionRequest calls onDecisionNeeded and does NOT close response', async () => {
     const decisions: Array<{ approvalId: string; event: NormalizedEvent }> = [];
     server = createHookServer(
       port,
@@ -236,7 +253,7 @@ describe('hookServer', () => {
     const addr = server.address() as { port: number };
     const responsePromise = new Promise<void>((resolve, reject) => {
       const data = JSON.stringify({
-        hook_event_name: 'PreToolUse',
+        hook_event_name: 'PermissionRequest',
         session_id: 'test-sess-13',
         tool_name: 'Bash',
         tool_input: { command: 'rm -rf /tmp' },
@@ -279,7 +296,7 @@ describe('hookServer', () => {
     await responsePromise;
   });
 
-  it('Test 14: resolveApproval allow closes held response with correct PreToolUse envelope', async () => {
+  it('Test 14: resolveApproval allow closes held response with correct PermissionRequest envelope', async () => {
     const decisions: Array<{ approvalId: string }> = [];
     server = createHookServer(
       port,
@@ -292,7 +309,7 @@ describe('hookServer', () => {
     let responseBody = '';
     const responsePromise = new Promise<void>((resolve, reject) => {
       const data = JSON.stringify({
-        hook_event_name: 'PreToolUse',
+        hook_event_name: 'PermissionRequest',
         session_id: 'test-sess-14',
         tool_name: 'Bash',
         tool_input: { command: 'rm -rf /tmp' },
@@ -325,10 +342,10 @@ describe('hookServer', () => {
     await responsePromise;
 
     const parsed = JSON.parse(responseBody) as {
-      hookSpecificOutput: { hookEventName: string; permissionDecision: string };
+      hookSpecificOutput: { hookEventName: string; decision: { behavior: string } };
     };
-    expect(parsed.hookSpecificOutput.hookEventName).toBe('PreToolUse');
-    expect(parsed.hookSpecificOutput.permissionDecision).toBe('allow');
+    expect(parsed.hookSpecificOutput.hookEventName).toBe('PermissionRequest');
+    expect(parsed.hookSpecificOutput.decision.behavior).toBe('allow');
   });
 
   it('Test 15: resolveApproval on unknown/expired approvalId is a no-op', () => {
@@ -389,6 +406,125 @@ describe('hookServer', () => {
     expect(parsed.hookSpecificOutput.decision.behavior).toBe('allow');
   });
 
+  it('Test 16b: Elicitation hook type returns correct Elicitation envelope on allow', async () => {
+    const decisions: Array<{ approvalId: string }> = [];
+    server = createHookServer(
+      port,
+      () => {},
+      (approvalId) => decisions.push({ approvalId }),
+    );
+    await new Promise<void>((resolve) => server.once('listening', resolve));
+
+    const addr = server.address() as { port: number };
+    let responseBody = '';
+    const responsePromise = new Promise<void>((resolve, reject) => {
+      const data = JSON.stringify({
+        hook_event_name: 'Elicitation',
+        session_id: 'test-sess-16b',
+        mcp_server_name: 'github',
+        mode: 'url',
+        url: 'https://example.com/auth',
+        message: 'Authenticate',
+      });
+      const req = http.request(
+        {
+          hostname: '127.0.0.1',
+          port: addr.port,
+          path: '/hook',
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Content-Length': Buffer.byteLength(data),
+          },
+        },
+        (res) => {
+          res.on('data', (chunk: Buffer) => { responseBody += chunk.toString(); });
+          res.on('end', () => resolve());
+        },
+      );
+      req.on('error', reject);
+      req.write(data);
+      req.end();
+    });
+
+    await new Promise<void>((r) => setTimeout(r, 100));
+    expect(decisions).toHaveLength(1);
+    const { approvalId } = decisions[0]!;
+
+    resolveApproval(approvalId, 'allow');
+    await responsePromise;
+
+    const parsed = JSON.parse(responseBody) as {
+      hookSpecificOutput: { hookEventName: string; action: string };
+    };
+    expect(parsed.hookSpecificOutput.hookEventName).toBe('Elicitation');
+    expect(parsed.hookSpecificOutput.action).toBe('accept');
+  });
+
+  it('Test 16c: PreToolUse for non-allowed tool holds response and resolves with PreToolUse envelope', async () => {
+    const decisions: Array<{ approvalId: string; event: NormalizedEvent }> = [];
+    server = createHookServer(
+      port,
+      () => {},
+      (approvalId, event) => decisions.push({ approvalId, event }),
+    );
+    await new Promise<void>((resolve) => server.once('listening', resolve));
+
+    const addr = server.address() as { port: number };
+    let responseBody = '';
+    let responseResolved = false;
+    const responsePromise = new Promise<void>((resolve, reject) => {
+      const data = JSON.stringify({
+        hook_event_name: 'PreToolUse',
+        session_id: 'test-sess-16c',
+        tool_use_id: 'tool-use-16c',
+        tool_name: 'Bash',
+        tool_input: { command: 'git commit -m "wip"' },
+      });
+      const req = http.request(
+        {
+          hostname: '127.0.0.1',
+          port: addr.port,
+          path: '/hook',
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Content-Length': Buffer.byteLength(data),
+          },
+        },
+        (res) => {
+          res.on('data', (chunk: Buffer) => { responseBody += chunk.toString(); });
+          res.on('end', () => {
+            responseResolved = true;
+            resolve();
+          });
+        },
+      );
+      req.on('error', reject);
+      req.write(data);
+      req.end();
+    });
+
+    await new Promise<void>((r) => setTimeout(r, 100));
+    expect(decisions).toHaveLength(1);
+    expect(decisions[0]!.event.type).toBe('approval_request');
+    expect(responseResolved).toBe(false);
+
+    resolveApproval(decisions[0]!.approvalId, 'allow', 'approved by user');
+    await responsePromise;
+
+    const parsed = JSON.parse(responseBody) as {
+      hookSpecificOutput: {
+        hookEventName: string;
+        permissionDecision: string;
+        permissionDecisionReason?: string;
+      };
+    };
+    expect(parsed.hookSpecificOutput.hookEventName).toBe('PreToolUse');
+    expect(parsed.hookSpecificOutput.permissionDecision).toBe('allow');
+    expect(parsed.hookSpecificOutput.permissionDecisionReason).toBe('approved by user');
+  });
+
   it('Test 17: double resolveApproval on same approvalId — second call is a no-op (no throw, response not double-ended)', async () => {
     const decisions: Array<{ approvalId: string }> = [];
     server = createHookServer(
@@ -401,7 +537,7 @@ describe('hookServer', () => {
     const addr = server.address() as { port: number };
     const responsePromise = new Promise<void>((resolve, reject) => {
       const data = JSON.stringify({
-        hook_event_name: 'PreToolUse',
+        hook_event_name: 'PermissionRequest',
         session_id: 'test-sess-17',
         tool_name: 'Bash',
         tool_input: { command: 'rm -rf /tmp' },
@@ -436,6 +572,83 @@ describe('hookServer', () => {
 
     // Second resolve on same id — must not throw
     expect(() => resolveApproval(approvalId, 'deny')).not.toThrow();
+  });
+
+  it('Test 18: duplicate PermissionRequest with same tool_use_id dedupes decision callback and resolves both responses', async () => {
+    const decisions: Array<{ approvalId: string; event: NormalizedEvent }> = [];
+    server = createHookServer(
+      port,
+      () => {},
+      (approvalId, event) => decisions.push({ approvalId, event }),
+    );
+    await new Promise<void>((resolve) => server.once('listening', resolve));
+
+    const addr = server.address() as { port: number };
+
+    let response1Resolved = false;
+    let response2Resolved = false;
+
+    const postDuplicate = (): Promise<string> =>
+      new Promise((resolve, reject) => {
+        let responseBody = '';
+        const data = JSON.stringify({
+          hook_event_name: 'PermissionRequest',
+          session_id: 'test-sess-18',
+          tool_use_id: 'tool-use-18',
+          tool_name: 'Bash',
+          tool_input: { command: 'rm -rf /tmp' },
+        });
+        const req = http.request(
+          {
+            hostname: '127.0.0.1',
+            port: addr.port,
+            path: '/hook',
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Content-Length': Buffer.byteLength(data),
+            },
+          },
+          (res) => {
+            res.on('data', (chunk: Buffer) => { responseBody += chunk.toString(); });
+            res.on('end', () => resolve(responseBody));
+          },
+        );
+        req.on('error', reject);
+        req.write(data);
+        req.end();
+      });
+
+    const p1 = postDuplicate().then((body) => {
+      response1Resolved = true;
+      return body;
+    });
+    const p2 = postDuplicate().then((body) => {
+      response2Resolved = true;
+      return body;
+    });
+
+    await new Promise<void>((r) => setTimeout(r, 100));
+
+    expect(decisions).toHaveLength(1);
+    expect(decisions[0]!.event.type).toBe('approval_request');
+    expect(response1Resolved).toBe(false);
+    expect(response2Resolved).toBe(false);
+
+    resolveApproval(decisions[0]!.approvalId, 'deny');
+    const [body1, body2] = await Promise.all([p1, p2]);
+
+    const parsed1 = JSON.parse(body1) as {
+      hookSpecificOutput: { hookEventName: string; decision: { behavior: string } };
+    };
+    const parsed2 = JSON.parse(body2) as {
+      hookSpecificOutput: { hookEventName: string; decision: { behavior: string } };
+    };
+
+    expect(parsed1.hookSpecificOutput.hookEventName).toBe('PermissionRequest');
+    expect(parsed1.hookSpecificOutput.decision.behavior).toBe('deny');
+    expect(parsed2.hookSpecificOutput.hookEventName).toBe('PermissionRequest');
+    expect(parsed2.hookSpecificOutput.decision.behavior).toBe('deny');
   });
 });
 
