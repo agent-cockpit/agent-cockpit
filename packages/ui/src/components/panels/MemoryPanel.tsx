@@ -1,9 +1,9 @@
 import { useState, useEffect } from 'react'
-import { useParams } from 'react-router'
 import type { NormalizedEvent } from '@cockpit/shared'
 import { useStore } from '../../store/index.js'
 import { getSessionEvents, EMPTY_EVENTS } from '../../store/eventsSlice.js'
 import { DAEMON_URL as DAEMON } from '../../lib/daemonUrl.js'
+import { usePanelSessionId } from './sessionScope.js'
 
 interface MemoryNote {
   note_id: string
@@ -14,9 +14,7 @@ interface MemoryNote {
 }
 
 export function MemoryPanel() {
-  const { sessionId: paramSessionId } = useParams<{ sessionId: string }>()
-  const storeSessionId = useStore((s) => s.selectedSessionId)
-  const sessionId = paramSessionId ?? storeSessionId ?? ''
+  const sessionId = usePanelSessionId()
   const liveSession = useStore((s) => s.sessions[sessionId ?? ''])
   const historySession = useStore((s) => s.historySessions[sessionId ?? ''])
   const events = useStore((s) => getSessionEvents(s, sessionId ?? ''))

@@ -15,7 +15,7 @@ import { drawMiniMap, MINIMAP_MAP_W, MINIMAP_MAP_H } from '../components/office/
 
 import { DIRECTION_ROWS, STATE_ROW_OFFSET } from '../components/office/spriteStates.js'
 import type { Direction } from '../components/office/spriteStates.js'
-import type { CharacterType } from '../components/office/characterMapping.js'
+import { characterFaceUrl, type CharacterType } from '../components/office/characterMapping.js'
 import { GameEngine } from '../game/GameEngine.js'
 import { gameState, setWorldBounds, WORLD_W, WORLD_H } from '../game/GameState.js'
 import { updateCamera } from '../game/Camera.js'
@@ -549,9 +549,9 @@ function resolveNpcMovementPosition(
   return clampedCurrent
 }
 
-export function derivePausedNpcSessionIds(sessionDetailOpen: boolean, selectedSessionId: string | null): Set<string> {
-  if (!sessionDetailOpen || !selectedSessionId) return new Set()
-  return new Set([selectedSessionId])
+export function derivePausedNpcSessionIds(sessionIds: ReadonlyArray<string>): Set<string> {
+  if (sessionIds.length === 0) return new Set()
+  return new Set(sessionIds)
 }
 
 function findNearestFreeNpcSpawnPosition(
@@ -698,13 +698,48 @@ function deriveDirectionFromDelta(dx: number, dy: number, fallback: Direction): 
   return 'south'
 }
 
+function PopupDockAvatar({ character, label }: { character: CharacterType; label: string }) {
+  const [failed, setFailed] = useState(false)
+  if (failed) {
+    return (
+      <span
+        aria-label={`${label} avatar fallback`}
+        className="inline-flex h-4 w-4 shrink-0 items-center justify-center border border-[color-mix(in_srgb,var(--color-cockpit-accent)_55%,transparent)] bg-[color-mix(in_srgb,var(--color-cockpit-accent)_18%,transparent)] text-[8px] font-semibold uppercase text-[var(--color-cockpit-accent)]"
+      >
+        {character[0]}
+      </span>
+    )
+  }
+  return (
+    <img
+      src={characterFaceUrl(character)}
+      alt={`${label} avatar`}
+      width={16}
+      height={16}
+      onError={() => setFailed(true)}
+      style={{ imageRendering: 'pixelated' }}
+      className="h-4 w-4 shrink-0 border border-[color-mix(in_srgb,var(--color-cockpit-accent)_55%,transparent)] object-cover"
+    />
+  )
+}
+
 export function OfficePage() {
   const sessions = useActiveSessions()
+  const liveSessionsById = useStore((s) => s.sessions)
+  const historySessionsById = useStore((s) => s.historySessions)
   const sessionDetailOpen = useStore((s) => s.sessionDetailOpen)
+  const popupWindows = useStore((s) => s.popupWindows)
+  const popupWindowOrder = useStore((s) => s.popupWindowOrder)
   const selectedSessionId = useStore((s) => s.selectedSessionId)
   const selectedPlayerCharacter = useStore((s) => s.selectedPlayerCharacter)
   const setSessionDetailOpen = useStore((s) => s.setSessionDetailOpen)
   const setPopupPreferredTab = useStore((s) => s.setPopupPreferredTab)
+  const closeSessionPopup = useStore((s) => s.closeSessionPopup)
+  const minimizeSessionPopup = useStore((s) => s.minimizeSessionPopup)
+  const restoreSessionPopup = useStore((s) => s.restoreSessionPopup)
+  const bringSessionPopupToFront = useStore((s) => s.bringSessionPopupToFront)
+  const setSessionPopupRect = useStore((s) => s.setSessionPopupRect)
+  const clearSessionPopupPreferredTab = useStore((s) => s.clearSessionPopupPreferredTab)
   const [audioOpen, setAudioOpen] = useState(false)
   const [closetOpen, setClosetOpen] = useState(false)
   const [ejectDialogOpen, setEjectDialogOpen] = useState(false)
@@ -730,6 +765,7 @@ export function OfficePage() {
   const selectedPlayerCharacterRef = useRef<CharacterType>(selectedPlayerCharacter)
   const selectedSessionIdRef = useRef<string | null>(selectedSessionId)
   const sessionDetailOpenRef = useRef<boolean>(sessionDetailOpen)
+  const visiblePopupSessionIdsRef = useRef<string[]>([])
   const previousNpcPositionsRef = useRef<Record<string, WorldPosition>>({})
   const npcDirectionBySessionRef = useRef<Record<string, Direction>>({})
   const npcAnimTimeMsBySessionRef = useRef<Record<string, number>>({})
@@ -740,6 +776,26 @@ export function OfficePage() {
   const minimapBgRef = useRef<OffscreenCanvas | null>(null)
   const lastPlayerAnimFrameRef = useRef<number>(-1)
   const playerTeleportFlashFramesRef = useRef<number>(0)
+  const popupGestureRef = useRef<{
+    pointerId: number
+    mode: 'move' | 'resize'
+    sessionId: string
+    startClientX: number
+    startClientY: number
+    startX: number
+    startY: number
+    startWidth: number
+    startHeight: number
+  } | null>(null)
+
+  const orderedPopupSessionIds = popupWindowOrder.filter((id) => !!popupWindows[id])
+  const visiblePopupSessionIds = orderedPopupSessionIds.filter(
+    (id) => !popupWindows[id]?.minimized,
+  )
+  const POPUP_MIN_WIDTH = 560
+  const POPUP_MIN_HEIGHT = 360
+  const POPUP_MARGIN = 8
+  const POPUP_DOCK_RESERVE = 72
 
   function findNearestInteractableSessionId(): string | null {
     const playerCenterX = gameState.player.x + PLAYER_SPRITE_SIZE_PX / 2
@@ -795,6 +851,29 @@ export function OfficePage() {
     useStore.getState().setHistoryMode?.(false)
     setPopupPreferredTab('chat')
     setSessionDetailOpen?.(true)
+  }
+
+  function startPopupGesture(
+    mode: 'move' | 'resize',
+    sessionId: string,
+    pointerId: number,
+    clientX: number,
+    clientY: number,
+  ): void {
+    const popup = popupWindows[sessionId]
+    if (!popup) return
+    bringSessionPopupToFront(sessionId)
+    popupGestureRef.current = {
+      pointerId,
+      mode,
+      sessionId,
+      startClientX: clientX,
+      startClientY: clientY,
+      startX: popup.x,
+      startY: popup.y,
+      startWidth: popup.width,
+      startHeight: popup.height,
+    }
   }
 
   function positionInteractButton(sessionId: string | null): void {
@@ -903,6 +982,62 @@ export function OfficePage() {
   useEffect(() => {
     sessionDetailOpenRef.current = sessionDetailOpen
   }, [sessionDetailOpen])
+
+  useEffect(() => {
+    visiblePopupSessionIdsRef.current = visiblePopupSessionIds
+  }, [visiblePopupSessionIds])
+
+  useEffect(() => {
+    function handlePointerMove(event: PointerEvent): void {
+      const gesture = popupGestureRef.current
+      if (!gesture) return
+      if (event.pointerId !== gesture.pointerId) return
+
+      const hostBounds = containerRef.current?.getBoundingClientRect()
+      const hostWidth = hostBounds?.width ?? window.innerWidth
+      const hostHeight = hostBounds?.height ?? window.innerHeight
+      const dx = event.clientX - gesture.startClientX
+      const dy = event.clientY - gesture.startClientY
+
+      if (gesture.mode === 'move') {
+        const maxX = Math.max(POPUP_MARGIN, hostWidth - gesture.startWidth - POPUP_MARGIN)
+        const maxY = Math.max(
+          POPUP_MARGIN,
+          hostHeight - gesture.startHeight - POPUP_DOCK_RESERVE,
+        )
+        const x = Math.min(maxX, Math.max(POPUP_MARGIN, gesture.startX + dx))
+        const y = Math.min(maxY, Math.max(POPUP_MARGIN, gesture.startY + dy))
+        setSessionPopupRect(gesture.sessionId, { x, y })
+        return
+      }
+
+      const width = Math.min(
+        Math.max(POPUP_MIN_WIDTH, gesture.startWidth + dx),
+        Math.max(POPUP_MIN_WIDTH, hostWidth - gesture.startX - POPUP_MARGIN),
+      )
+      const height = Math.min(
+        Math.max(POPUP_MIN_HEIGHT, gesture.startHeight + dy),
+        Math.max(POPUP_MIN_HEIGHT, hostHeight - gesture.startY - POPUP_DOCK_RESERVE),
+      )
+      setSessionPopupRect(gesture.sessionId, { width, height })
+    }
+
+    function handlePointerUp(event: PointerEvent): void {
+      const gesture = popupGestureRef.current
+      if (!gesture) return
+      if (event.pointerId !== gesture.pointerId) return
+      popupGestureRef.current = null
+    }
+
+    window.addEventListener('pointermove', handlePointerMove)
+    window.addEventListener('pointerup', handlePointerUp)
+    window.addEventListener('pointercancel', handlePointerUp)
+    return () => {
+      window.removeEventListener('pointermove', handlePointerMove)
+      window.removeEventListener('pointerup', handlePointerUp)
+      window.removeEventListener('pointercancel', handlePointerUp)
+    }
+  }, [setSessionPopupRect])
 
   useEffect(() => {
     const persisted = readStoredPlayerState()
@@ -1089,9 +1224,15 @@ export function OfficePage() {
         const liveSessions = useStore.getState().sessions
         const activeNpcSessions = Object.values(liveSessions)
           .filter((session) => session.status === 'active' && gameState.npcs[session.sessionId])
+        const pausedByPopup = visiblePopupSessionIdsRef.current
+        const pausedLegacyFallback =
+          pausedByPopup.length === 0 &&
+          sessionDetailOpenRef.current &&
+          selectedSessionIdRef.current
+            ? [selectedSessionIdRef.current]
+            : []
         const pausedByDetail = derivePausedNpcSessionIds(
-          sessionDetailOpenRef.current,
-          selectedSessionIdRef.current,
+          pausedByPopup.length > 0 ? pausedByPopup : pausedLegacyFallback,
         )
         const playerCx = gameState.player.x + PLAYER_SPRITE_SIZE_PX / 2
         const playerCy = gameState.player.y + PLAYER_SPRITE_SIZE_PX / 2
@@ -1662,6 +1803,21 @@ export function OfficePage() {
     setEjectDialogOpen(false)
   }
 
+  function popupLabel(sessionId: string): string {
+    const source = liveSessionsById[sessionId] ?? historySessionsById[sessionId]
+    const workspacePath = source?.workspacePath
+    if (workspacePath) {
+      const project = workspacePath.split('/').at(-1)
+      if (project) return project
+    }
+    return sessionId.slice(0, 8)
+  }
+
+  function popupCharacter(sessionId: string): CharacterType {
+    const source = liveSessionsById[sessionId]
+    return source?.character ?? 'astronaut'
+  }
+
   return (
     <>
       <div
@@ -1717,8 +1873,133 @@ export function OfficePage() {
             </button>
           </div>
         </div>
+        <div className="pointer-events-none absolute inset-0 z-30">
+          {orderedPopupSessionIds.map((sessionId, orderIndex) => {
+            const popup = popupWindows[sessionId]
+            if (!popup || popup.minimized) return null
+            const zIndex = 70 + orderIndex
+            return (
+              <div
+                key={sessionId}
+                className="pointer-events-auto absolute overflow-hidden"
+                style={{
+                  left: popup.x,
+                  top: popup.y,
+                  width: popup.width,
+                  height: popup.height,
+                  zIndex,
+                }}
+                onMouseDown={() => bringSessionPopupToFront(sessionId)}
+                data-testid={`popup-window-${sessionId}`}
+              >
+                <div
+                  className="absolute inset-x-0 top-0 z-40 h-2 cursor-move"
+                  onPointerDown={(event) => {
+                    event.preventDefault()
+                    startPopupGesture(
+                      'move',
+                      sessionId,
+                      event.pointerId,
+                      event.clientX,
+                      event.clientY,
+                    )
+                  }}
+                />
+                <InstancePopupHub
+                  inline
+                  open={true}
+                  sessionId={sessionId}
+                  preferredTab={popup.preferredTab}
+                  onPreferredTabConsumed={() => clearSessionPopupPreferredTab(sessionId)}
+                  onClose={() => closeSessionPopup(sessionId)}
+                  onMinimize={() => minimizeSessionPopup(sessionId)}
+                  onFocus={() => bringSessionPopupToFront(sessionId)}
+                />
+                <button
+                  type="button"
+                  className="absolute bottom-0 right-0 z-40 h-5 w-5 cursor-nwse-resize border-l border-t border-border/70 bg-[color-mix(in_srgb,var(--color-cockpit-accent)_10%,transparent)] text-[10px] text-muted-foreground"
+                  aria-label={`Resize popup ${popupLabel(sessionId)}`}
+                  onPointerDown={(event) => {
+                    event.preventDefault()
+                    event.stopPropagation()
+                    startPopupGesture(
+                      'resize',
+                      sessionId,
+                      event.pointerId,
+                      event.clientX,
+                      event.clientY,
+                    )
+                  }}
+                >
+                  ◢
+                </button>
+              </div>
+            )
+          })}
+          {orderedPopupSessionIds.length > 0 && (
+            <div
+              className="pointer-events-auto absolute bottom-2 left-1/2 -translate-x-1/2"
+              data-testid="popup-dock-bar"
+            >
+              <div className="cockpit-frame-full flex max-w-[min(92vw,1120px)] items-center gap-1 overflow-x-auto border border-[color-mix(in_srgb,var(--color-cockpit-accent)_35%,var(--color-border))] bg-[linear-gradient(180deg,oklch(0.18_0.03_252)_0%,oklch(0.16_0.03_252)_100%)] px-2 py-1">
+                <span className="cockpit-corner cockpit-corner-tl" aria-hidden />
+                <span className="cockpit-corner cockpit-corner-tr" aria-hidden />
+                {orderedPopupSessionIds.map((sessionId) => {
+                  const popup = popupWindows[sessionId]
+                  if (!popup) return null
+                  const minimized = popup.minimized
+                  const focused = selectedSessionId === sessionId && !minimized
+                  return (
+                    <div
+                      key={sessionId}
+                      className="flex shrink-0 items-center gap-1"
+                    >
+                      <button
+                        type="button"
+                        className={`flex items-center gap-1 border px-2 py-1 [font-family:var(--font-mono-data)] text-[10px] uppercase tracking-[0.12em] transition-colors ${
+                          focused
+                            ? 'border-[color-mix(in_srgb,var(--color-cockpit-accent)_65%,transparent)] bg-[color-mix(in_srgb,var(--color-cockpit-accent)_18%,transparent)] text-[var(--color-cockpit-accent)]'
+                            : minimized
+                              ? 'border-border/70 bg-background/40 text-muted-foreground hover:text-foreground'
+                              : 'border-border/70 bg-[color-mix(in_srgb,var(--color-cockpit-accent)_8%,transparent)] text-foreground hover:border-[color-mix(in_srgb,var(--color-cockpit-accent)_50%,transparent)]'
+                        }`}
+                        onClick={() => {
+                          if (minimized) {
+                            restoreSessionPopup(sessionId)
+                            return
+                          }
+                          bringSessionPopupToFront(sessionId)
+                        }}
+                        data-testid={`popup-dock-${sessionId}`}
+                      >
+                        <PopupDockAvatar
+                          character={popupCharacter(sessionId)}
+                          label={popupLabel(sessionId)}
+                        />
+                        <span className="truncate max-w-40">{popupLabel(sessionId)}</span>
+                        {minimized ? (
+                          <span className="text-[var(--color-cockpit-dim)]">min</span>
+                        ) : null}
+                      </button>
+                      <button
+                        type="button"
+                        aria-label={`Close popup ${popupLabel(sessionId)}`}
+                        className="ml-1 inline-flex h-4 w-4 items-center justify-center border border-red-500/40 text-[9px] text-red-300 hover:bg-red-500/20"
+                        onClick={(event) => {
+                          event.stopPropagation()
+                          closeSessionPopup(sessionId)
+                        }}
+                      >
+                        ×
+                      </button>
+                    </div>
+                  )
+                })}
+              </div>
+            </div>
+          )}
+        </div>
       </div>
-      <InstancePopupHub open={sessionDetailOpen} onClose={() => setSessionDetailOpen?.(false)} />
       <ClosetPopup open={closetOpen} onClose={() => setClosetOpen(false)} />
       <MenuPopup open={audioOpen} onClose={() => setAudioOpen(false)} />
       <EjectAllSessionsDialog

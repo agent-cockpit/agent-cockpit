@@ -75,4 +75,30 @@ describe('uiSlice', () => {
     expect(useStore.getState().selectedSessionId).toBe('session-2')
     expect(useStore.getState().activePanel).toBe('diff')
   })
+
+  it('openSessionPopup creates a tracked popup window and marks detail open', async () => {
+    const { useStore } = await loadStore()
+    useStore.getState().openSessionPopup('session-alpha', { preferredTab: 'chat' })
+
+    const state = useStore.getState()
+    expect(state.popupWindowOrder).toEqual(['session-alpha'])
+    expect(state.popupWindows['session-alpha']).toBeDefined()
+    expect(state.popupWindows['session-alpha']?.preferredTab).toBe('chat')
+    expect(state.sessionDetailOpen).toBe(true)
+    expect(state.selectedSessionId).toBe('session-alpha')
+  })
+
+  it('minimize + restore keeps popup in dock and toggles sessionDetailOpen visibility', async () => {
+    const { useStore } = await loadStore()
+    useStore.getState().openSessionPopup('session-alpha')
+    useStore.getState().minimizeSessionPopup('session-alpha')
+
+    expect(useStore.getState().popupWindows['session-alpha']?.minimized).toBe(true)
+    expect(useStore.getState().sessionDetailOpen).toBe(false)
+
+    useStore.getState().restoreSessionPopup('session-alpha')
+    expect(useStore.getState().popupWindows['session-alpha']?.minimized).toBe(false)
+    expect(useStore.getState().sessionDetailOpen).toBe(true)
+    expect(useStore.getState().popupWindowOrder.at(-1)).toBe('session-alpha')
+  })
 })

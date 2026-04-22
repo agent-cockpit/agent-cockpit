@@ -11,6 +11,7 @@ export {
   SubagentCompleteEvent,
   MemoryReadEvent,
   MemoryWriteEvent,
+  SessionUsageEvent,
   ProviderParseErrorEvent,
   SessionChatMessageEvent,
   SessionChatErrorEvent,

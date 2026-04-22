@@ -63,6 +63,8 @@ vi.mock('../../../components/panels/ChatPanel.js', () => ({
 type PopupTabId = 'approvals' | 'chat' | 'timeline' | 'diff' | 'memory' | 'artifacts'
 let mockStore = {
   selectedSessionId: 'session-123',
+  wsStatus: 'connected' as const,
+  events: {} as Record<string, unknown[]>,
   sessions: {
     'session-123': {
       sessionId: 'session-123',
@@ -70,6 +72,7 @@ let mockStore = {
       provider: 'claude',
       status: 'active',
       startedAt: 0,
+      character: 'astronaut',
     },
   },
   popupPreferredTab: null as PopupTabId | null,
@@ -84,6 +87,7 @@ import { InstancePopupHub } from '../InstancePopupHub.js'
 describe('InstancePopupHub', () => {
   beforeEach(() => {
     mockStore.popupPreferredTab = null
+    mockStore.events = {}
     mockStore.setPopupPreferredTab.mockClear()
   })
 
@@ -167,5 +171,27 @@ describe('InstancePopupHub', () => {
 
     const tabsRoot = screen.getByTestId('tabs-root')
     expect(tabsRoot.getAttribute('data-value')).toBe('approvals')
+  })
+
+  it('renders footer usage metrics from session_usage events', () => {
+    mockStore.events = {
+      'session-123': [
+        {
+          type: 'session_usage',
+          sessionId: 'session-123',
+          timestamp: new Date().toISOString(),
+          provider: 'claude',
+          inputTokens: 1200,
+          outputTokens: 340,
+          totalTokens: 1540,
+          contextPercent: 42,
+        },
+      ],
+    }
+
+    render(<InstancePopupHub open={true} onClose={vi.fn()} />)
+
+    expect(screen.getByText(/tokens in 1\.2k · out 340/i)).toBeInTheDocument()
+    expect(screen.getByText(/ctx 42%/i)).toBeInTheDocument()
   })
 })

@@ -35,7 +35,10 @@ vi.mock('../store/index.js', () => {
   const storeState = {
     events: {} as Record<string, unknown[]>,
     sessions: {} as Record<string, unknown>,
+    historySessions: {} as Record<string, unknown>,
     pendingApprovalsBySession: {} as Record<string, unknown[]>,
+    popupWindows: {} as Record<string, unknown>,
+    popupWindowOrder: [] as string[],
     wsStatus: 'disconnected' as const,
     selectedSessionId: null,
     selectedPlayerCharacter: 'astronaut',
@@ -44,6 +47,12 @@ vi.mock('../store/index.js', () => {
     setHistoryMode: mockSetHistoryMode,
     setPopupPreferredTab: mockSetPopupPreferredTab,
     setSessionDetailOpen: mockSetSessionDetailOpen,
+    closeSessionPopup: vi.fn(),
+    minimizeSessionPopup: vi.fn(),
+    restoreSessionPopup: vi.fn(),
+    bringSessionPopupToFront: vi.fn(),
+    setSessionPopupRect: vi.fn(),
+    clearSessionPopupPreferredTab: vi.fn(),
   }
   const useStore = Object.assign(
     vi.fn((selector: (s: typeof storeState) => unknown) => selector(storeState)),
@@ -143,10 +152,9 @@ describe('OfficePage', () => {
   it('seeds gameState.npcs with spawn-slot positions for each session', () => {
     mockUseActiveSessions.mockReturnValue([SESSION_1, SESSION_2])
     act(() => { render(<OfficePage />) })
-    // Session at index 0: SPAWN_SLOTS[0]
-    expect(gameState.npcs['sess-1']).toEqual({ x: 1984, y: 1888 })
-    // Session at index 1: SPAWN_SLOTS[1]
-    expect(gameState.npcs['sess-2']).toEqual({ x: 2048, y: 1888 })
+    // Session positions are deterministic and include workspacePath hash offset.
+    expect(gameState.npcs['sess-1']).toEqual({ x: 2016, y: 2048 })
+    expect(gameState.npcs['sess-2']).toEqual({ x: 1952, y: 2048 })
   })
 
   it('cleans up gameState.npcs for sessions that ended', () => {
@@ -263,8 +271,8 @@ describe('NPC spawn slot seeding', () => {
     mockUseActiveSessions.mockReturnValue([SESSION_1, SESSION_2])
     act(() => { render(<OfficePage />) })
 
-    expect(gameState.npcs['sess-1']).toEqual({ x: 1984, y: 1888 })
-    expect(gameState.npcs['sess-2']).toEqual({ x: 2048, y: 1888 })
+    expect(gameState.npcs['sess-1']).toEqual({ x: 2016, y: 2048 })
+    expect(gameState.npcs['sess-2']).toEqual({ x: 1952, y: 2048 })
   })
 
   it('existing NPC position is not overwritten on re-seed', () => {
@@ -274,22 +282,25 @@ describe('NPC spawn slot seeding', () => {
     expect(gameState.npcs['sess-1']).toEqual({ x: 999, y: 999 })
   })
 
-  it('slot cycles modulo 12 when sessions exceed slot count', () => {
+  it('workspace-hashed slot assignment is deterministic for many sessions', () => {
     const sessions = Array.from({ length: 13 }, (_, i) => makeSession({ sessionId: `sess-${i}` }))
     mockUseActiveSessions.mockReturnValue(sessions)
 
     act(() => { render(<OfficePage />) })
 
-    // Second cycle starts near slot[0] + jitter, then de-overlap may nudge to the nearest free coordinate.
-    expect(gameState.npcs['sess-12']).toEqual({ x: 2016, y: 1888 })
+    expect(gameState.npcs['sess-12']).toEqual({ x: 1984, y: 2112 })
   })
 
-  it('all 12 SPAWN_SLOTS are within world bounds (1..3232)', () => {
+  it('all SPAWN_SLOTS are within world bounds (1..3232)', () => {
     const slots = [
       { x: 1984, y: 1888 }, { x: 2048, y: 1888 }, { x: 2112, y: 1888 }, { x: 2176, y: 1888 },
       { x: 2016, y: 1920 }, { x: 2080, y: 1920 }, { x: 2144, y: 1920 },
       { x: 1952, y: 1952 }, { x: 2016, y: 1952 },
       { x: 1920, y: 2112 }, { x: 1984, y: 2112 }, { x: 2048, y: 2112 },
+      { x: 2048, y: 1952 }, { x: 2112, y: 1952 }, { x: 2176, y: 1952 },
+      { x: 1952, y: 2048 }, { x: 2016, y: 2048 }, { x: 2080, y: 2048 },
+      { x: 2144, y: 2048 }, { x: 1920, y: 2080 }, { x: 1984, y: 2080 },
+      { x: 2048, y: 2080 }, { x: 2112, y: 2080 }, { x: 2048, y: 2144 },
     ]
 
     const maxCoord = 3232 - 64

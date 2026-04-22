@@ -129,6 +129,23 @@ export interface SessionRecord {
 export type PanelId = 'approvals' | 'timeline' | 'diff' | 'memory' | 'artifacts'
 export type PopupTabId = PanelId | 'chat'
 
+export interface SessionPopupWindow {
+  sessionId: string
+  x: number
+  y: number
+  width: number
+  height: number
+  minimized: boolean
+  preferredTab: PopupTabId | null
+}
+
+export interface SessionPopupWindowPatch {
+  x?: number
+  y?: number
+  width?: number
+  height?: number
+}
+
 interface SessionsSlice {
   sessions: Record<string, SessionRecord>
   characterBag: CharacterType[]
@@ -143,12 +160,21 @@ interface UiSlice {
   selectedPlayerCharacter: CharacterType
   activePanel: PanelId
   popupPreferredTab: PopupTabId | null
+  popupWindows: Record<string, SessionPopupWindow>
+  popupWindowOrder: string[]
   filters: { provider: string | null; status: string | null; search: string }
   sessionDetailOpen: boolean
   selectSession: (id: string) => void
   setSelectedPlayerCharacter: (character: CharacterType) => void
   setActivePanel: (panel: PanelId) => void
   setPopupPreferredTab: (tab: PopupTabId | null) => void
+  openSessionPopup: (sessionId: string, options?: { preferredTab?: PopupTabId | null }) => void
+  closeSessionPopup: (sessionId: string) => void
+  minimizeSessionPopup: (sessionId: string) => void
+  restoreSessionPopup: (sessionId: string) => void
+  bringSessionPopupToFront: (sessionId: string) => void
+  setSessionPopupRect: (sessionId: string, patch: SessionPopupWindowPatch) => void
+  clearSessionPopupPreferredTab: (sessionId: string) => void
   setFilter: (key: string, value: string | null) => void
   setSessionDetailOpen: (open: boolean) => void
 }
@@ -176,6 +202,48 @@ interface HistorySlice {
 }
 
 export type AppStore = SessionsSlice & UiSlice & WsSlice & EventsSlice & HistorySlice & ApprovalsSlice
+
+const POPUP_DEFAULT_WIDTH = 980
+const POPUP_DEFAULT_HEIGHT = 640
+const POPUP_CASCADE_X = 28
+const POPUP_CASCADE_Y = 22
+const POPUP_CASCADE_COUNT = 7
+
+function hasVisiblePopup(
+  popupWindows: Record<string, SessionPopupWindow>,
+  popupWindowOrder: string[],
+): boolean {
+  return popupWindowOrder.some((sessionId) => !popupWindows[sessionId]?.minimized)
+}
+
+function getTopVisiblePopupId(
+  popupWindows: Record<string, SessionPopupWindow>,
+  popupWindowOrder: string[],
+): string | null {
+  for (let i = popupWindowOrder.length - 1; i >= 0; i--) {
+    const sessionId = popupWindowOrder[i]
+    if (!sessionId) continue
+    if (!popupWindows[sessionId]?.minimized) return sessionId
+  }
+  return null
+}
+
+function defaultPopupWindow(
+  sessionId: string,
+  orderLength: number,
+  preferredTab: PopupTabId | null,
+): SessionPopupWindow {
+  const offset = orderLength % POPUP_CASCADE_COUNT
+  return {
+    sessionId,
+    x: 24 + POPUP_CASCADE_X * offset,
+    y: 24 + POPUP_CASCADE_Y * offset,
+    width: POPUP_DEFAULT_WIDTH,
+    height: POPUP_DEFAULT_HEIGHT,
+    minimized: false,
+    preferredTab,
+  }
+}
 
 function reduceStoreWithEvent(
   state: Pick<AppStore, 'sessions' | 'events' | 'pendingApprovalsBySession' | 'characterBag' | 'subagentSessionIds' | 'activeSubagentParents'>,
@@ -289,6 +357,8 @@ export const useStore = create<AppStore>()(
     selectedPlayerCharacter: readStoredPlayerCharacter(),
     activePanel: 'approvals',
     popupPreferredTab: null,
+    popupWindows: {},
+    popupWindowOrder: [],
     filters: { provider: null, status: 'active', search: '' },
     sessionDetailOpen: false,
     selectSession: (id) => set({ selectedSessionId: id }),
@@ -303,9 +373,183 @@ export const useStore = create<AppStore>()(
     },
     setActivePanel: (panel) => set({ activePanel: panel }),
     setPopupPreferredTab: (tab) => set({ popupPreferredTab: tab }),
+    openSessionPopup: (sessionId, options) =>
+      set((s) => {
+        const preferredTab =
+          options?.preferredTab !== undefined ? options.preferredTab : s.popupPreferredTab
+        const popupWindowOrder = s.popupWindowOrder.filter((id) => id !== sessionId)
+        popupWindowOrder.push(sessionId)
+        const existing = s.popupWindows[sessionId]
+        const popupWindows = {
+          ...s.popupWindows,
+          [sessionId]: existing
+            ? {
+                ...existing,
+                minimized: false,
+                preferredTab:
+                  options?.preferredTab !== undefined
+                    ? options.preferredTab ?? null
+                    : existing.preferredTab,
+              }
+            : defaultPopupWindow(sessionId, popupWindowOrder.length - 1, preferredTab ?? null),
+        }
+
+        return {
+          popupWindows,
+          popupWindowOrder,
+          selectedSessionId: sessionId,
+          sessionDetailOpen: true,
+          popupPreferredTab: null,
+        }
+      }),
+    closeSessionPopup: (sessionId) =>
+      set((s) => {
+        if (!s.popupWindows[sessionId]) return {}
+        const popupWindows = { ...s.popupWindows }
+        delete popupWindows[sessionId]
+        const popupWindowOrder = s.popupWindowOrder.filter((id) => id !== sessionId)
+        const topVisibleSessionId = getTopVisiblePopupId(popupWindows, popupWindowOrder)
+        const fallbackTopSessionId = popupWindowOrder.at(-1) ?? null
+        const nextSelectedSessionId =
+          s.selectedSessionId === sessionId
+            ? topVisibleSessionId ?? fallbackTopSessionId
+            : s.selectedSessionId
+        return {
+          popupWindows,
+          popupWindowOrder,
+          selectedSessionId: nextSelectedSessionId,
+          sessionDetailOpen: hasVisiblePopup(popupWindows, popupWindowOrder),
+        }
+      }),
+    minimizeSessionPopup: (sessionId) =>
+      set((s) => {
+        const existing = s.popupWindows[sessionId]
+        if (!existing || existing.minimized) return {}
+        const popupWindows = {
+          ...s.popupWindows,
+          [sessionId]: { ...existing, minimized: true },
+        }
+        const topVisibleSessionId = getTopVisiblePopupId(popupWindows, s.popupWindowOrder)
+        const nextSelectedSessionId =
+          s.selectedSessionId === sessionId ? topVisibleSessionId : s.selectedSessionId
+        return {
+          popupWindows,
+          selectedSessionId: nextSelectedSessionId,
+          sessionDetailOpen: hasVisiblePopup(popupWindows, s.popupWindowOrder),
+        }
+      }),
+    restoreSessionPopup: (sessionId) =>
+      set((s) => {
+        const existing = s.popupWindows[sessionId]
+        if (!existing) return {}
+        const popupWindowOrder = s.popupWindowOrder.filter((id) => id !== sessionId)
+        popupWindowOrder.push(sessionId)
+        const popupWindows = {
+          ...s.popupWindows,
+          [sessionId]: { ...existing, minimized: false },
+        }
+        return {
+          popupWindows,
+          popupWindowOrder,
+          selectedSessionId: sessionId,
+          sessionDetailOpen: true,
+        }
+      }),
+    bringSessionPopupToFront: (sessionId) =>
+      set((s) => {
+        if (!s.popupWindows[sessionId]) return {}
+        const popupWindowOrder = s.popupWindowOrder.filter((id) => id !== sessionId)
+        popupWindowOrder.push(sessionId)
+        return {
+          popupWindowOrder,
+          selectedSessionId: sessionId,
+        }
+      }),
+    setSessionPopupRect: (sessionId, patch) =>
+      set((s) => {
+        const existing = s.popupWindows[sessionId]
+        if (!existing) return {}
+        return {
+          popupWindows: {
+            ...s.popupWindows,
+            [sessionId]: {
+              ...existing,
+              x: patch.x ?? existing.x,
+              y: patch.y ?? existing.y,
+              width: patch.width ?? existing.width,
+              height: patch.height ?? existing.height,
+            },
+          },
+        }
+      }),
+    clearSessionPopupPreferredTab: (sessionId) =>
+      set((s) => {
+        const existing = s.popupWindows[sessionId]
+        if (!existing || existing.preferredTab === null) return {}
+        return {
+          popupWindows: {
+            ...s.popupWindows,
+            [sessionId]: {
+              ...existing,
+              preferredTab: null,
+            },
+          },
+        }
+      }),
     setFilter: (key, value) =>
       set((s) => ({ filters: { ...s.filters, [key]: value } })),
-    setSessionDetailOpen: (open) => set({ sessionDetailOpen: open }),
+    setSessionDetailOpen: (open) =>
+      set((s) => {
+        if (!open) {
+          if (!s.selectedSessionId) {
+            return { sessionDetailOpen: false }
+          }
+          if (!s.popupWindows[s.selectedSessionId]) {
+            return { sessionDetailOpen: false }
+          }
+          const popupWindows = { ...s.popupWindows }
+          delete popupWindows[s.selectedSessionId]
+          const popupWindowOrder = s.popupWindowOrder.filter(
+            (id) => id !== s.selectedSessionId,
+          )
+          const topVisibleSessionId = getTopVisiblePopupId(popupWindows, popupWindowOrder)
+          const fallbackTopSessionId = popupWindowOrder.at(-1) ?? null
+          return {
+            popupWindows,
+            popupWindowOrder,
+            selectedSessionId: topVisibleSessionId ?? fallbackTopSessionId,
+            sessionDetailOpen: hasVisiblePopup(popupWindows, popupWindowOrder),
+          }
+        }
+
+        if (!s.selectedSessionId) {
+          return { sessionDetailOpen: true }
+        }
+
+        const popupWindowOrder = s.popupWindowOrder.filter((id) => id !== s.selectedSessionId)
+        popupWindowOrder.push(s.selectedSessionId)
+        const existing = s.popupWindows[s.selectedSessionId]
+        const popupWindows = {
+          ...s.popupWindows,
+          [s.selectedSessionId]: existing
+            ? {
+                ...existing,
+                minimized: false,
+                preferredTab: s.popupPreferredTab ?? existing.preferredTab,
+              }
+            : defaultPopupWindow(
+                s.selectedSessionId,
+                popupWindowOrder.length - 1,
+                s.popupPreferredTab,
+              ),
+        }
+        return {
+          popupWindows,
+          popupWindowOrder,
+          sessionDetailOpen: true,
+          popupPreferredTab: null,
+        }
+      }),
 
     // wsSlice
     wsStatus: 'disconnected',

@@ -1,9 +1,9 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
-import { useParams } from 'react-router'
 import { useStore } from '../../store/index.js'
 import { sendWsMessage } from '../../hooks/useSessionEvents.js'
 import type { NormalizedEvent } from '@cockpit/shared'
 import { EMPTY_EVENTS } from '../../store/eventsSlice.js'
+import { usePanelSessionId } from './sessionScope.js'
 
 // ─── Type guards ──────────────────────────────────────────────────────────────
 
@@ -140,9 +140,7 @@ function ApprovalItem({ approvalId, actionType, riskLevel, proposedAction, affec
 // ─── Main component ───────────────────────────────────────────────────────────
 
 export function ChatPanel() {
-  const { sessionId: paramSessionId } = useParams<{ sessionId: string }>()
-  const storeSessionId = useStore((s) => s.selectedSessionId)
-  const sessionId = paramSessionId ?? storeSessionId ?? ''
+  const sessionId = usePanelSessionId()
   const session = useStore((s) => (sessionId ? s.sessions[sessionId] : undefined))
   const events = useStore((s) => (sessionId ? s.events[sessionId] : EMPTY_EVENTS) ?? EMPTY_EVENTS)
   const wsStatus = useStore((s) => s.wsStatus)
