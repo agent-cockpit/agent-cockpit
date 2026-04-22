@@ -205,12 +205,30 @@ function deriveLogFromEvent(event: NormalizedEvent, index: number, approvalReque
       message: event.content.slice(0, 140),
     }
   }
+  if (event.type === 'session_chat_error') {
+    return {
+      id,
+      timestamp: event.timestamp,
+      level: 'warn',
+      label: 'Chat Error',
+      message: event.reason,
+    }
+  }
+  if (event.type === 'session_usage') {
+    return {
+      id,
+      timestamp: event.timestamp,
+      level: 'info',
+      label: 'Usage Updated',
+      message: `in ${event.inputTokens} · out ${event.outputTokens}`,
+    }
+  }
   return {
     id,
     timestamp: event.timestamp,
-    level: 'warn',
-    label: 'Chat Error',
-    message: event.reason,
+    level: 'info',
+    label: event.type,
+    message: '',
   }
 }
 

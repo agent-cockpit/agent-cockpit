@@ -104,6 +104,7 @@ describe('NormalizedEventSchema', () => {
         contextPercent: 0.86,
       });
       expect(result.type).toBe('session_usage');
+      if (result.type !== 'session_usage') return;
       expect(result.provider).toBe('codex');
       expect(result.totalTokens).toBe(1540);
     });

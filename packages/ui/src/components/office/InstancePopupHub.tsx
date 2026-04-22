@@ -138,9 +138,9 @@ function extractUsageMetricsFromEvent(event: unknown): SessionUsageMetrics & { h
   let hasUsage = false
 
   for (const record of usageRecords) {
-    const beforeInput = inputTokens
-    const beforeOutput = outputTokens
-    const beforeContext = contextPercent
+    const beforeInput: number | null = inputTokens
+    const beforeOutput: number | null = outputTokens
+    const beforeContext: number | null = contextPercent
     if (inputTokens === null) {
       inputTokens = readFirstNumber(record, [
         'inputTokens',
