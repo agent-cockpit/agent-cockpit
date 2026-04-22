@@ -19,6 +19,23 @@ function nextId(): number {
 // ---------------------------------------------------------------------------
 const codexApprovalResolvers = new Map<string, (decision: 'approve' | 'deny' | 'always_allow') => void>();
 
+type CodexServerRequestId = number | string;
+
+type CodexApprovalMethod =
+  | 'item/commandExecution/requestApproval'
+  | 'item/fileChange/requestApproval'
+  | 'item/permissions/requestApproval'
+  | 'applyPatchApproval'
+  | 'execCommandApproval';
+
+type PendingCodexApprovalEntry = {
+  serverRequestId: CodexServerRequestId;
+  method: CodexApprovalMethod;
+  params: Record<string, unknown>;
+  approvalId: string;
+  timer: ReturnType<typeof setTimeout>;
+};
+
 /**
  * Called by approvalQueue.decide() (and handleTimeout) alongside resolveApproval.
  * No-ops if the approvalId is not a Codex approval.
@@ -52,8 +69,8 @@ export class CodexAdapter {
   // Map from outgoing JSON-RPC request ID → resolver
   private readonly pendingRequests = new Map<number, (result: unknown) => void>();
 
-  // Map from Codex server integer id → { approvalId, timer }
-  private readonly pendingCodexApprovals = new Map<number, { approvalId: string; timer: ReturnType<typeof setTimeout> }>();
+  // Map from Codex server request id → approval state
+  private readonly pendingCodexApprovals = new Map<string, PendingCodexApprovalEntry>();
 
   // Parser context — mutated by parseCodexLine
   private readonly parserCtx: CodexParserContext;
@@ -147,11 +164,12 @@ export class CodexAdapter {
 
     void lineSource; // suppress unused warning
 
-    // Send initialize request (clientInfo is required by codex app-server)
+    // Initialize handshake: initialize request followed by initialized notification.
     await this.sendRequest('initialize', {
-      protocolVersion: '2026-01-01',
-      clientInfo: { name: 'agent-cockpit', version: '1.0.0' },
+      clientInfo: { name: 'agent-cockpit', title: 'Agent Cockpit', version: '1.0.0' },
+      capabilities: null,
     });
+    this.sendNotification('initialized', {});
 
     // Determine whether to start or resume
     const existing = this.db
@@ -165,7 +183,7 @@ export class CodexAdapter {
         this.currentThreadId = this.extractThreadId(result) ?? existing.thread_id;
       } catch {
         // Fall back to thread/start on resume failure
-        const result = await this.sendRequest('thread/start', { workspacePath: this.workspacePath });
+        const result = await this.sendRequest('thread/start', this.buildThreadStartParams());
         const startedThreadId = this.extractThreadId(result);
         if (startedThreadId) {
           this.currentThreadId = startedThreadId;
@@ -176,7 +194,7 @@ export class CodexAdapter {
       }
     } else {
       // Start new thread
-      const result = await this.sendRequest('thread/start', { workspacePath: this.workspacePath });
+      const result = await this.sendRequest('thread/start', this.buildThreadStartParams());
       const threadId = this.extractThreadId(result);
       if (threadId) {
         this.currentThreadId = threadId;
@@ -199,23 +217,24 @@ export class CodexAdapter {
   // Called by external code (e.g. resolveCodexApproval module export)
   // -------------------------------------------------------------------------
   resolveApproval(approvalId: string, decision: 'approve' | 'deny' | 'always_allow'): void {
-    // Find the pending approval by approvalId
-    let codexServerId: number | undefined;
-    for (const [serverId, entry] of this.pendingCodexApprovals) {
+    // Find the pending approval by approvalId.
+    let approvalEntry: PendingCodexApprovalEntry | undefined;
+    let approvalKey: string | undefined;
+    for (const [entryKey, entry] of this.pendingCodexApprovals) {
       if (entry.approvalId === approvalId) {
-        codexServerId = serverId;
+        approvalEntry = entry;
+        approvalKey = entryKey;
         break;
       }
     }
 
-    if (codexServerId === undefined) {
+    if (!approvalEntry || !approvalKey) {
       // Already resolved or unknown — no-op
       return;
     }
 
-    const entry = this.pendingCodexApprovals.get(codexServerId)!;
-    clearTimeout(entry.timer);
-    this.pendingCodexApprovals.delete(codexServerId);
+    clearTimeout(approvalEntry.timer);
+    this.pendingCodexApprovals.delete(approvalKey);
     codexApprovalResolvers.delete(approvalId);
 
     // Guard: no-op if process has exited
@@ -223,14 +242,13 @@ export class CodexAdapter {
       return;
     }
 
-    const codexDecision =
-      decision === 'approve'
-        ? 'accept'
-        : decision === 'always_allow'
-          ? 'acceptForSession'
-          : 'decline';
+    const resultPayload = this.buildApprovalResult(
+      approvalEntry.method,
+      approvalEntry.params,
+      decision,
+    );
 
-    this.writeToStdin({ id: codexServerId, result: { decision: codexDecision } });
+    this.writeToStdin({ id: approvalEntry.serverRequestId, result: resultPayload });
   }
 
   // -------------------------------------------------------------------------
@@ -266,7 +284,7 @@ export class CodexAdapter {
     }
     await this.sendRequest('turn/start', {
       threadId,
-      input: [{ type: 'text', text: content }],
+      input: [{ type: 'text', text: content, text_elements: [] }],
     });
   }
 
@@ -279,13 +297,32 @@ export class CodexAdapter {
     return new Promise((resolve, reject) => {
       this.pendingRequests.set(id, (result) => {
         if (result !== null && typeof result === 'object' && 'error' in (result as object)) {
-          reject(new Error(String((result as Record<string, unknown>)['error'])));
+          const rpcError = (result as Record<string, unknown>)['error'];
+          const message =
+            rpcError && typeof rpcError === 'object' && 'message' in (rpcError as Record<string, unknown>)
+              ? String((rpcError as Record<string, unknown>)['message'])
+              : String(rpcError);
+          reject(new Error(message));
         } else {
           resolve(result);
         }
       });
       this.writeToStdin({ jsonrpc: '2.0', id, method, params });
     });
+  }
+
+  private sendNotification(method: string, params: Record<string, unknown>): void {
+    this.writeToStdin({ jsonrpc: '2.0', method, params });
+  }
+
+  private buildThreadStartParams(): Record<string, unknown> {
+    // Provide both legacy and current cwd field names for compatibility.
+    return {
+      workspacePath: this.workspacePath,
+      cwd: this.workspacePath,
+      experimentalRawEvents: false,
+      persistExtendedHistory: false,
+    };
   }
 
   private writeToStdin(msg: unknown): void {
@@ -319,7 +356,8 @@ export class CodexAdapter {
 
     if (hasId && (hasResult || hasError) && !hasMethod) {
       // Response to our outgoing request (success or error)
-      const id = msg['id'] as number;
+      const id = msg['id'];
+      if (typeof id !== 'number') return;
       const resolver = this.pendingRequests.get(id);
       if (resolver) {
         this.pendingRequests.delete(id);
@@ -333,7 +371,13 @@ export class CodexAdapter {
 
     if (hasMethod && hasId && !hasResult) {
       // Server-initiated request (approval) — has both method and id
-      this.handleServerRequest(msg['id'] as number, msg['method'] as string, (msg['params'] as Record<string, unknown>) ?? {});
+      const requestId = msg['id'];
+      if (typeof requestId !== 'number' && typeof requestId !== 'string') return;
+      this.handleServerRequest(
+        requestId,
+        msg['method'] as string,
+        (msg['params'] as Record<string, unknown>) ?? {},
+      );
       return;
     }
 
@@ -370,9 +414,66 @@ export class CodexAdapter {
     return null;
   }
 
-  private handleServerRequest(serverId: number, method: string, params: Record<string, unknown>): void {
+  private isApprovalMethod(method: string): method is CodexApprovalMethod {
+    return method === 'item/commandExecution/requestApproval'
+      || method === 'item/fileChange/requestApproval'
+      || method === 'item/permissions/requestApproval'
+      || method === 'applyPatchApproval'
+      || method === 'execCommandApproval';
+  }
+
+  private getServerRequestKey(serverRequestId: CodexServerRequestId): string {
+    return `${typeof serverRequestId}:${String(serverRequestId)}`;
+  }
+
+  private buildApprovalResult(
+    method: CodexApprovalMethod,
+    params: Record<string, unknown>,
+    decision: 'approve' | 'deny' | 'always_allow',
+  ): Record<string, unknown> {
+    if (method === 'execCommandApproval' || method === 'applyPatchApproval') {
+      const reviewDecision =
+        decision === 'approve'
+          ? 'approved'
+          : decision === 'always_allow'
+            ? 'approved_for_session'
+            : 'denied';
+      return { decision: reviewDecision };
+    }
+
+    if (method === 'item/permissions/requestApproval') {
+      const requestedPermissions =
+        params['permissions'] && typeof params['permissions'] === 'object'
+          ? (params['permissions'] as Record<string, unknown>)
+          : {};
+
+      if (decision === 'deny') {
+        return { scope: 'turn', permissions: {} };
+      }
+
+      return {
+        scope: decision === 'always_allow' ? 'session' : 'turn',
+        permissions: requestedPermissions,
+      };
+    }
+
+    const codexDecision =
+      decision === 'approve'
+        ? 'accept'
+        : decision === 'always_allow'
+          ? 'acceptForSession'
+          : 'decline';
+
+    return { decision: codexDecision };
+  }
+
+  private handleServerRequest(serverRequestId: CodexServerRequestId, method: string, params: Record<string, unknown>): void {
+    if (!this.isApprovalMethod(method)) {
+      return;
+    }
+
     // Build a line that parseCodexLine can parse for approval classification
-    const fakeLine = JSON.stringify({ method, params });
+    const fakeLine = JSON.stringify({ id: serverRequestId, method, params });
     const event = parseCodexLine(fakeLine, this.parserCtx);
 
     if (!event || event.type !== 'approval_request') {
@@ -386,7 +487,13 @@ export class CodexAdapter {
       this.resolveApproval(approvalId, 'deny');
     }, 30_000);
 
-    this.pendingCodexApprovals.set(serverId, { approvalId, timer });
+    this.pendingCodexApprovals.set(this.getServerRequestKey(serverRequestId), {
+      serverRequestId,
+      method,
+      params,
+      approvalId,
+      timer,
+    });
 
     // Register module-level resolver so resolveCodexApproval() can dispatch back here
     codexApprovalResolvers.set(approvalId, (decision) => {
