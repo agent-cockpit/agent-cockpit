@@ -147,6 +147,7 @@ Supporting folders include:
 - pnpm
 - Claude Code CLI configured
 - Codex CLI configured
+- Supported desktop OS: Linux, macOS, and Windows
 - A modern desktop browser
 - Local filesystem access for the workspace and session data
 
@@ -158,6 +159,8 @@ pnpm build
 pnpm --filter @cockpit/daemon dev
 pnpm --filter @cockpit/ui dev
 ```
+
+On Windows, make sure both `claude` and `codex` are available on `PATH` in the same shell where you start the daemon.
 
 ## Available Scripts
 
@@ -241,4 +244,3 @@ Before contributing, read the documents in `.planning` to understand the current
 ## License
 
 MIT
-

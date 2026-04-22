@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import os from 'node:os';
 import fs from 'node:fs';
+import path from 'node:path';
 import { EventEmitter } from 'node:events';
 import type { ChildProcessWithoutNullStreams } from 'node:child_process';
 import { openDatabase } from '../db/database.js';
@@ -97,7 +98,7 @@ describe('ClaudeLauncher.launch()', () => {
     const sessionId = 'aaaaaaaa-0000-0000-0000-000000000001';
     await launchReady(launcher.launch(sessionId, '/tmp'));
 
-    const expectedPath = `${os.tmpdir()}/cockpit-claude-${sessionId}.json`;
+    const expectedPath = path.join(os.tmpdir(), `cockpit-claude-${sessionId}.json`);
     expect(vi.mocked(fs.writeFileSync)).toHaveBeenCalledWith(
       expectedPath,
       expect.any(String),
@@ -113,7 +114,10 @@ describe('ClaudeLauncher.launch()', () => {
     const sessionId = 'aaaaaaaa-0000-0000-0000-000000000002';
     await launchReady(launcher.launch(sessionId, '/tmp'));
 
-    const writeCall = vi.mocked(fs.writeFileSync).mock.calls[0];
+    const expectedPath = path.join(os.tmpdir(), `cockpit-claude-${sessionId}.json`);
+    const writeCall = vi
+      .mocked(fs.writeFileSync)
+      .mock.calls.find((call) => call[0] === expectedPath);
     expect(writeCall).toBeDefined();
     const written = JSON.parse(writeCall[1] as string) as {
       hooks: Record<string, Array<{ matcher?: string; hooks: Array<{ type: string; command: string }> }>>;
@@ -135,6 +139,7 @@ describe('ClaudeLauncher.launch()', () => {
     for (const event of hookEvents) {
       expect(written.hooks[event]).toBeDefined();
       expect(written.hooks[event][0]?.hooks[0]?.type).toBe('command');
+      expect(written.hooks[event][0]?.hooks[0]?.command).toContain(process.execPath);
       expect(written.hooks[event][0]?.hooks[0]?.command).toContain('http://127.0.0.1:4444/hook');
     }
     expect(written.hooks['PreToolUse'][0]?.matcher).toBe('');
@@ -188,7 +193,7 @@ describe('ClaudeLauncher.launch()', () => {
     expect(args).toContain('--session-id');
     expect(args).toContain(sessionId);
     expect(args).toContain('--settings');
-    expect(args).toContain(`${os.tmpdir()}/cockpit-claude-${sessionId}.json`);
+    expect(args).toContain(path.join(os.tmpdir(), `cockpit-claude-${sessionId}.json`));
     // --allowedTools must be present so Claude fires PermissionRequest for unlisted tools
     expect(args).toContain('--allowedTools');
     const allowedIdx = args.indexOf('--allowedTools');

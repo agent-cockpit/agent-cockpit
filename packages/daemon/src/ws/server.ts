@@ -3,6 +3,7 @@ import type Database from 'better-sqlite3';
 import crypto from 'node:crypto';
 import fs from 'node:fs';
 import http, { createServer } from 'node:http';
+import os from 'node:os';
 import path from 'node:path';
 import { WebSocket, WebSocketServer } from 'ws';
 import { ClaudeLauncher, type ClaudePermissionMode, LaunchError } from '../adapters/claude/claudeLauncher.js';
@@ -83,6 +84,16 @@ function applyRuntimeCapabilityState(
 }
 
 const MAX_BODY = 1_048_576;
+const HOME_DIR = os.homedir();
+
+function expandBrowsePath(rawPath: string): string {
+  return rawPath.replace(/^~(?=$|[\\/])/, HOME_DIR);
+}
+
+function isWithinRoot(candidatePath: string, rootPath: string): boolean {
+  const relative = path.relative(rootPath, candidatePath);
+  return relative === '' || (!relative.startsWith('..') && !path.isAbsolute(relative));
+}
 
 function handleLaunchSession(
   req: http.IncomingMessage,
@@ -489,13 +500,10 @@ export function createWsServer(
     const browseMatch = req.method === 'GET' && req.url?.startsWith('/api/browse');
     if (browseMatch) {
       const url = new URL(req.url!, 'http://localhost');
-      const rawPath = url.searchParams.get('path') ?? process.env['HOME'] ?? '/';
-      const dirPath = rawPath.startsWith('~')
-        ? rawPath.replace('~', process.env['HOME'] ?? '/')
-        : rawPath;
-      const resolved = path.resolve(dirPath);
-      const allowedRoots = [process.env['HOME'] ?? '/', '/tmp'];
-      if (!allowedRoots.some((r) => resolved.startsWith(r))) {
+      const rawPath = url.searchParams.get('path') ?? HOME_DIR;
+      const resolved = path.resolve(expandBrowsePath(rawPath));
+      const allowedRoots = [path.resolve(HOME_DIR), path.resolve(os.tmpdir())];
+      if (!allowedRoots.some((root) => isWithinRoot(resolved, root))) {
         res.writeHead(403, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({ error: 'access denied' }));
         return;
@@ -504,9 +512,10 @@ export function createWsServer(
         const entries = fs.readdirSync(resolved, { withFileTypes: true });
         const dirs = entries
           .filter((e) => e.isDirectory() && !e.name.startsWith('.'))
-          .map((e) => ({ name: e.name, fullPath: `${resolved.replace(/\/$/, '')}/${e.name}` }))
+          .map((e) => ({ name: e.name, fullPath: path.join(resolved, e.name) }))
           .sort((a, b) => a.name.localeCompare(b.name));
-        const parent = resolved !== '/' ? resolved.split('/').slice(0, -1).join('/') || '/' : null;
+        const parentPath = path.dirname(resolved);
+        const parent = parentPath === resolved ? null : parentPath;
         res.writeHead(200, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({ path: resolved, parent, entries: dirs }));
       } catch (err) {

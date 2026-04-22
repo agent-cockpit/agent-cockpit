@@ -2,6 +2,7 @@ import type Database from 'better-sqlite3';
 import { execFileSync, spawn, type ChildProcessWithoutNullStreams, type SpawnOptionsWithoutStdio } from 'node:child_process';
 import fs from 'node:fs';
 import os from 'node:os';
+import path from 'node:path';
 import { setClaudeSessionId } from '../../db/queries.js';
 import { COCKPIT_ALLOWED_TOOLS } from './hookParser.js';
 
@@ -172,7 +173,7 @@ export class ClaudeLauncher {
       throw new LaunchError('INVALID_WORKSPACE', `Workspace path does not exist: ${workspacePath}`);
     }
     try {
-      execFileSync('which', ['claude'], { stdio: 'pipe' });
+      execFileSync('claude', ['--version'], { stdio: 'pipe' });
     } catch {
       throw new LaunchError('MISSING_BINARY', 'claude binary not found on PATH');
     }
@@ -187,8 +188,60 @@ export class ClaudeLauncher {
     onUsageSnapshot?: (usage: ClaudeSessionUsageSnapshot) => void,
   ): Promise<ManagedClaudeRuntime> {
     const HOOK_TIMEOUT_S = 60;
+    const HOOK_TIMEOUT_MS = (HOOK_TIMEOUT_S - 5) * 1000;
     const hookHost = process.env['COCKPIT_HOOK_HOST'] ?? '127.0.0.1';
-    const hookCmd = `curl -sf --max-time ${HOOK_TIMEOUT_S - 5} -X POST http://${hookHost}:${this.hookPort}/hook -d @- -H 'Content-Type: application/json'`;
+    const hookUrl = `http://${hookHost}:${this.hookPort}/hook`;
+    const hookRelayPath = path.join(os.tmpdir(), `cockpit-hook-relay-${sessionId}.cjs`);
+    fs.writeFileSync(
+      hookRelayPath,
+      [
+        "const http = require('node:http');",
+        "const https = require('node:https');",
+        "const { URL } = require('node:url');",
+        '',
+        "const target = process.argv[2];",
+        "const timeoutMs = Number(process.argv[3] ?? '55000');",
+        "if (!target) process.exit(2);",
+        '',
+        'let body = "";',
+        "process.stdin.setEncoding('utf8');",
+        "process.stdin.on('data', (chunk) => { body += chunk; });",
+        "process.stdin.on('end', () => {",
+        "  const url = new URL(target);",
+        "  const transport = url.protocol === 'https:' ? https : http;",
+        '  const request = transport.request({',
+        '    protocol: url.protocol,',
+        '    hostname: url.hostname,',
+        '    port: url.port || (url.protocol === "https:" ? 443 : 80),',
+        '    path: `${url.pathname}${url.search}`,',
+        "    method: 'POST',",
+        '    headers: {',
+        "      'content-type': 'application/json',",
+        "      'content-length': Buffer.byteLength(body),",
+        '    },',
+        '  }, (response) => {',
+        '    response.resume();',
+        '    response.on("end", () => {',
+        '      const status = response.statusCode ?? 500;',
+        '      process.exit(status >= 200 && status < 300 ? 0 : 1);',
+        '    });',
+        '  });',
+        '',
+        '  request.setTimeout(timeoutMs, () => {',
+        '    request.destroy(new Error("timeout"));',
+        '  });',
+        '',
+        '  request.on("error", () => process.exit(1));',
+        '  request.write(body);',
+        '  request.end();',
+        '});',
+        "process.stdin.on('error', () => process.exit(1));",
+        'process.stdin.resume();',
+        '',
+      ].join('\n'),
+      'utf8',
+    );
+    const hookCmd = `"${process.execPath}" "${hookRelayPath}" "${hookUrl}" "${HOOK_TIMEOUT_MS}"`;
     const hookEntry = (matcher?: string) => ({
       ...(matcher !== undefined ? { matcher } : {}),
       hooks: [{ type: 'command', command: hookCmd, timeout: HOOK_TIMEOUT_S }],
@@ -210,7 +263,7 @@ export class ClaudeLauncher {
       },
     };
 
-    const settingsPath = `${os.tmpdir()}/cockpit-claude-${sessionId}.json`;
+    const settingsPath = path.join(os.tmpdir(), `cockpit-claude-${sessionId}.json`);
     fs.writeFileSync(settingsPath, JSON.stringify(settings, null, 2));
 
     if (this.db) {
@@ -248,6 +301,11 @@ export class ClaudeLauncher {
       cleanedUpSettings = true;
       try {
         fs.unlinkSync(settingsPath);
+      } catch {
+        // ignore cleanup races
+      }
+      try {
+        fs.unlinkSync(hookRelayPath);
       } catch {
         // ignore cleanup races
       }

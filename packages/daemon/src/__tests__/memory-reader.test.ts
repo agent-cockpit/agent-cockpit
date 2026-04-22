@@ -4,6 +4,7 @@ import * as path from 'node:path';
 import * as fs from 'node:fs';
 import {
   resolveClaudeMdPath,
+  resolveAutoMemoryPath,
   readFileSafe,
   writeFileSafe,
 } from '../memory/memoryReader.js';
@@ -53,6 +54,18 @@ describe('readFileSafe', () => {
   it('returns null for a missing file (ENOENT)', () => {
     const missing = path.join(os.tmpdir(), 'cockpit-does-not-exist-' + Date.now() + '.txt');
     expect(readFileSafe(missing)).toBeNull();
+  });
+});
+
+describe('resolveAutoMemoryPath', () => {
+  it('normalizes POSIX workspace paths to a stable encoded project key', () => {
+    const memoryPath = resolveAutoMemoryPath('/Users/test/my-project');
+    expect(memoryPath).toContain(path.join('.claude', 'projects', 'Users-test-my-project', 'memory', 'MEMORY.md'));
+  });
+
+  it('normalizes Windows workspace paths and strips invalid filename characters', () => {
+    const memoryPath = resolveAutoMemoryPath('C:\\Users\\Test User\\my-project');
+    expect(memoryPath).toContain(path.join('.claude', 'projects', 'c-Users-Test-User-my-project', 'memory', 'MEMORY.md'));
   });
 });
 

@@ -5,6 +5,7 @@ import { useStore } from '../store/index.js'
 import { useActiveSessions } from '../store/selectors.js'
 import { sendWsMessage } from '../hooks/useSessionEvents.js'
 import { audioSystem } from '../audio/audioSystem.js'
+import { getSessionTitle } from '../lib/sessionTitle.js'
 import { InstancePopupHub } from '../components/office/InstancePopupHub.js'
 import { MenuPopup } from '../components/office/MenuPopup.js'
 import { EjectAllSessionsDialog } from '../components/office/EjectAllSessionsDialog.js'
@@ -1805,12 +1806,7 @@ export function OfficePage() {
 
   function popupLabel(sessionId: string): string {
     const source = liveSessionsById[sessionId] ?? historySessionsById[sessionId]
-    const workspacePath = source?.workspacePath
-    if (workspacePath) {
-      const project = workspacePath.split('/').at(-1)
-      if (project) return project
-    }
-    return sessionId.slice(0, 8)
+    return getSessionTitle(source?.workspacePath, sessionId)
   }
 
   function popupCharacter(sessionId: string): CharacterType {

@@ -1,5 +1,8 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import http from 'node:http';
+import os from 'node:os';
+import path from 'node:path';
+import fs from 'node:fs';
 import { createWsServer } from '../ws/server.js';
 import { openDatabase } from '../db/database.js';
 import { persistEvent } from '../db/queries.js';
@@ -13,7 +16,7 @@ vi.mock('node:child_process', async (importOriginal) => {
   const actual = await importOriginal<typeof import('node:child_process')>();
   return {
     ...actual,
-    execFileSync: vi.fn(actual.execFileSync),
+    execFileSync: vi.fn(() => Buffer.from('claude 0.0.0', 'utf8')),
     spawn: vi.fn((file: string) => {
       const proc = new EventEmitter() as unknown as {
         stdout: EventEmitter | null;
@@ -292,6 +295,32 @@ describe('Other HTTP routes', () => {
   it('GET /api/sessions returns 200 JSON array (history endpoint added in Plan 02)', async () => {
     const { status } = await httpGet(port, '/api/sessions');
     expect(status).toBe(200);
+  });
+
+  it('GET /api/browse returns immediate subdirectories and parent path for an allowed directory', async () => {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), 'cockpit-browse-test-'));
+    const alphaDir = path.join(root, 'alpha');
+    const hiddenDir = path.join(root, '.hidden');
+    fs.mkdirSync(alphaDir, { recursive: true });
+    fs.mkdirSync(hiddenDir, { recursive: true });
+
+    const { status, body } = await httpGetJson(port, `/api/browse?path=${encodeURIComponent(root)}`);
+
+    expect(status).toBe(200);
+    expect(body).toEqual({
+      path: path.resolve(root),
+      parent: path.dirname(path.resolve(root)),
+      entries: [{ name: 'alpha', fullPath: path.join(path.resolve(root), 'alpha') }],
+    });
+
+    fs.rmSync(root, { recursive: true, force: true });
+  });
+
+  it('GET /api/browse denies paths outside allowed roots', async () => {
+    const outsidePath = process.platform === 'win32' ? 'C:\\' : '/';
+    const { status, body } = await httpGetJson(port, `/api/browse?path=${encodeURIComponent(outsidePath)}`);
+    expect(status).toBe(403);
+    expect(body).toEqual({ error: 'access denied' });
   });
 });
 
