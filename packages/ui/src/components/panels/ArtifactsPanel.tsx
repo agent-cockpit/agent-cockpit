@@ -1,4 +1,4 @@
-import { useEffect, useMemo } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useParams } from 'react-router'
 import type { NormalizedEvent } from '@cockpit/shared'
 import { useStore } from '../../store/index.js'
@@ -91,7 +91,9 @@ function deriveArtifacts(events: NormalizedEvent[]): ArtifactItem[] {
   return items.sort((a, b) => b.timestamp.localeCompare(a.timestamp))
 }
 
-function deriveLogFromEvent(event: NormalizedEvent, index: number): LogItem {
+type ApprovalRequestMap = Map<string, { actionType: string; proposedAction: string }>
+
+function deriveLogFromEvent(event: NormalizedEvent, index: number, approvalRequests?: ApprovalRequestMap): LogItem {
   const id = getEventSequence(event, index)
   if (event.type === 'session_start') {
     return {
@@ -139,12 +141,14 @@ function deriveLogFromEvent(event: NormalizedEvent, index: number): LogItem {
     }
   }
   if (event.type === 'approval_resolved') {
+    const req = approvalRequests?.get(event.approvalId)
+    const detail = req ? `${req.actionType}: ${req.proposedAction.slice(0, 60)}${req.proposedAction.length > 60 ? '…' : ''}` : ''
     return {
       id,
       timestamp: event.timestamp,
       level: event.decision === 'denied' || event.decision === 'timeout' ? 'warn' : 'info',
       label: 'Approval Resolved',
-      message: event.decision,
+      message: detail ? `${event.decision} — ${detail}` : event.decision,
     }
   }
   if (event.type === 'subagent_spawn') {
@@ -228,6 +232,7 @@ export function ArtifactsPanel() {
   const sessionId = paramSessionId ?? storeSessionId ?? ''
   const events = useStore((s) => (sessionId ? s.events[sessionId] : EMPTY_EVENTS) ?? EMPTY_EVENTS)
   const bulkApplyEvents = useStore((s) => s.bulkApplyEvents)
+  const [approvalRequests, setApprovalRequests] = useState<ApprovalRequestMap>(new Map())
 
   useEffect(() => {
     if (!sessionId) return
@@ -245,10 +250,22 @@ export function ArtifactsPanel() {
     // this fetch on every render cycle. If the store is refactored, verify stability is preserved.
   }, [sessionId])
 
+  useEffect(() => {
+    if (!sessionId) return
+    fetch(`${DAEMON_URL}/api/sessions/${sessionId}/approvals`)
+      .then((r) => r.json())
+      .then((rows: { approvalId: string; actionType: string; proposedAction: string }[]) => {
+        const map: ApprovalRequestMap = new Map()
+        rows.forEach((row) => map.set(row.approvalId, { actionType: row.actionType, proposedAction: row.proposedAction }))
+        setApprovalRequests(map)
+      })
+      .catch(() => {})
+  }, [sessionId])
+
   const artifacts = useMemo(() => deriveArtifacts(events), [events])
   const logs = useMemo(
-    () => [...events].map((event, index) => deriveLogFromEvent(event, index)).reverse(),
-    [events],
+    () => [...events].map((event, index) => deriveLogFromEvent(event, index, approvalRequests)).reverse(),
+    [events, approvalRequests],
   )
 
   if (!sessionId) {

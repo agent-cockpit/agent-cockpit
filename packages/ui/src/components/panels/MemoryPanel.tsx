@@ -110,11 +110,12 @@ export function MemoryPanel() {
     if (!sessionId) return
     setSaving(true)
     try {
-      await fetch(`${DAEMON}/api/memory/${sessionId}/claude-md`, {
+      const res = await fetch(`${DAEMON}/api/memory/${sessionId}/claude-md`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ content: editContent }),
       })
+      if (!res.ok) throw new Error(`Save failed: ${res.status}`)
       setClaudeMd(editContent)
     } finally {
       setSaving(false)
@@ -123,11 +124,12 @@ export function MemoryPanel() {
 
   async function createClaudeMd() {
     if (!sessionId) return
-    await fetch(`${DAEMON}/api/memory/${sessionId}/claude-md`, {
+    const res = await fetch(`${DAEMON}/api/memory/${sessionId}/claude-md`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ content: '' }),
     })
+    if (!res.ok) throw new Error(`Create failed: ${res.status}`)
     setClaudeMd('')
     setEditContent('')
   }

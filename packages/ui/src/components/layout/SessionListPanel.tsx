@@ -1,19 +1,21 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router'
+import { sendWsMessage } from '../../hooks/useSessionEvents.js'
+import { getSessionTitle } from '../../lib/sessionTitle.js'
 import { useStore } from '../../store/index.js'
 import { useFilteredSessions } from '../../store/selectors.js'
-import { sendWsMessage } from '../../hooks/useSessionEvents.js'
-import { SessionFilters } from '../sessions/SessionFilters.js'
-import { SessionCard } from '../sessions/SessionCard.js'
-import { LaunchSessionModal } from '../sessions/LaunchSessionModal.js'
-import { TerminateSessionDialog } from '../sessions/TerminateSessionDialog.js'
 import { LoadingSpinner } from '../LoadingSpinner.js'
+import { LaunchSessionModal } from '../sessions/LaunchSessionModal.js'
+import { SessionCard } from '../sessions/SessionCard.js'
+import { SessionFilters } from '../sessions/SessionFilters.js'
+import { TerminateSessionDialog } from '../sessions/TerminateSessionDialog.js'
 
 export function SessionListPanel() {
   const wsUnavailableReason = 'Daemon connection is not open. Reconnect and try again.'
   const navigate = useNavigate()
   const sessions = useFilteredSessions()
   const selectedSessionId = useStore((s) => s.selectedSessionId)
+  const activeSubagentParents = useStore((s) => s.activeSubagentParents)
   const setHistoryMode = useStore((s) => s.setHistoryMode)
   const sessionsById = useStore((s) => s.sessions)
   const wsStatus = useStore((s) => s.wsStatus)
@@ -115,7 +117,7 @@ export function SessionListPanel() {
   const confirmSession =
     confirmTerminateSessionId ? sessionsById[confirmTerminateSessionId] : undefined
   const confirmSessionName = confirmSession
-    ? confirmSession.workspacePath.split('/').at(-1) ?? confirmSession.workspacePath
+    ? getSessionTitle(confirmSession.workspacePath, confirmSession.sessionId)
     : 'session'
   const confirmProvider = confirmSession?.provider ?? 'claude'
 
@@ -152,6 +154,7 @@ export function SessionListPanel() {
               onTerminate={() => handleTerminate(session.sessionId)}
               isTerminating={terminatingSessionId === session.sessionId}
               terminateError={terminateErrors[session.sessionId]}
+              activeSubagentCount={activeSubagentParents[session.sessionId] ?? 0}
             />
           ))
         )}

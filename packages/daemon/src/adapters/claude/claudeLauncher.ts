@@ -1,8 +1,8 @@
+import type Database from 'better-sqlite3';
+import type { ChildProcess } from 'node:child_process';
+import { execFile, execFileSync, spawn } from 'node:child_process';
 import fs from 'node:fs';
 import os from 'node:os';
-import { execFile, execFileSync, spawn } from 'node:child_process';
-import type { ChildProcess } from 'node:child_process';
-import type Database from 'better-sqlite3';
 import { setClaudeSessionId } from '../../db/queries.js';
 
 export class LaunchError extends Error {
@@ -52,20 +52,20 @@ export class ClaudeLauncher {
     }
   }
 
-  async launch(sessionId: string, workspacePath: string): Promise<ManagedClaudeRuntime> {
+  async launch(sessionId: string, workspacePath: string, onExit?: () => void): Promise<ManagedClaudeRuntime> {
     // 1. Build settings object — claude hook format uses type:"command" with curl, not type:"http"
-    const hookCmd = `curl -sf -X POST http://localhost:${this.hookPort}/hook -d @- -H 'Content-Type: application/json'`;
+    const HOOK_TIMEOUT_S = 60;
+    const hookCmd = `curl -sf --max-time ${HOOK_TIMEOUT_S - 5} -X POST http://localhost:${this.hookPort}/hook -d @- -H 'Content-Type: application/json'`;
     const hookEntry = (matcher?: string) => ({
       ...(matcher !== undefined ? { matcher } : {}),
-      hooks: [{ type: 'command', command: hookCmd }],
+      hooks: [{ type: 'command', command: hookCmd, timeout: HOOK_TIMEOUT_S }],
     });
     const settings = {
       hooks: {
-        SessionStart: [hookEntry()],
+        SessionStart: [{ matcher: 'startup', hooks: [{ type: 'command', command: hookCmd, timeout: HOOK_TIMEOUT_S }] }],
         SessionEnd: [hookEntry()],
         PreToolUse: [hookEntry('')],
         PostToolUse: [hookEntry('')],
-        PermissionRequest: [hookEntry('')],
         SubagentStart: [hookEntry()],
         SubagentStop: [hookEntry()],
         Notification: [hookEntry()],
@@ -114,6 +114,17 @@ export class ClaudeLauncher {
       let settled = false;
       let stderr = '';
       let startupTimer: NodeJS.Timeout | null = null;
+      let cleanedUpSettings = false;
+
+      const cleanupSettings = (): void => {
+        if (cleanedUpSettings) return;
+        cleanedUpSettings = true;
+        try {
+          fs.unlinkSync(settingsPath);
+        } catch {
+          // Temp settings may already be removed; ignore cleanup races.
+        }
+      };
 
       const settleResolve = (runtime: ManagedClaudeRuntime): void => {
         if (settled) return;
@@ -126,6 +137,7 @@ export class ClaudeLauncher {
         if (settled) return;
         settled = true;
         if (startupTimer) clearTimeout(startupTimer);
+        cleanupSettings();
         reject(error);
       };
 
@@ -145,7 +157,7 @@ export class ClaudeLauncher {
             settleReject(new LaunchError('SPAWN_FAILED', `claude exited during startup with code ${proc.exitCode}: ${stderr}`));
             return;
           }
-          settleResolve({
+          const runtime: ManagedClaudeRuntime = {
             sendMessage: async (message: string) => {
               const hasExited = proc.exitCode !== null && proc.exitCode !== undefined;
               if (!proc.stdin?.writable || proc.killed || hasExited) {
@@ -175,6 +187,11 @@ export class ClaudeLauncher {
               }
             },
             isActive: () => !proc.killed && (proc.exitCode === null || proc.exitCode === undefined),
+          };
+          settleResolve(runtime);
+          proc.on('exit', () => {
+            cleanupSettings();
+            onExit?.();
           });
         }, 500);
       });

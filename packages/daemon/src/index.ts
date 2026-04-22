@@ -4,9 +4,11 @@ import { createWsServer, broadcast } from './ws/server.js';
 import { createHookServer, initStartedSessions } from './adapters/claude/hookServer.js';
 import { setClaudeSessionCache, setClaudeSessionDb } from './adapters/claude/hookParser.js';
 import { approvalQueue } from './approvals/approvalQueue.js';
+import { getAllPendingApprovals } from './approvals/approvalStore.js';
 import { eventBus } from './eventBus.js';
 import { logger } from './logger.js';
-import { ingestExternalCodexCliSessions } from './adapters/codex/externalSessionIngest.js';
+import { ingestExternalCodexCliSessions } from './adapters/codex/externalSessionIngest.js'
+import { ingestExternalClaudeSessions } from './adapters/claude/externalSessionIngest.js';
 import type { WebSocketServer } from 'ws';
 import type Database from 'better-sqlite3';
 import type http from 'node:http';
@@ -15,6 +17,7 @@ const DB_PATH = process.env['COCKPIT_DB_PATH'] ?? `${process.env['HOME']}/.local
 const WS_PORT = parseInt(process.env['COCKPIT_WS_PORT'] ?? '3001', 10);
 const HOOK_PORT = parseInt(process.env['COCKPIT_HOOK_PORT'] ?? '3002', 10);
 const CODEX_EXTERNAL_POLL_MS = parseInt(process.env['COCKPIT_CODEX_EXTERNAL_POLL_MS'] ?? '5000', 10);
+const CLAUDE_EXTERNAL_POLL_MS = parseInt(process.env['COCKPIT_CLAUDE_EXTERNAL_POLL_MS'] ?? '5000', 10);
 
 const db = openDatabase(DB_PATH);
 let shuttingDown = false;
@@ -44,7 +47,8 @@ hookServer.once('listening', () => {
 
 const { wss, httpServer } = createWsServer(db, WS_PORT);
 
-// Event pipeline: eventBus → persist → broadcast
+// Event pipeline: eventBus → persist → broadcast.
+// Must be wired before stale approval expiry so approval_resolved events are persisted.
 eventBus.on('event', (rawEvent) => {
   logger.debug('daemon', `Event pipeline: ${rawEvent.type}`, { sessionId: rawEvent.sessionId });
   const saved = persistEvent(db, rawEvent);
@@ -54,6 +58,16 @@ eventBus.on('event', (rawEvent) => {
   });
   broadcast(wss, JSON.stringify(saved), db);
 });
+
+// Expire approvals that were pending when the daemon last stopped.
+// Runs after eventBus listener is wired so approval_resolved events are persisted and replayed.
+const stale = getAllPendingApprovals(db);
+if (stale.length > 0) {
+  logger.info('daemon', `Expiring ${stale.length} stale pending approval(s) from previous run`);
+  for (const row of stale) {
+    approvalQueue.handleTimeout(row.approvalId, db);
+  }
+}
 
 function importExternalCodexSessions(): void {
   try {
@@ -74,6 +88,25 @@ const codexExternalPollTimer =
     ? setInterval(importExternalCodexSessions, CODEX_EXTERNAL_POLL_MS)
     : null;
 codexExternalPollTimer?.unref();
+
+function importExternalClaudeSessions(): void {
+  try {
+    const imported = ingestExternalClaudeSessions(db, (event) => eventBus.emit('event', event));
+    if (imported > 0) {
+      logger.info('claude-external', 'Imported external Claude sessions', { imported });
+    }
+  } catch (err) {
+    logger.warn('claude-external', 'Failed to import external Claude sessions', { error: String(err) });
+  }
+}
+
+importExternalClaudeSessions();
+
+const claudeExternalPollTimer =
+  Number.isFinite(CLAUDE_EXTERNAL_POLL_MS) && CLAUDE_EXTERNAL_POLL_MS > 0
+    ? setInterval(importExternalClaudeSessions, CLAUDE_EXTERNAL_POLL_MS)
+    : null;
+claudeExternalPollTimer?.unref();
 
 // Close orphaned sessions: sessions with session_start but no session_end and no activity in 2h
 // Runs after eventBus is wired so the emitted events are persisted and broadcast
@@ -98,6 +131,7 @@ function shutdown(db: Database.Database, wss: WebSocketServer, hookServer: http.
   shuttingDown = true;
   logger.info('daemon', 'Shutting down...');
   if (codexExternalPollTimer) clearInterval(codexExternalPollTimer);
+  if (claudeExternalPollTimer) clearInterval(claudeExternalPollTimer);
   // Terminate all open client connections before closing the server
   wss.clients.forEach((client) => client.terminate());
   wss.close(() => {

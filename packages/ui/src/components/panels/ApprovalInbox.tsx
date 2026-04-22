@@ -1,9 +1,10 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useParams } from 'react-router'
 import { useStore } from '../../store/index.js'
 import { sendWsMessage } from '../../hooks/useSessionEvents.js'
 import { EMPTY_APPROVALS } from '../../store/approvalsSlice.js'
 import type { PendingApproval } from '../../store/approvalsSlice.js'
+import { DAEMON_URL } from '../../lib/daemonUrl.js'
 import { RiskBadge } from '../RiskBadge.js'
 import type { RiskLevel } from '../RiskBadge.js'
 
@@ -171,6 +172,18 @@ function ApprovalCard({ approval, queuePosition, disabled, onDecision }: Approva
 
 // ─── ApprovalInbox ────────────────────────────────────────────────────────────
 
+interface ApprovalDbRow {
+  approvalId: string
+  sessionId: string
+  actionType: string
+  riskLevel: string
+  proposedAction: string
+  affectedPaths: string[] | null
+  whyRisky: string | null
+  createdAt: string
+  status: string
+}
+
 export function ApprovalInbox() {
   const { sessionId: paramSessionId } = useParams<{ sessionId: string }>()
   const storeSessionId = useStore((s) => s.selectedSessionId)
@@ -178,9 +191,33 @@ export function ApprovalInbox() {
   const approvals = useStore(
     (s) => s.pendingApprovalsBySession[sessionId ?? ''] ?? EMPTY_APPROVALS,
   )
+  const hydratePendingApprovals = useStore((s) => s.hydratePendingApprovals)
   const wsStatus = useStore((s) => s.wsStatus)
 
   const [decidedIds, setDecidedIds] = useState<Set<string>>(new Set())
+
+  // Reconcile with DB on mount — removes stale approvals already resolved outside the UI
+  useEffect(() => {
+    if (!sessionId) return
+    fetch(`${DAEMON_URL}/api/sessions/${sessionId}/approvals`)
+      .then((r) => r.json())
+      .then((rows: ApprovalDbRow[]) => {
+        const pending: PendingApproval[] = rows
+          .filter((r) => r.status === 'pending')
+          .map((r) => ({
+            approvalId: r.approvalId,
+            sessionId: r.sessionId,
+            actionType: r.actionType,
+            riskLevel: r.riskLevel,
+            proposedAction: r.proposedAction,
+            affectedPaths: r.affectedPaths ?? [],
+            whyRisky: r.whyRisky ?? '',
+            timestamp: r.createdAt,
+          }))
+        hydratePendingApprovals(sessionId, pending)
+      })
+      .catch(() => {})
+  }, [sessionId, hydratePendingApprovals])
 
   function handleDecision(approvalId: string, decision: 'approve' | 'deny' | 'always_allow') {
     sendWsMessage({ type: 'approval_decision', approvalId, decision })

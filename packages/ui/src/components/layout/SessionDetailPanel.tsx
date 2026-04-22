@@ -1,7 +1,8 @@
 import { useEffect } from 'react'
-import { useParams, NavLink, Outlet } from 'react-router'
-import { useStore } from '../../store/index.js'
+import { NavLink, Outlet, useParams } from 'react-router'
+import { getSessionTitle } from '../../lib/sessionTitle.js'
 import type { PanelId } from '../../store/index.js'
+import { useStore } from '../../store/index.js'
 import { getProviderAccentStyle } from '../providerAccent.js'
 
 const TABS: { id: PanelId; label: string }[] = [
@@ -47,7 +48,7 @@ export function SessionDetailPanel() {
     )
   }
 
-  const projectName = session.workspacePath.split('/').at(-1) ?? session.workspacePath
+  const projectName = getSessionTitle(session.workspacePath, session.sessionId)
 
   return (
     <div className="flex flex-col h-full" style={getProviderAccentStyle(session.provider)}>
@@ -70,7 +71,7 @@ export function SessionDetailPanel() {
         {session.pendingApprovals > 0 && (
           <span
             className="border border-amber-300/50 bg-amber-500/20 px-1.5 py-0.5 text-[10px] font-semibold text-amber-200 [font-family:var(--font-mono-data)]"
-            style={{ textShadow: '0 0 6px rgba(251,191,36,0.5)' }}
+            style={{ textShadow: '0 0 3px rgba(251,191,36,0.5)' }}
           >
             {session.pendingApprovals} PENDING
           </span>

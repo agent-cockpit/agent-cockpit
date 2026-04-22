@@ -1,16 +1,16 @@
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import type { NormalizedEvent } from '@cockpit/shared';
+import type Database from 'better-sqlite3';
 import http from 'node:http';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { openDatabase } from '../db/database.js';
 import {
-  indexForSearch,
-  searchAll,
-  getAllSessions,
-  getSessionSummary,
-  persistEvent,
+    getAllSessions,
+    getSessionSummary,
+    indexForSearch,
+    persistEvent,
+    searchAll,
 } from '../db/queries.js';
 import { createWsServer } from '../ws/server.js';
-import type Database from 'better-sqlite3';
-import type { NormalizedEvent } from '@cockpit/shared';
 
 // ---- HTTP helper ----
 
@@ -30,6 +30,41 @@ function httpGetJson(
       },
     );
     req.on('error', reject);
+    req.end();
+  });
+}
+
+function httpJson(
+  port: number,
+  method: 'GET' | 'DELETE',
+  urlPath: string,
+  body?: unknown,
+): Promise<{ status: number; body: unknown; headers: http.IncomingHttpHeaders }> {
+  return new Promise((resolve, reject) => {
+    const payload = body ? JSON.stringify(body) : null;
+    const req = http.request(
+      {
+        hostname: 'localhost',
+        port,
+        path: urlPath,
+        method,
+        headers: payload
+          ? {
+              'Content-Type': 'application/json',
+              'Content-Length': String(Buffer.byteLength(payload)),
+            }
+          : undefined,
+      },
+      (res) => {
+        let raw = '';
+        res.on('data', (chunk) => { raw += chunk; });
+        res.on('end', () => {
+          resolve({ status: res.statusCode ?? 0, body: raw ? JSON.parse(raw) : null, headers: res.headers });
+        });
+      },
+    );
+    req.on('error', reject);
+    if (payload) req.write(payload);
     req.end();
   });
 }
@@ -275,5 +310,67 @@ describe('GET /api/sessions/:id/summary', () => {
     const { status, headers } = await httpGetJson(port, '/api/sessions/no-such-session-xyz/summary');
     expect(status).toBe(404);
     expect(headers['access-control-allow-origin']).toBe('*');
+  });
+});
+
+describe('DELETE /api/sessions', () => {
+  it('Test H6: deletes ended sessions and removes them from list', async () => {
+    const sessionId = 'http-delete-ended-001';
+    const now = new Date().toISOString();
+    persistEvent(db, {
+      schemaVersion: 1,
+      sessionId,
+      timestamp: now,
+      type: 'session_start',
+      provider: 'claude',
+      workspacePath: '/workspace/delete-ended',
+    } as NormalizedEvent);
+    persistEvent(db, {
+      schemaVersion: 1,
+      sessionId,
+      timestamp: new Date(Date.now() + 1000).toISOString(),
+      type: 'session_end',
+      provider: 'claude',
+    } as NormalizedEvent);
+
+    const del = await httpJson(port, 'DELETE', '/api/sessions', {
+      sessionIds: [sessionId],
+      terminateActive: false,
+    });
+    expect(del.status).toBe(200);
+    const payload = del.body as { deletedSessionIds: string[]; skipped: Array<{ sessionId: string }> };
+    expect(payload.deletedSessionIds).toEqual([sessionId]);
+    expect(payload.skipped).toEqual([]);
+
+    const { body } = await httpGetJson(port, '/api/sessions');
+    const sessions = body as Array<{ sessionId: string }>;
+    expect(sessions.some((s) => s.sessionId === sessionId)).toBe(false);
+  });
+
+  it('Test H7: skips active session when terminateActive=false', async () => {
+    const sessionId = 'http-delete-active-001';
+    persistEvent(db, {
+      schemaVersion: 1,
+      sessionId,
+      timestamp: new Date().toISOString(),
+      type: 'session_start',
+      provider: 'claude',
+      workspacePath: '/workspace/delete-active',
+      managedByDaemon: false,
+      canTerminateSession: false,
+      reason: 'External session is approval-only; chat send and terminate are disabled.',
+    } as NormalizedEvent);
+
+    const del = await httpJson(port, 'DELETE', '/api/sessions', {
+      sessionIds: [sessionId],
+      terminateActive: false,
+    });
+    expect(del.status).toBe(200);
+    const payload = del.body as {
+      deletedSessionIds: string[];
+      skipped: Array<{ sessionId: string; reason: string }>;
+    };
+    expect(payload.deletedSessionIds).toEqual([]);
+    expect(payload.skipped.some((s) => s.sessionId === sessionId)).toBe(true);
   });
 });

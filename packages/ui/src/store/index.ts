@@ -1,16 +1,16 @@
+import type { NormalizedEvent } from '@cockpit/shared'
 import { create } from 'zustand'
 import { subscribeWithSelector } from 'zustand/middleware'
-import type { NormalizedEvent } from '@cockpit/shared'
 import {
-  CHARACTER_TYPES,
-  type CharacterType,
-  newCharacterBag,
-  drawFromBag,
+    CHARACTER_TYPES,
+    type CharacterType,
+    drawFromBag,
+    newCharacterBag,
 } from '../components/office/characterMapping.js'
-import { applyEventToSessions } from './sessionsSlice.js'
-import { applyEventToEvents } from './eventsSlice.js'
-import { applyEventToApprovals } from './approvalsSlice.js'
 import type { ApprovalsSlice } from './approvalsSlice.js'
+import { applyEventToApprovals } from './approvalsSlice.js'
+import { applyEventToEvents } from './eventsSlice.js'
+import { applyEventToSessions } from './sessionsSlice.js'
 
 export type SessionStatus = 'active' | 'ended' | 'error'
 export const PLAYER_CHARACTER_STORAGE_KEY = 'cockpit.player.character.v1'
@@ -132,6 +132,8 @@ export type PopupTabId = PanelId | 'chat'
 interface SessionsSlice {
   sessions: Record<string, SessionRecord>
   characterBag: CharacterType[]
+  subagentSessionIds: Set<string>
+  activeSubagentParents: Record<string, number>
   applyEvent: (event: NormalizedEvent) => void
   applyEventsBatch: (events: NormalizedEvent[]) => void
 }
@@ -168,6 +170,7 @@ interface HistorySlice {
   historyMode: boolean
   compareSelectionIds: string[]
   bulkApplySessions: (sessions: SessionSummary[]) => void
+  removeHistorySessions: (sessionIds: string[]) => void
   setHistoryMode: (on: boolean) => void
   toggleCompareSelection: (id: string) => void
 }
@@ -175,9 +178,9 @@ interface HistorySlice {
 export type AppStore = SessionsSlice & UiSlice & WsSlice & EventsSlice & HistorySlice & ApprovalsSlice
 
 function reduceStoreWithEvent(
-  state: Pick<AppStore, 'sessions' | 'events' | 'pendingApprovalsBySession' | 'characterBag'>,
+  state: Pick<AppStore, 'sessions' | 'events' | 'pendingApprovalsBySession' | 'characterBag' | 'subagentSessionIds' | 'activeSubagentParents'>,
   event: NormalizedEvent,
-): Pick<AppStore, 'sessions' | 'events' | 'pendingApprovalsBySession' | 'characterBag'> {
+): Pick<AppStore, 'sessions' | 'events' | 'pendingApprovalsBySession' | 'characterBag' | 'subagentSessionIds' | 'activeSubagentParents'> {
   let characterBag = state.characterBag
   let character: CharacterType | undefined
   if (event.type === 'session_start') {
@@ -202,11 +205,32 @@ function reduceStoreWithEvent(
   const sessionsPatch = applyEventToSessions(state, event, character)
   const eventsPatch = applyEventToEvents(state, event)
   const { pendingApprovalsBySession } = applyEventToApprovals(state, event)
+  let subagentSessionIds = state.subagentSessionIds
+  let activeSubagentParents = state.activeSubagentParents
+  if (event.type === 'subagent_spawn') {
+    subagentSessionIds = new Set(subagentSessionIds)
+    subagentSessionIds.add(event.subagentSessionId)
+    activeSubagentParents = {
+      ...activeSubagentParents,
+      [event.sessionId]: (activeSubagentParents[event.sessionId] ?? 0) + 1,
+    }
+  }
+  if (event.type === 'subagent_complete') {
+    const next = (activeSubagentParents[event.sessionId] ?? 1) - 1
+    activeSubagentParents = { ...activeSubagentParents }
+    if (next <= 0) {
+      delete activeSubagentParents[event.sessionId]
+    } else {
+      activeSubagentParents[event.sessionId] = next
+    }
+  }
   return {
     sessions: sessionsPatch.sessions,
     events: eventsPatch.events,
     pendingApprovalsBySession,
     characterBag,
+    subagentSessionIds,
+    activeSubagentParents,
   }
 }
 
@@ -215,17 +239,21 @@ export const useStore = create<AppStore>()(
     // sessionsSlice
     sessions: {},
     characterBag: newCharacterBag(),
+    subagentSessionIds: new Set<string>(),
+    activeSubagentParents: {},
     applyEvent: (event) =>
       set((state) => reduceStoreWithEvent(state, event)),
     applyEventsBatch: (events) =>
       set((state) => {
         if (events.length === 0) return {}
 
-        let nextState: Pick<AppStore, 'sessions' | 'events' | 'pendingApprovalsBySession' | 'characterBag'> = {
+        let nextState: Pick<AppStore, 'sessions' | 'events' | 'pendingApprovalsBySession' | 'characterBag' | 'subagentSessionIds' | 'activeSubagentParents'> = {
           sessions: state.sessions,
           events: state.events,
           pendingApprovalsBySession: state.pendingApprovalsBySession,
           characterBag: state.characterBag,
+          subagentSessionIds: state.subagentSessionIds,
+          activeSubagentParents: state.activeSubagentParents,
         }
 
         for (const event of events) {
@@ -242,13 +270,26 @@ export const useStore = create<AppStore>()(
 
     // approvalsSlice
     pendingApprovalsBySession: {},
+    hydratePendingApprovals: (sessionId, approvals) =>
+      set((s) => {
+        const sessions = s.sessions[sessionId]
+          ? {
+              ...s.sessions,
+              [sessionId]: { ...s.sessions[sessionId]!, pendingApprovals: approvals.length },
+            }
+          : s.sessions
+        return {
+          pendingApprovalsBySession: { ...s.pendingApprovalsBySession, [sessionId]: approvals },
+          sessions,
+        }
+      }),
 
     // uiSlice
     selectedSessionId: null,
     selectedPlayerCharacter: readStoredPlayerCharacter(),
     activePanel: 'approvals',
     popupPreferredTab: null,
-    filters: { provider: null, status: null, search: '' },
+    filters: { provider: null, status: 'active', search: '' },
     sessionDetailOpen: false,
     selectSession: (id) => set({ selectedSessionId: id }),
     setSelectedPlayerCharacter: (character) => {
@@ -284,6 +325,21 @@ export const useStore = create<AppStore>()(
           ...Object.fromEntries(sessions.map((sess) => [sess.sessionId, sess])),
         },
       })),
+    removeHistorySessions: (sessionIds) =>
+      set((s) => {
+        if (sessionIds.length === 0) return {}
+
+        const ids = new Set(sessionIds)
+        const nextHistorySessions = { ...s.historySessions }
+        ids.forEach((sessionId) => {
+          delete nextHistorySessions[sessionId]
+        })
+
+        return {
+          historySessions: nextHistorySessions,
+          compareSelectionIds: s.compareSelectionIds.filter((id) => !ids.has(id)),
+        }
+      }),
     setHistoryMode: (on) => set({ historyMode: on }),
     toggleCompareSelection: (id) =>
       set((s) => {
