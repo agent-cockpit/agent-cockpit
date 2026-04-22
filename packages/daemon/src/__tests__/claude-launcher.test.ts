@@ -116,21 +116,8 @@ describe('ClaudeLauncher.launch()', () => {
     const writeCall = vi.mocked(fs.writeFileSync).mock.calls[0];
     expect(writeCall).toBeDefined();
     const written = JSON.parse(writeCall[1] as string) as {
-      permissions?: { allow: string[]; deny: string[] };
       hooks: Record<string, Array<{ matcher?: string; hooks: Array<{ type: string; command: string }> }>>;
     };
-
-    // permissions.allow must be present so Claude fires PermissionRequest for unlisted tools
-    expect(written.permissions?.allow).toBeDefined();
-    expect(Array.isArray(written.permissions?.allow)).toBe(true);
-    // Safe tools are in the allow list (auto-approved)
-    expect(written.permissions?.allow).toContain('Read');
-    expect(written.permissions?.allow).toContain('Glob');
-    expect(written.permissions?.allow).toContain('Grep');
-    // Dangerous tools must NOT be in allow list (so Claude fires PermissionRequest)
-    expect(written.permissions?.allow).not.toContain('Bash');
-    expect(written.permissions?.allow).not.toContain('WebFetch');
-    expect(written.permissions?.allow).not.toContain('WebSearch');
 
     const hookEvents = [
       'SessionStart',
@@ -154,26 +141,36 @@ describe('ClaudeLauncher.launch()', () => {
     expect(written.hooks['PermissionRequest'][0]?.matcher).toBe('');
   });
 
-  it('skipPermissions=true writes settings without permissions block and uses --dangerously-skip-permissions', async () => {
+  it('permissionMode=dangerously_skip uses --dangerously-skip-permissions and no --allowedTools', async () => {
     const { ClaudeLauncher } = await import('../adapters/claude/claudeLauncher.js');
     const mockProc = makeMockProc();
     const procFactory = vi.fn(() => mockProc);
     const launcher = new ClaudeLauncher(5555, db, procFactory as never);
 
     const sessionId = 'aaaaaaaa-0000-0000-0000-000000000099';
-    await launchReady(launcher.launch(sessionId, '/tmp', undefined, undefined, true));
-
-    const writeCall = vi.mocked(fs.writeFileSync).mock.calls[0];
-    expect(writeCall).toBeDefined();
-    const written = JSON.parse(writeCall[1] as string) as { permissions?: unknown };
-    expect(written.permissions).toBeUndefined();
+    await launchReady(launcher.launch(sessionId, '/tmp', undefined, undefined, 'dangerously_skip'));
 
     const [, args] = (procFactory.mock.calls[0] as unknown) as [string, string[], unknown];
     expect(args).toContain('--dangerously-skip-permissions');
     expect(args).not.toContain('--permission-mode');
+    expect(args).not.toContain('--allowedTools');
   });
 
-  it('calls spawn with stream-json args, --session-id and --settings', async () => {
+  it('boolean skipPermissions arg remains backward compatible', async () => {
+    const { ClaudeLauncher } = await import('../adapters/claude/claudeLauncher.js');
+    const mockProc = makeMockProc();
+    const procFactory = vi.fn(() => mockProc);
+    const launcher = new ClaudeLauncher(5556, db, procFactory as never);
+
+    const sessionId = 'aaaaaaaa-0000-0000-0000-000000000100';
+    await launchReady(launcher.launch(sessionId, '/tmp', undefined, undefined, true));
+
+    const [, args] = (procFactory.mock.calls[0] as unknown) as [string, string[], unknown];
+    expect(args).toContain('--dangerously-skip-permissions');
+    expect(args).not.toContain('--allowedTools');
+  });
+
+  it('calls spawn with stream-json args, --allowedTools, --session-id and --settings', async () => {
     const { ClaudeLauncher } = await import('../adapters/claude/claudeLauncher.js');
     const mockProc = makeMockProc();
     const procFactory = vi.fn(() => mockProc);
@@ -192,6 +189,16 @@ describe('ClaudeLauncher.launch()', () => {
     expect(args).toContain(sessionId);
     expect(args).toContain('--settings');
     expect(args).toContain(`${os.tmpdir()}/cockpit-claude-${sessionId}.json`);
+    // --allowedTools must be present so Claude fires PermissionRequest for unlisted tools
+    expect(args).toContain('--allowedTools');
+    const allowedIdx = args.indexOf('--allowedTools');
+    const allowedValue = args[allowedIdx + 1] ?? '';
+    expect(allowedValue).toContain('Read');
+    expect(allowedValue).toContain('Glob');
+    expect(allowedValue).toContain('Grep');
+    expect(allowedValue).not.toContain('Bash');
+    expect(allowedValue).not.toContain('WebFetch');
+    expect(allowedValue).not.toContain('WebSearch');
   });
 
   it('pre-registers sessionId mapping in DB so hookParser finds it on Tier 2', async () => {

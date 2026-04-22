@@ -5,7 +5,7 @@ import fs from 'node:fs';
 import http, { createServer } from 'node:http';
 import path from 'node:path';
 import { WebSocket, WebSocketServer } from 'ws';
-import { ClaudeLauncher, LaunchError } from '../adapters/claude/claudeLauncher.js';
+import { ClaudeLauncher, type ClaudePermissionMode, LaunchError } from '../adapters/claude/claudeLauncher.js';
 import { markSessionStarted } from '../adapters/claude/hookServer.js';
 import { CodexAdapter } from '../adapters/codex/codexAdapter.js';
 import { getApprovalsBySession } from '../approvals/approvalStore.js';
@@ -102,7 +102,17 @@ function handleLaunchSession(
   req.on('end', () => {
     void (async () => {
       try {
-        const { provider, workspacePath, skipPermissions } = JSON.parse(body) as { provider?: string; workspacePath?: string; skipPermissions?: boolean };
+        const {
+          provider,
+          workspacePath,
+          skipPermissions,
+          permissionMode: requestedPermissionMode,
+        } = JSON.parse(body) as {
+          provider?: string;
+          workspacePath?: string;
+          skipPermissions?: boolean;
+          permissionMode?: string;
+        };
         if (!provider || !workspacePath) {
           res.writeHead(400, { 'Content-Type': 'application/json' });
           res.end(JSON.stringify({ error: 'provider and workspacePath are required' }));
@@ -120,9 +130,31 @@ function handleLaunchSession(
         const hookPort = Number(process.env['COCKPIT_HOOK_PORT'] ?? '3002');
 
         if (provider === 'claude') {
+          if (
+            requestedPermissionMode !== undefined &&
+            requestedPermissionMode !== 'default' &&
+            requestedPermissionMode !== 'dangerously_skip'
+          ) {
+            res.writeHead(400, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({
+              error: "permissionMode must be 'default' or 'dangerously_skip'",
+            }));
+            return;
+          }
+
+          const permissionMode: ClaudePermissionMode =
+            (requestedPermissionMode as ClaudePermissionMode | undefined)
+            ?? (skipPermissions === true ? 'dangerously_skip' : 'default');
+
           const launcher = new ClaudeLauncher(hookPort, db);
           await launcher.preflight(workspacePath);
-          logger.info('launch', 'Launching claude session', { sessionId, workspacePath, skipPermissions: skipPermissions ?? false });
+          logger.info('launch', 'Launching claude session', {
+            sessionId,
+            workspacePath,
+            permissionMode,
+            // Backward compatibility with older UI payloads.
+            skipPermissions: skipPermissions ?? false,
+          });
           const runtime = await launcher.launch(sessionId, workspacePath, () => {
             runtimeRegistry.unregister(sessionId);
             eventBus.emit('event', {
@@ -145,7 +177,7 @@ function handleLaunchSession(
               content,
               timestamp: new Date().toISOString(),
             } as NormalizedEvent);
-          }, skipPermissions);
+          }, permissionMode);
           runtimeRegistry.register(sessionId, {
             provider: 'claude',
             sendMessage: (message) => runtime.sendMessage(message),

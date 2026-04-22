@@ -186,6 +186,27 @@ describe('POST /api/sessions', () => {
     expect(payload.canTerminateSession).toBe(true);
   });
 
+  it('accepts explicit permissionMode=dangerously_skip for Claude launch', async () => {
+    const { status, data } = await httpPost(port, '/api/sessions', {
+      provider: 'claude',
+      workspacePath: '/tmp',
+      permissionMode: 'dangerously_skip',
+    });
+    expect(status).toBe(200);
+    expect(typeof data.sessionId).toBe('string');
+    expect(data.mode).toBe('initiated');
+  });
+
+  it('accepts legacy skipPermissions=true for backward compatibility', async () => {
+    const { status, data } = await httpPost(port, '/api/sessions', {
+      provider: 'claude',
+      workspacePath: '/tmp',
+      skipPermissions: true,
+    });
+    expect(status).toBe(200);
+    expect(typeof data.sessionId).toBe('string');
+  });
+
   it('returns 200 with { sessionId, mode: "initiated" } for Codex', async () => {
     const { status, data } = await httpPost(port, '/api/sessions', {
       provider: 'codex',
@@ -208,6 +229,16 @@ describe('POST /api/sessions', () => {
       workspacePath: '/tmp',
     });
     expect(status).toBe(400);
+  });
+
+  it('returns 400 for invalid permissionMode on Claude launch', async () => {
+    const { status, data } = await httpPost(port, '/api/sessions', {
+      provider: 'claude',
+      workspacePath: '/tmp',
+      permissionMode: 'invalid-mode',
+    });
+    expect(status).toBe(400);
+    expect(data.error).toContain("permissionMode must be");
   });
 
   it('returns 422 with error_code INVALID_WORKSPACE for non-existent workspacePath', async () => {

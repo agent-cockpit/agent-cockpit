@@ -23,6 +23,12 @@ async function submitForm(workspacePath = '/tmp/test-cockpit') {
   fireEvent.submit(form)
 }
 
+function getLaunchPayload() {
+  const fetchMock = global.fetch as ReturnType<typeof vi.fn>
+  const [, init] = fetchMock.mock.calls[0] as [string, RequestInit]
+  return JSON.parse(String(init.body)) as Record<string, unknown>
+}
+
 beforeEach(() => {
   vi.resetAllMocks()
 })
@@ -41,6 +47,30 @@ describe('LaunchSessionModal', () => {
     await waitFor(() => {
       expect(onClose).toHaveBeenCalledTimes(1)
     })
+
+    const payload = getLaunchPayload()
+    expect(payload.provider).toBe('claude')
+    expect(payload.permissionMode).toBe('default')
+  })
+
+  it('submits selected permissionMode for Claude launches', async () => {
+    const onClose = vi.fn()
+    global.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      text: async () => JSON.stringify({ sessionId: 'test-session-id', mode: 'initiated' }),
+    } as Response)
+
+    renderModal(onClose)
+    const permissionSelect = screen.getByLabelText(/permission level/i)
+    fireEvent.change(permissionSelect, { target: { value: 'dangerously_skip' } })
+    await submitForm()
+
+    await waitFor(() => {
+      expect(onClose).toHaveBeenCalledTimes(1)
+    })
+
+    const payload = getLaunchPayload()
+    expect(payload.permissionMode).toBe('dangerously_skip')
   })
 
   it('does not render copy-command UI', () => {

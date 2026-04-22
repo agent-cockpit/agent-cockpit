@@ -3,6 +3,7 @@ import { execFileSync, spawn, type ChildProcessWithoutNullStreams, type SpawnOpt
 import fs from 'node:fs';
 import os from 'node:os';
 import { setClaudeSessionId } from '../../db/queries.js';
+import { COCKPIT_ALLOWED_TOOLS } from './hookParser.js';
 
 export class LaunchError extends Error {
   constructor(
@@ -25,6 +26,8 @@ export interface ManagedClaudeRuntime {
   terminateSession: () => void
   isActive: () => boolean
 }
+
+export type ClaudePermissionMode = 'default' | 'dangerously_skip'
 
 interface PendingTurn {
   sawAssistant: boolean;
@@ -125,7 +128,7 @@ export class ClaudeLauncher {
     workspacePath: string,
     onExit?: () => void,
     onAssistantOutput?: (text: string) => void,
-    skipPermissions?: boolean,
+    permissionMode: ClaudePermissionMode | boolean = 'default',
   ): Promise<ManagedClaudeRuntime> {
     const HOOK_TIMEOUT_S = 60;
     const hookHost = process.env['COCKPIT_HOOK_HOST'] ?? '127.0.0.1';
@@ -134,25 +137,8 @@ export class ClaudeLauncher {
       ...(matcher !== undefined ? { matcher } : {}),
       hooks: [{ type: 'command', command: hookCmd, timeout: HOOK_TIMEOUT_S }],
     });
+
     const settings = {
-      // Tools in allow list are auto-approved; everything else (Bash, WebFetch, WebSearch,
-      // MCP tools) triggers PermissionRequest, which the daemon holds for user approval.
-      // Omitted when skipPermissions=true since --dangerously-skip-permissions bypasses all checks.
-      ...(!skipPermissions && {
-        permissions: {
-          allow: [
-            'Read',
-            'Glob',
-            'Grep',
-            'Write',
-            'Edit',
-            'MultiEdit',
-            'Agent',
-            'AskUserQuestion',
-          ],
-          deny: [] as string[],
-        },
-      }),
       hooks: {
         SessionStart: [{ matcher: 'startup', hooks: [{ type: 'command', command: hookCmd, timeout: HOOK_TIMEOUT_S }] }],
         SessionEnd: [hookEntry()],
@@ -175,6 +161,13 @@ export class ClaudeLauncher {
       setClaudeSessionId(this.db, sessionId, sessionId, workspacePath);
     }
 
+    const effectivePermissionMode: ClaudePermissionMode =
+      permissionMode === true
+        ? 'dangerously_skip'
+        : permissionMode === false
+          ? 'default'
+          : permissionMode;
+
     const args = [
       '-p',
       '--verbose',
@@ -186,7 +179,9 @@ export class ClaudeLauncher {
       sessionId,
       '--settings',
       settingsPath,
-      ...(skipPermissions ? ['--dangerously-skip-permissions'] : ['--permission-mode', 'default']),
+      ...(effectivePermissionMode === 'dangerously_skip'
+        ? ['--dangerously-skip-permissions']
+        : ['--permission-mode', 'default', '--allowedTools', [...COCKPIT_ALLOWED_TOOLS].join(' ')]),
     ];
 
     console.log(`[ClaudeLauncher] spawning claude ${args.join(' ')} in cwd=${workspacePath}`);

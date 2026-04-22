@@ -99,12 +99,23 @@ describe('parseHookPayload', () => {
     expect(result.event.type).toBe('session_end');
   });
 
-  it('Test 4: PreToolUse with non-blocking tool → tool_call, requiresApproval false', () => {
+  it('Test 4: PreToolUse for non-allowed tool (Bash) → approval_request, requiresApproval true', () => {
     const result = parseHookPayload({
       hook_event_name: 'PreToolUse',
       session_id: 'sess-003',
       tool_name: 'Bash',
       tool_input: { command: 'ls' },
+    });
+    expect(result.event.type).toBe('approval_request');
+    expect(result.requiresApproval).toBe(true);
+  });
+
+  it('Test 4b: PreToolUse for allowed tool (Read) → tool_call, requiresApproval false', () => {
+    const result = parseHookPayload({
+      hook_event_name: 'PreToolUse',
+      session_id: 'sess-003b',
+      tool_name: 'Read',
+      tool_input: { file_path: '/tmp/foo.ts' },
     });
     expect(result.event.type).toBe('tool_call');
     expect(result.requiresApproval).toBe(false);
@@ -448,6 +459,70 @@ describe('hookServer', () => {
     };
     expect(parsed.hookSpecificOutput.hookEventName).toBe('Elicitation');
     expect(parsed.hookSpecificOutput.action).toBe('accept');
+  });
+
+  it('Test 16c: PreToolUse for non-allowed tool holds response and resolves with PreToolUse envelope', async () => {
+    const decisions: Array<{ approvalId: string; event: NormalizedEvent }> = [];
+    server = createHookServer(
+      port,
+      () => {},
+      (approvalId, event) => decisions.push({ approvalId, event }),
+    );
+    await new Promise<void>((resolve) => server.once('listening', resolve));
+
+    const addr = server.address() as { port: number };
+    let responseBody = '';
+    let responseResolved = false;
+    const responsePromise = new Promise<void>((resolve, reject) => {
+      const data = JSON.stringify({
+        hook_event_name: 'PreToolUse',
+        session_id: 'test-sess-16c',
+        tool_use_id: 'tool-use-16c',
+        tool_name: 'Bash',
+        tool_input: { command: 'git commit -m "wip"' },
+      });
+      const req = http.request(
+        {
+          hostname: '127.0.0.1',
+          port: addr.port,
+          path: '/hook',
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Content-Length': Buffer.byteLength(data),
+          },
+        },
+        (res) => {
+          res.on('data', (chunk: Buffer) => { responseBody += chunk.toString(); });
+          res.on('end', () => {
+            responseResolved = true;
+            resolve();
+          });
+        },
+      );
+      req.on('error', reject);
+      req.write(data);
+      req.end();
+    });
+
+    await new Promise<void>((r) => setTimeout(r, 100));
+    expect(decisions).toHaveLength(1);
+    expect(decisions[0]!.event.type).toBe('approval_request');
+    expect(responseResolved).toBe(false);
+
+    resolveApproval(decisions[0]!.approvalId, 'allow', 'approved by user');
+    await responsePromise;
+
+    const parsed = JSON.parse(responseBody) as {
+      hookSpecificOutput: {
+        hookEventName: string;
+        permissionDecision: string;
+        permissionDecisionReason?: string;
+      };
+    };
+    expect(parsed.hookSpecificOutput.hookEventName).toBe('PreToolUse');
+    expect(parsed.hookSpecificOutput.permissionDecision).toBe('allow');
+    expect(parsed.hookSpecificOutput.permissionDecisionReason).toBe('approved by user');
   });
 
   it('Test 17: double resolveApproval on same approvalId — second call is a no-op (no throw, response not double-ended)', async () => {

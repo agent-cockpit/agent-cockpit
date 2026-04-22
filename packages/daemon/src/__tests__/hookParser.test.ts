@@ -353,12 +353,26 @@ describe('parseHookPayload subagent integrity under approval flows', () => {
     expect(subStopResult.event.sessionId).toBe(parentSessionId);
   });
 
-  it('PreToolUse remains tool_call even for high-risk command (provider-driven approvals)', () => {
+  it('PreToolUse for non-allowed Bash command → approval_request (daemon holds hook for user decision)', () => {
     const payload: HookPayload = {
       session_id: 'provider-driven-pretool',
       hook_event_name: 'PreToolUse',
       tool_name: 'Bash',
       tool_input: { command: 'rm -rf /tmp/provider-driven' },
+      cwd: '/workspace',
+    };
+
+    const result = parseHookPayload(payload);
+    expect(result.event.type).toBe('approval_request');
+    expect(result.requiresApproval).toBe(true);
+  });
+
+  it('PreToolUse for allowed tool (Read) → tool_call, auto-approved', () => {
+    const payload: HookPayload = {
+      session_id: 'provider-driven-read',
+      hook_event_name: 'PreToolUse',
+      tool_name: 'Read',
+      tool_input: { file_path: '/workspace/src/index.ts' },
       cwd: '/workspace',
     };
 
