@@ -339,4 +339,72 @@ describe('ClaudeLauncher.launch()', () => {
     await sendPromise;
     expect(onAssistantOutput).toHaveBeenCalledWith("You've hit your limit · resets 2pm (America/Sao_Paulo)");
   });
+
+  it('emits cumulative usage snapshots from result envelopes', async () => {
+    const { ClaudeLauncher } = await import('../adapters/claude/claudeLauncher.js');
+    const mockProc = makeMockProc();
+    const onUsageSnapshot = vi.fn();
+    const procFactory = vi.fn(() => mockProc);
+    const launcher = new ClaudeLauncher(3333, db, procFactory as never);
+
+    const runtime = await launchReady(
+      launcher.launch('session-usage-snapshots', '/tmp', undefined, undefined, 'default', onUsageSnapshot),
+    );
+
+    mockProc.__emitStdout(JSON.stringify({
+      type: 'system',
+      subtype: 'init',
+      model: 'claude-sonnet-4-6',
+    }));
+
+    const firstTurn = runtime.sendMessage('first turn');
+    mockProc.__emitStdout(JSON.stringify({
+      type: 'result',
+      is_error: false,
+      result: 'ok',
+      usage: {
+        input_tokens: 100,
+        output_tokens: 25,
+        cache_read_input_tokens: 10,
+        cache_creation_input_tokens: 5,
+      },
+    }));
+    await firstTurn;
+
+    expect(onUsageSnapshot).toHaveBeenCalledWith({
+      model: 'claude-sonnet-4-6',
+      inputTokens: 100,
+      outputTokens: 25,
+      totalTokens: 125,
+      cachedInputTokens: 15,
+      contextUsedTokens: 100,
+      contextWindowTokens: 200000,
+      contextPercent: 0,
+    });
+
+    const secondTurn = runtime.sendMessage('second turn');
+    mockProc.__emitStdout(JSON.stringify({
+      type: 'result',
+      is_error: false,
+      result: 'ok',
+      usage: {
+        input_tokens: 50,
+        output_tokens: 10,
+        cache_read_input_tokens: 2,
+        cache_creation_input_tokens: 0,
+      },
+    }));
+    await secondTurn;
+
+    expect(onUsageSnapshot).toHaveBeenLastCalledWith({
+      model: 'claude-sonnet-4-6',
+      inputTokens: 150,
+      outputTokens: 35,
+      totalTokens: 185,
+      cachedInputTokens: 17,
+      contextUsedTokens: 50,
+      contextWindowTokens: 200000,
+      contextPercent: 0,
+    });
+  });
 });

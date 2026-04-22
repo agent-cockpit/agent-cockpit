@@ -62,6 +62,31 @@ const turnCompletedFixture = JSON.stringify({
   params: { turn: { id: 'turn_1', status: 'completed' } },
 });
 
+const threadTokenUsageUpdatedFixture = JSON.stringify({
+  method: 'thread/tokenUsage/updated',
+  params: {
+    threadId: 'thr_1',
+    turnId: 'turn_1',
+    tokenUsage: {
+      total: {
+        totalTokens: 4200,
+        inputTokens: 3200,
+        cachedInputTokens: 600,
+        outputTokens: 1000,
+        reasoningOutputTokens: 220,
+      },
+      last: {
+        totalTokens: 640,
+        inputTokens: 512,
+        cachedInputTokens: 96,
+        outputTokens: 128,
+        reasoningOutputTokens: 42,
+      },
+      modelContextWindow: 128000,
+    },
+  },
+});
+
 const itemCompletedAssistantFixture = JSON.stringify({
   method: 'item/completed',
   params: {
@@ -205,6 +230,19 @@ describe('parseCodexLine', () => {
   it('turn/completed with status completed → returns null (turn end is not session end)', () => {
     const event = parseCodexLine(turnCompletedFixture, ctx);
     expect(event).toBeNull();
+  });
+
+  it('thread/tokenUsage/updated emits session_usage with totals + context percent', () => {
+    const event = parseCodexLine(threadTokenUsageUpdatedFixture, ctx);
+    expect(event).not.toBeNull();
+    expect(event!.type).toBe('session_usage');
+    expect((event as { provider: string }).provider).toBe('codex');
+    expect((event as { inputTokens: number }).inputTokens).toBe(3200);
+    expect((event as { outputTokens: number }).outputTokens).toBe(1000);
+    expect((event as { totalTokens: number }).totalTokens).toBe(4200);
+    expect((event as { contextUsedTokens: number }).contextUsedTokens).toBe(512);
+    expect((event as { contextWindowTokens: number }).contextWindowTokens).toBe(128000);
+    expect((event as { contextPercent: number }).contextPercent).toBe(0);
   });
 
   it('item/completed assistantMessage → returns session_chat_message assistant event', () => {

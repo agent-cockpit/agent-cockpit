@@ -29,6 +29,17 @@ export interface ManagedClaudeRuntime {
 
 export type ClaudePermissionMode = 'default' | 'dangerously_skip'
 
+export interface ClaudeSessionUsageSnapshot {
+  model?: string
+  inputTokens: number
+  outputTokens: number
+  totalTokens: number
+  cachedInputTokens: number
+  contextUsedTokens?: number
+  contextWindowTokens?: number
+  contextPercent?: number
+}
+
 interface PendingTurn {
   sawAssistant: boolean;
   resolve: () => void;
@@ -89,6 +100,50 @@ function extractResultTextFromEnvelope(envelope: Record<string, unknown>): strin
   return extractText(envelope['result']);
 }
 
+function toNonNegativeInteger(value: unknown): number | null {
+  if (typeof value !== 'number' || !Number.isFinite(value)) return null;
+  if (value < 0) return null;
+  return Math.round(value);
+}
+
+function extractClaudeUsageCounts(value: unknown): {
+  inputTokens: number
+  outputTokens: number
+  cacheReadInputTokens: number
+  cacheCreationInputTokens: number
+} | null {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return null;
+  const usage = value as Record<string, unknown>;
+  const inputTokens = toNonNegativeInteger(usage['input_tokens']);
+  const outputTokens = toNonNegativeInteger(usage['output_tokens']);
+  if (inputTokens === null || outputTokens === null) return null;
+  return {
+    inputTokens,
+    outputTokens,
+    cacheReadInputTokens: toNonNegativeInteger(usage['cache_read_input_tokens']) ?? 0,
+    cacheCreationInputTokens: toNonNegativeInteger(usage['cache_creation_input_tokens']) ?? 0,
+  };
+}
+
+function extractInitModel(envelope: Record<string, unknown>): string | null {
+  if (envelope['type'] !== 'system') return null;
+  if (envelope['subtype'] !== 'init') return null;
+  const model = envelope['model'];
+  if (typeof model !== 'string') return null;
+  const trimmed = model.trim();
+  return trimmed.length > 0 ? trimmed : null;
+}
+
+function resolveClaudeModelContextWindow(model: string | null): number | null {
+  if (!model) return null;
+  const normalized = model.trim().toLowerCase();
+  if (!normalized.startsWith('claude')) return null;
+
+  // Anthropic docs list Claude 4.x, 3.7, and 3.5 default context windows as 200K.
+  // Claude Code currently does not expose a direct context-window field in stream-json.
+  return 200_000;
+}
+
 function createUserTurnPayload(content: string): string {
   return JSON.stringify({
     type: 'user',
@@ -129,6 +184,7 @@ export class ClaudeLauncher {
     onExit?: () => void,
     onAssistantOutput?: (text: string) => void,
     permissionMode: ClaudePermissionMode | boolean = 'default',
+    onUsageSnapshot?: (usage: ClaudeSessionUsageSnapshot) => void,
   ): Promise<ManagedClaudeRuntime> {
     const HOOK_TIMEOUT_S = 60;
     const hookHost = process.env['COCKPIT_HOOK_HOST'] ?? '127.0.0.1';
@@ -221,6 +277,10 @@ export class ClaudeLauncher {
       let active = true;
       let startupTimer: NodeJS.Timeout | null = null;
       const pendingTurns: PendingTurn[] = [];
+      let activeModel: string | null = null;
+      let cumulativeInputTokens = 0;
+      let cumulativeOutputTokens = 0;
+      let cumulativeCachedInputTokens = 0;
 
       const settleResolve = (runtime: ManagedClaudeRuntime): void => {
         if (settled) return;
@@ -257,6 +317,11 @@ export class ClaudeLauncher {
           return;
         }
 
+        const modelFromInit = extractInitModel(envelope);
+        if (modelFromInit) {
+          activeModel = modelFromInit;
+        }
+
         const activeTurn = pendingTurns[0];
 
         const assistantDelta = extractAssistantDeltaFromEnvelope(envelope);
@@ -275,6 +340,31 @@ export class ClaudeLauncher {
 
         const isResult = envelope['type'] === 'result';
         if (!isResult) return;
+
+        const usageCounts = extractClaudeUsageCounts(envelope['usage']);
+        if (usageCounts) {
+          cumulativeInputTokens += usageCounts.inputTokens;
+          cumulativeOutputTokens += usageCounts.outputTokens;
+          cumulativeCachedInputTokens += usageCounts.cacheReadInputTokens + usageCounts.cacheCreationInputTokens;
+
+          const contextWindowTokens = resolveClaudeModelContextWindow(activeModel);
+          const contextUsedTokens = usageCounts.inputTokens;
+          const contextPercent =
+            contextWindowTokens && contextWindowTokens > 0
+              ? Math.max(0, Math.min(100, Math.round((contextUsedTokens / contextWindowTokens) * 100)))
+              : undefined;
+
+          onUsageSnapshot?.({
+            ...(activeModel ? { model: activeModel } : {}),
+            inputTokens: cumulativeInputTokens,
+            outputTokens: cumulativeOutputTokens,
+            totalTokens: cumulativeInputTokens + cumulativeOutputTokens,
+            cachedInputTokens: cumulativeCachedInputTokens,
+            contextUsedTokens,
+            ...(contextWindowTokens ? { contextWindowTokens } : {}),
+            ...(contextPercent !== undefined ? { contextPercent } : {}),
+          });
+        }
 
         const turn = pendingTurns.shift();
         if (!turn) return;

@@ -27,7 +27,10 @@ vi.mock('../../store/index.js', () => {
   const storeState = {
     events: {},
     sessions: {},
+    historySessions: {},
     pendingApprovalsBySession: {},
+    popupWindows: {},
+    popupWindowOrder: [],
     wsStatus: 'disconnected',
     selectedSessionId: null,
     selectedPlayerCharacter: 'astronaut',
@@ -36,6 +39,12 @@ vi.mock('../../store/index.js', () => {
     setHistoryMode: vi.fn(),
     setPopupPreferredTab: vi.fn(),
     setSessionDetailOpen: vi.fn(),
+    closeSessionPopup: vi.fn(),
+    minimizeSessionPopup: vi.fn(),
+    restoreSessionPopup: vi.fn(),
+    bringSessionPopupToFront: vi.fn(),
+    setSessionPopupRect: vi.fn(),
+    clearSessionPopupPreferredTab: vi.fn(),
   }
   const useStore = vi.fn((selector: (s: typeof storeState) => unknown) => selector(storeState))
   ;(useStore as unknown as { getState: () => typeof storeState }).getState = () => storeState

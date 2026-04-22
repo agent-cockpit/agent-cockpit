@@ -89,4 +89,24 @@ describe('NormalizedEventSchema', () => {
       expect(result.type).toBe('approval_request');
     });
   });
+
+  describe('session_usage', () => {
+    it('parses a valid session_usage event', () => {
+      const result = NormalizedEventSchema.parse({
+        ...validBase,
+        type: 'session_usage',
+        provider: 'codex',
+        inputTokens: 1200,
+        outputTokens: 340,
+        totalTokens: 1540,
+        contextUsedTokens: 1100,
+        contextWindowTokens: 128000,
+        contextPercent: 0.86,
+      });
+      expect(result.type).toBe('session_usage');
+      if (result.type !== 'session_usage') return;
+      expect(result.provider).toBe('codex');
+      expect(result.totalTokens).toBe(1540);
+    });
+  });
 });

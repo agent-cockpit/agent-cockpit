@@ -89,6 +89,22 @@ export const MemoryWriteEvent = BaseEvent.extend({
   suggested: z.boolean().default(false),
 });
 
+// ─── Session usage telemetry ────────────────────────────────────────────────
+
+export const SessionUsageEvent = BaseEvent.extend({
+  type: z.literal('session_usage'),
+  provider: z.enum(['claude', 'codex']),
+  inputTokens: z.number().int().nonnegative(),
+  outputTokens: z.number().int().nonnegative(),
+  totalTokens: z.number().int().nonnegative(),
+  cachedInputTokens: z.number().int().nonnegative().optional(),
+  reasoningOutputTokens: z.number().int().nonnegative().optional(),
+  contextUsedTokens: z.number().int().nonnegative().optional(),
+  contextWindowTokens: z.number().int().positive().optional(),
+  contextPercent: z.number().min(0).max(100).optional(),
+  model: z.string().optional(),
+});
+
 // ─── Provider parse error ─────────────────────────────────────────────────────
 
 export const ProviderParseErrorEvent = BaseEvent.extend({
@@ -132,6 +148,7 @@ export const NormalizedEventSchema = z.discriminatedUnion('type', [
   SubagentCompleteEvent,
   MemoryReadEvent,
   MemoryWriteEvent,
+  SessionUsageEvent,
   ProviderParseErrorEvent,
   SessionChatMessageEvent,
   SessionChatErrorEvent,

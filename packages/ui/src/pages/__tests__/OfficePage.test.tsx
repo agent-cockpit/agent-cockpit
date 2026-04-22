@@ -69,7 +69,10 @@ const {
 interface MockStoreState {
   events: Record<string, unknown[]>
   sessions: Record<string, unknown>
+  historySessions: Record<string, unknown>
   pendingApprovalsBySession: Record<string, unknown[]>
+  popupWindows: Record<string, unknown>
+  popupWindowOrder: string[]
   selectedSessionId: string | null
   selectedPlayerCharacter: string
   sessionDetailOpen: boolean
@@ -77,12 +80,21 @@ interface MockStoreState {
   setHistoryMode: ReturnType<typeof vi.fn>
   setPopupPreferredTab: ReturnType<typeof vi.fn>
   setSessionDetailOpen: ReturnType<typeof vi.fn>
+  closeSessionPopup: ReturnType<typeof vi.fn>
+  minimizeSessionPopup: ReturnType<typeof vi.fn>
+  restoreSessionPopup: ReturnType<typeof vi.fn>
+  bringSessionPopupToFront: ReturnType<typeof vi.fn>
+  setSessionPopupRect: ReturnType<typeof vi.fn>
+  clearSessionPopupPreferredTab: ReturnType<typeof vi.fn>
 }
 
 const storeState: MockStoreState = {
   events: {},
   sessions: {},
+  historySessions: {},
   pendingApprovalsBySession: {},
+  popupWindows: {},
+  popupWindowOrder: [],
   selectedSessionId: null,
   selectedPlayerCharacter: 'astronaut',
   sessionDetailOpen: false,
@@ -90,6 +102,12 @@ const storeState: MockStoreState = {
   setHistoryMode: setHistoryModeMock,
   setPopupPreferredTab: setPopupPreferredTabMock,
   setSessionDetailOpen: setSessionDetailOpenMock,
+  closeSessionPopup: vi.fn(),
+  minimizeSessionPopup: vi.fn(),
+  restoreSessionPopup: vi.fn(),
+  bringSessionPopupToFront: vi.fn(),
+  setSessionPopupRect: vi.fn(),
+  clearSessionPopupPreferredTab: vi.fn(),
 }
 const NPC_POSITION_STORAGE_KEY = 'cockpit.npc.positions.v1'
 const PLAYER_STATE_STORAGE_KEY = 'cockpit.player.state.v1'
@@ -239,13 +257,22 @@ describe('OfficePage canvas mount', () => {
     selectSessionMock.mockClear()
     setHistoryModeMock.mockClear()
     storeState.sessions = {}
+    storeState.historySessions = {}
     storeState.pendingApprovalsBySession = {}
+    storeState.popupWindows = {}
+    storeState.popupWindowOrder = []
     storeState.selectedSessionId = null
     storeState.selectedPlayerCharacter = 'astronaut'
     storeState.sessionDetailOpen = false
     imageInstances.length = 0
     setPopupPreferredTabMock.mockClear()
     setSessionDetailOpenMock.mockClear()
+    storeState.closeSessionPopup.mockClear()
+    storeState.minimizeSessionPopup.mockClear()
+    storeState.restoreSessionPopup.mockClear()
+    storeState.bringSessionPopupToFront.mockClear()
+    storeState.setSessionPopupRect.mockClear()
+    storeState.clearSessionPopupPreferredTab.mockClear()
     vi.stubGlobal('ResizeObserver', MockResizeObserver)
     vi.stubGlobal('Image', MockImage)
     stubMapManifestFetch()

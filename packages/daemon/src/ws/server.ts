@@ -177,7 +177,29 @@ function handleLaunchSession(
               content,
               timestamp: new Date().toISOString(),
             } as NormalizedEvent);
-          }, permissionMode);
+          }, permissionMode, (usageSnapshot) => {
+            eventBus.emit('event', {
+              schemaVersion: 1,
+              sessionId,
+              type: 'session_usage',
+              provider: 'claude',
+              timestamp: new Date().toISOString(),
+              inputTokens: usageSnapshot.inputTokens,
+              outputTokens: usageSnapshot.outputTokens,
+              totalTokens: usageSnapshot.totalTokens,
+              cachedInputTokens: usageSnapshot.cachedInputTokens,
+              ...(usageSnapshot.contextUsedTokens !== undefined
+                ? { contextUsedTokens: usageSnapshot.contextUsedTokens }
+                : {}),
+              ...(usageSnapshot.contextWindowTokens !== undefined
+                ? { contextWindowTokens: usageSnapshot.contextWindowTokens }
+                : {}),
+              ...(usageSnapshot.contextPercent !== undefined
+                ? { contextPercent: usageSnapshot.contextPercent }
+                : {}),
+              ...(usageSnapshot.model ? { model: usageSnapshot.model } : {}),
+            } as NormalizedEvent);
+          });
           runtimeRegistry.register(sessionId, {
             provider: 'claude',
             sendMessage: (message) => runtime.sendMessage(message),

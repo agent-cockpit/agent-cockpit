@@ -1,9 +1,9 @@
 import { useEffect, useMemo, useState } from 'react'
-import { useParams } from 'react-router'
 import type { NormalizedEvent } from '@cockpit/shared'
 import { useStore } from '../../store/index.js'
 import { EMPTY_EVENTS } from '../../store/eventsSlice.js'
 import { DAEMON_URL } from '../../lib/daemonUrl.js'
+import { usePanelSessionId } from './sessionScope.js'
 
 interface ArtifactItem {
   id: string
@@ -205,12 +205,30 @@ function deriveLogFromEvent(event: NormalizedEvent, index: number, approvalReque
       message: event.content.slice(0, 140),
     }
   }
+  if (event.type === 'session_chat_error') {
+    return {
+      id,
+      timestamp: event.timestamp,
+      level: 'warn',
+      label: 'Chat Error',
+      message: event.reason,
+    }
+  }
+  if (event.type === 'session_usage') {
+    return {
+      id,
+      timestamp: event.timestamp,
+      level: 'info',
+      label: 'Usage Updated',
+      message: `in ${event.inputTokens} · out ${event.outputTokens}`,
+    }
+  }
   return {
     id,
     timestamp: event.timestamp,
-    level: 'warn',
-    label: 'Chat Error',
-    message: event.reason,
+    level: 'info',
+    label: event.type,
+    message: '',
   }
 }
 
@@ -227,9 +245,7 @@ function changeTypeClass(type: ArtifactItem['changeType']): string {
 }
 
 export function ArtifactsPanel() {
-  const { sessionId: paramSessionId } = useParams<{ sessionId: string }>()
-  const storeSessionId = useStore((s) => s.selectedSessionId)
-  const sessionId = paramSessionId ?? storeSessionId ?? ''
+  const sessionId = usePanelSessionId()
   const events = useStore((s) => (sessionId ? s.events[sessionId] : EMPTY_EVENTS) ?? EMPTY_EVENTS)
   const bulkApplyEvents = useStore((s) => s.bulkApplyEvents)
   const [approvalRequests, setApprovalRequests] = useState<ApprovalRequestMap>(new Map())

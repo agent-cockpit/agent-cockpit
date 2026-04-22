@@ -52,6 +52,46 @@ function getAssistantDeltaSet(ctx: CodexParserContext): Set<string> {
   return ctx.assistantItemsWithDelta;
 }
 
+function toNonNegativeInteger(value: unknown): number | null {
+  if (typeof value !== 'number' || !Number.isFinite(value)) return null;
+  if (value < 0) return null;
+  return Math.round(value);
+}
+
+type TokenUsageBreakdown = {
+  totalTokens: number;
+  inputTokens: number;
+  cachedInputTokens: number;
+  outputTokens: number;
+  reasoningOutputTokens: number;
+};
+
+function parseTokenUsageBreakdown(value: unknown): TokenUsageBreakdown | null {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return null;
+  const record = value as Record<string, unknown>;
+  const totalTokens = toNonNegativeInteger(record['totalTokens']);
+  const inputTokens = toNonNegativeInteger(record['inputTokens']);
+  const cachedInputTokens = toNonNegativeInteger(record['cachedInputTokens']);
+  const outputTokens = toNonNegativeInteger(record['outputTokens']);
+  const reasoningOutputTokens = toNonNegativeInteger(record['reasoningOutputTokens']);
+  if (
+    totalTokens === null ||
+    inputTokens === null ||
+    cachedInputTokens === null ||
+    outputTokens === null ||
+    reasoningOutputTokens === null
+  ) {
+    return null;
+  }
+  return {
+    totalTokens,
+    inputTokens,
+    cachedInputTokens,
+    outputTokens,
+    reasoningOutputTokens,
+  };
+}
+
 function extractText(value: unknown): string | null {
   if (typeof value === 'string') {
     const text = value.trim();
@@ -206,6 +246,39 @@ export function parseCodexLine(
         type: 'session_start',
         provider: 'codex',
         workspacePath: ctx.workspacePath,
+      };
+    }
+
+    case 'thread/tokenUsage/updated': {
+      const tokenUsage =
+        params['tokenUsage'] && typeof params['tokenUsage'] === 'object'
+          ? (params['tokenUsage'] as Record<string, unknown>)
+          : null;
+      if (!tokenUsage) return null;
+
+      const totalBreakdown = parseTokenUsageBreakdown(tokenUsage['total']);
+      const lastBreakdown = parseTokenUsageBreakdown(tokenUsage['last']);
+      if (!totalBreakdown || !lastBreakdown) return null;
+
+      const contextWindowTokens = toNonNegativeInteger(tokenUsage['modelContextWindow']);
+      const contextUsedTokens = lastBreakdown.inputTokens;
+      const contextPercent =
+        contextWindowTokens && contextWindowTokens > 0
+          ? Math.max(0, Math.min(100, Math.round((contextUsedTokens / contextWindowTokens) * 100)))
+          : undefined;
+
+      return {
+        ...base,
+        type: 'session_usage',
+        provider: 'codex',
+        inputTokens: totalBreakdown.inputTokens,
+        outputTokens: totalBreakdown.outputTokens,
+        totalTokens: totalBreakdown.totalTokens,
+        cachedInputTokens: totalBreakdown.cachedInputTokens,
+        reasoningOutputTokens: totalBreakdown.reasoningOutputTokens,
+        contextUsedTokens,
+        ...(contextWindowTokens ? { contextWindowTokens } : {}),
+        ...(contextPercent !== undefined ? { contextPercent } : {}),
       };
     }
 
