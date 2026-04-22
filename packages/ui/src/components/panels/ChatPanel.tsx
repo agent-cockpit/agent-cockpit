@@ -136,54 +136,68 @@ export function ChatPanel() {
     <div className="flex h-full flex-col text-[var(--color-foreground)]">
       <div className="border-b border-border p-3">
         <h2 className="cockpit-label">Session Chat</h2>
-        {awaitingReply && (
-          <p className="mt-1 text-xs text-[var(--color-cockpit-accent)] [font-family:var(--font-mono-data)]">
-            {session.provider === 'claude' ? 'Claude is typing...' : 'Codex is typing...'}
-          </p>
-        )}
         {latestError && (
           <p className="mt-1 text-xs text-[var(--color-cockpit-red)]">{latestError}</p>
         )}
       </div>
 
       <div className="flex-1 overflow-y-auto p-3 space-y-2" data-testid="chat-history">
-        {chatMessages.length === 0 ? (
+        {chatMessages.length === 0 && !awaitingReply ? (
           <p className="cockpit-label" style={{ color: 'var(--color-cockpit-dim)' }}>
             -- NO CHAT MESSAGES --
           </p>
         ) : (
-          chatMessages.map((chat, index) => (
-            <div
-              key={`${chat.timestamp}-${index}`}
-              className="flex items-start gap-2 [font-family:var(--font-mono-data)] text-sm leading-relaxed"
-            >
-              {chat.role === 'user' ? (
-                <span className="shrink-0 text-[var(--color-cockpit-accent)]" aria-hidden>
-                  &gt;
-                </span>
-              ) : (
+          <>
+            {chatMessages.map((chat, index) => (
+              <div
+                key={`${chat.timestamp}-${index}`}
+                className="flex items-start gap-2 [font-family:var(--font-mono-data)] text-sm leading-relaxed"
+              >
+                {chat.role === 'user' ? (
+                  <span className="shrink-0 text-[var(--color-cockpit-accent)]" aria-hidden>
+                    &gt;
+                  </span>
+                ) : (
+                  <span
+                    className={`shrink-0 text-base leading-none ${
+                      chat.provider === 'claude'
+                        ? 'text-[var(--color-cockpit-amber)]'
+                        : chat.provider === 'codex'
+                          ? 'text-[var(--color-cockpit-accent)]'
+                          : 'text-[var(--color-cockpit-dim)]'
+                    }`}
+                    aria-hidden
+                  >
+                    •
+                  </span>
+                )}
+                <p className="min-w-0 whitespace-pre-wrap text-[var(--color-foreground)]">{chat.content}</p>
+              </div>
+            ))}
+            {awaitingReply && (
+              <div className="flex items-start gap-2 [font-family:var(--font-mono-data)] text-sm leading-relaxed">
                 <span
                   className={`shrink-0 text-base leading-none ${
-                    chat.provider === 'claude'
+                    session.provider === 'claude'
                       ? 'text-[var(--color-cockpit-amber)]'
-                      : chat.provider === 'codex'
-                        ? 'text-[var(--color-cockpit-accent)]'
-                        : 'text-[var(--color-cockpit-dim)]'
+                      : 'text-[var(--color-cockpit-accent)]'
                   }`}
                   aria-hidden
                 >
                   •
                 </span>
-              )}
-              <p className="min-w-0 whitespace-pre-wrap text-[var(--color-foreground)]">{chat.content}</p>
-            </div>
-          ))
+                <p className="min-w-0 text-[var(--color-cockpit-dim)] italic animate-pulse">
+                  {session.provider === 'claude' ? 'Claude is thinking...' : 'Codex is thinking...'}
+                </p>
+              </div>
+            )}
+          </>
         )}
       </div>
 
       {sendEnabledForSession ? (
         <div className="border-t border-border p-3">
-          <div className="relative border border-border bg-[oklch(0.23_0.02_250)]">
+          <div className={`relative border bg-[oklch(0.23_0.02_250)] ${awaitingReply ? 'border-[var(--color-cockpit-dim)]' : 'border-border'}`}>
             <span
               className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm text-[var(--color-cockpit-accent)] [font-family:var(--font-mono-data)]"
               aria-hidden
