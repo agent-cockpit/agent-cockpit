@@ -3,9 +3,12 @@
 import { useRef, useEffect, useState } from 'react'
 import { useStore } from '../store/index.js'
 import { useActiveSessions } from '../store/selectors.js'
+import { sendWsMessage } from '../hooks/useSessionEvents.js'
 import { audioSystem } from '../audio/audioSystem.js'
 import { InstancePopupHub } from '../components/office/InstancePopupHub.js'
 import { MenuPopup } from '../components/office/MenuPopup.js'
+import { EjectAllSessionsDialog } from '../components/office/EjectAllSessionsDialog.js'
+import { ClosetPopup } from '../components/office/ClosetPopup.js'
 import { ApprovalBalloonOverlay } from '../components/office/ApprovalBalloonOverlay.js'
 import { drawAgentSprite } from '../components/office/AgentSprite.js'
 import { drawMiniMap, MINIMAP_MAP_W, MINIMAP_MAP_H } from '../components/office/MiniMap.js'
@@ -93,6 +96,27 @@ const NPC_PROXIMITY_HALF_SIZE = NPC_SPRITE_SIZE_PX / 2
 const SPAWN_JITTER = 16
 const PLAYER_SPRITE_SIZE_PX = NPC_SPRITE_SIZE_PX
 const INTERACT_RADIUS_PX = 64
+// Emergency eject switch world coords (id: 1310f540-..., boundingBox x=227 y=741 w=32 h=32)
+// objectOriginX = (1 - tileOriginX) * 32 = (1 - (-46)) * 32 = 1504
+// objectOriginY = (2 - tileOriginY) * 32 = (2 - (-43)) * 32 = 1440
+// Visual Y is shifted up by OBJECT_RENDER_ANCHOR_Y_PX (32px) to match map-composite placement
+const EJECT_SWITCH_WORLD_X = 227 + 1504          // 1731
+const EJECT_SWITCH_WORLD_Y = 741 - 32 + 1440     // 2149
+const EJECT_SWITCH_CENTER_X = EJECT_SWITCH_WORLD_X + 16
+const EJECT_SWITCH_CENTER_Y = EJECT_SWITCH_WORLD_Y + 16
+const EJECT_SWITCH_INTERACT_RADIUS_PX = 72
+// Closet (1df56ff5) — boundingBox x=897 y=61 w=66 h=68
+const CLOSET_WORLD_X = 897 + 1504                // 2401
+const CLOSET_WORLD_Y = 61 - 32 + 1440            // 1469
+const CLOSET_CENTER_X = CLOSET_WORLD_X + 33
+const CLOSET_CENTER_Y = CLOSET_WORLD_Y + 34
+const CLOSET_INTERACT_RADIUS_PX = 80
+// Audio desk (040bf22f) — boundingBox x=496 y=75 w=91 h=63
+const AUDIO_DESK_WORLD_X = 496 + 1504            // 2000
+const AUDIO_DESK_WORLD_Y = 75 - 32 + 1440        // 1483
+const AUDIO_DESK_CENTER_X = AUDIO_DESK_WORLD_X + 45
+const AUDIO_DESK_CENTER_Y = AUDIO_DESK_WORLD_Y + 31
+const AUDIO_DESK_INTERACT_RADIUS_PX = 80
 const FOOTSTEP_CONTACT_FRAMES = [0, 4] as const
 const TELEPORT_SEARCH_STEP_PX = 16
 const TELEPORT_SEARCH_RADIUS_PX = 512
@@ -681,7 +705,10 @@ export function OfficePage() {
   const selectedPlayerCharacter = useStore((s) => s.selectedPlayerCharacter)
   const setSessionDetailOpen = useStore((s) => s.setSessionDetailOpen)
   const setPopupPreferredTab = useStore((s) => s.setPopupPreferredTab)
-  const [menuOpen, setMenuOpen] = useState(false)
+  const [audioOpen, setAudioOpen] = useState(false)
+  const [closetOpen, setClosetOpen] = useState(false)
+  const [ejectDialogOpen, setEjectDialogOpen] = useState(false)
+  const [ejectProcessing, setEjectProcessing] = useState(false)
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const containerRef = useRef<HTMLDivElement>(null)
   const imageCacheRef = useRef<Map<string, HTMLImageElement>>(new Map())
@@ -689,6 +716,12 @@ export function OfficePage() {
   const sceneFxPatternsRef = useRef<SceneFxPatterns>({ noise: null, scanlines: null })
   const interactableSessionRef = useRef<string | null>(null)
   const interactButtonAnchorRef = useRef<HTMLDivElement | null>(null)
+  const ejectButtonAnchorRef = useRef<HTMLDivElement | null>(null)
+  const ejectSwitchNearRef = useRef(false)
+  const closetButtonAnchorRef = useRef<HTMLDivElement | null>(null)
+  const closetNearRef = useRef(false)
+  const audioDeskButtonAnchorRef = useRef<HTMLDivElement | null>(null)
+  const audioDeskNearRef = useRef(false)
   const balloonRefsMap = useRef<Map<string, HTMLDivElement | null>>(new Map())
   const collisionMapRef = useRef<CollisionMap | null>(null)
   const persistedNpcPositionsRef = useRef<StoredNpcPositions>(readStoredNpcPositions())
@@ -795,6 +828,26 @@ export function OfficePage() {
       return
     }
 
+    anchor.style.display = 'block'
+    anchor.style.left = `${screenX}px`
+    anchor.style.top = `${screenY}px`
+  }
+
+  function positionObjectPrompt(
+    anchor: HTMLDivElement | null,
+    canvas: HTMLCanvasElement | null,
+    centerX: number,
+    centerY: number,
+    near: boolean,
+  ): void {
+    if (!anchor || !canvas) return
+    if (!near) { anchor.style.display = 'none'; return }
+    const zoom = gameState.camera.zoom
+    const screenX = (centerX - gameState.camera.x) * zoom
+    const screenY = (centerY - 16 - gameState.camera.y) * zoom
+    if (screenX < -80 || screenX > canvas.width + 80 || screenY < -120 || screenY > canvas.height + 80) {
+      anchor.style.display = 'none'; return
+    }
     anchor.style.display = 'block'
     anchor.style.left = `${screenX}px`
     anchor.style.top = `${screenY}px`
@@ -1238,6 +1291,18 @@ export function OfficePage() {
         }
         positionInteractButton(nearestSessionId)
         updateApprovalBalloons()
+
+        const playerCenterX2 = gameState.player.x + PLAYER_SPRITE_SIZE_PX / 2
+        const playerCenterY2 = gameState.player.y + PLAYER_SPRITE_SIZE_PX / 2
+        const nearSwitch = Math.hypot(playerCenterX2 - EJECT_SWITCH_CENTER_X, playerCenterY2 - EJECT_SWITCH_CENTER_Y) <= EJECT_SWITCH_INTERACT_RADIUS_PX
+        const nearCloset = Math.hypot(playerCenterX2 - CLOSET_CENTER_X, playerCenterY2 - CLOSET_CENTER_Y) <= CLOSET_INTERACT_RADIUS_PX
+        const nearAudioDesk = Math.hypot(playerCenterX2 - AUDIO_DESK_CENTER_X, playerCenterY2 - AUDIO_DESK_CENTER_Y) <= AUDIO_DESK_INTERACT_RADIUS_PX
+        ejectSwitchNearRef.current = nearSwitch
+        closetNearRef.current = nearCloset
+        audioDeskNearRef.current = nearAudioDesk
+        positionObjectPrompt(ejectButtonAnchorRef.current, canvas, EJECT_SWITCH_CENTER_X, EJECT_SWITCH_CENTER_Y, nearSwitch)
+        positionObjectPrompt(closetButtonAnchorRef.current, canvas, CLOSET_CENTER_X, CLOSET_CENTER_Y, nearCloset)
+        positionObjectPrompt(audioDeskButtonAnchorRef.current, canvas, AUDIO_DESK_CENTER_X, AUDIO_DESK_CENTER_Y, nearAudioDesk)
       }
       render() {
         if (disposed) return
@@ -1541,6 +1606,11 @@ export function OfficePage() {
       const zoom = gameState.camera.zoom  // = 2
       const clickX = (e.clientX - rect.left) / zoom + gameState.camera.x
       const clickY = (e.clientY - rect.top) / zoom + gameState.camera.y
+
+      if (clickX >= CLOSET_WORLD_X && clickX <= CLOSET_WORLD_X + 66 && clickY >= CLOSET_WORLD_Y && clickY <= CLOSET_WORLD_Y + 68) { setClosetOpen(true); return }
+      if (clickX >= AUDIO_DESK_WORLD_X && clickX <= AUDIO_DESK_WORLD_X + 91 && clickY >= AUDIO_DESK_WORLD_Y && clickY <= AUDIO_DESK_WORLD_Y + 63) { setAudioOpen(true); return }
+      if (clickX >= EJECT_SWITCH_WORLD_X && clickX <= EJECT_SWITCH_WORLD_X + 32 && clickY >= EJECT_SWITCH_WORLD_Y && clickY <= EJECT_SWITCH_WORLD_Y + 32) { setEjectDialogOpen(true); return }
+
       for (const [sessionId, pos] of Object.entries(gameState.npcs)) {
         if (
           clickX >= pos.x && clickX <= pos.x + PLAYER_SPRITE_SIZE_PX &&
@@ -1556,19 +1626,41 @@ export function OfficePage() {
     return () => canvas.removeEventListener('click', handleClick)
   }, [])
 
-  // Keyboard interaction: press E near an agent to open chat popup.
+  // Keyboard interaction: press E near an agent to open chat popup, or near the eject switch.
   useEffect(() => {
     function handleInteractKey(e: KeyboardEvent) {
       if (e.code !== 'KeyE' || e.repeat) return
       if (isTextInputFocused(document.activeElement)) return
       const sessionId = interactableSessionRef.current ?? findNearestInteractableSessionId()
-      if (!sessionId) return
-      e.preventDefault()
-      openAgentChatPopup(sessionId)
+      if (sessionId) {
+        e.preventDefault()
+        openAgentChatPopup(sessionId)
+        return
+      }
+      if (closetNearRef.current) { e.preventDefault(); setClosetOpen(true); return }
+      if (audioDeskNearRef.current) { e.preventDefault(); setAudioOpen(true); return }
+      if (ejectSwitchNearRef.current) { e.preventDefault(); setEjectDialogOpen(true) }
     }
     window.addEventListener('keydown', handleInteractKey)
     return () => window.removeEventListener('keydown', handleInteractKey)
   }, [])
+
+  function handleEjectConfirm(): void {
+    const allSessions = Object.values(useStore.getState().sessions)
+    const terminable = allSessions.filter(
+      (s) => s.status === 'active' && s.canTerminateSession === true,
+    )
+    if (terminable.length === 0) {
+      setEjectDialogOpen(false)
+      return
+    }
+    setEjectProcessing(true)
+    for (const session of terminable) {
+      sendWsMessage({ type: 'session_terminate', sessionId: session.sessionId })
+    }
+    setEjectProcessing(false)
+    setEjectDialogOpen(false)
+  }
 
   return (
     <>
@@ -1584,16 +1676,6 @@ export function OfficePage() {
           data-testid="game-canvas"
         />
         <div style={{ position: 'relative', zIndex: 1, width: '100%', height: '100%' }}>
-          <div className="absolute top-3 right-3">
-            <button
-              type="button"
-              className="cockpit-btn office-overlay-btn px-3 py-1.5 text-[11px] font-semibold"
-              onClick={() => setMenuOpen(true)}
-              aria-label="Open menu"
-            >
-              Menu
-            </button>
-          </div>
           <ApprovalBalloonOverlay balloonRefsMap={balloonRefsMap} />
           <div
             ref={interactButtonAnchorRef}
@@ -1616,10 +1698,36 @@ export function OfficePage() {
               Talk
             </button>
           </div>
+          <div ref={closetButtonAnchorRef} className="absolute" style={{ display: 'none', transform: 'translate(-50%, calc(-100% - 2px))' }}>
+            <button type="button" className="cockpit-btn office-overlay-btn px-2.5 py-1 text-[10px] font-semibold inline-flex items-center gap-1.5" onClick={() => setClosetOpen(true)} aria-label="Open closet">
+              <span className="border border-border px-1 py-0.5 [font-family:var(--font-mono-data)] leading-none">E</span>
+              Open Closet
+            </button>
+          </div>
+          <div ref={audioDeskButtonAnchorRef} className="absolute" style={{ display: 'none', transform: 'translate(-50%, calc(-100% - 2px))' }}>
+            <button type="button" className="cockpit-btn office-overlay-btn px-2.5 py-1 text-[10px] font-semibold inline-flex items-center gap-1.5" onClick={() => setAudioOpen(true)} aria-label="Open audio settings">
+              <span className="border border-border px-1 py-0.5 [font-family:var(--font-mono-data)] leading-none">E</span>
+              Audio Settings
+            </button>
+          </div>
+          <div ref={ejectButtonAnchorRef} className="absolute" style={{ display: 'none', transform: 'translate(-50%, calc(-100% - 2px))' }}>
+            <button type="button" className="cockpit-btn office-overlay-btn px-2.5 py-1 text-[10px] font-semibold inline-flex items-center gap-1.5 border-red-500/60 text-red-300" onClick={() => setEjectDialogOpen(true)} aria-label="Emergency eject all sessions">
+              <span className="border border-red-500/60 px-1 py-0.5 [font-family:var(--font-mono-data)] leading-none">E</span>
+              Eject
+            </button>
+          </div>
         </div>
       </div>
       <InstancePopupHub open={sessionDetailOpen} onClose={() => setSessionDetailOpen?.(false)} />
-      <MenuPopup open={menuOpen} onClose={() => setMenuOpen(false)} />
+      <ClosetPopup open={closetOpen} onClose={() => setClosetOpen(false)} />
+      <MenuPopup open={audioOpen} onClose={() => setAudioOpen(false)} />
+      <EjectAllSessionsDialog
+        open={ejectDialogOpen}
+        sessionCount={sessions.filter((s) => s.status === 'active' && s.canTerminateSession === true).length}
+        isProcessing={ejectProcessing}
+        onCancel={() => setEjectDialogOpen(false)}
+        onConfirm={handleEjectConfirm}
+      />
     </>
   )
 }

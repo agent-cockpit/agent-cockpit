@@ -1,35 +1,67 @@
 {
   "transitions": [
     {
-      "from": "Scuffed Panels A worn-down version of the clean metal floor. Scratches, dents, and faded paint lines break the uniformity. Still clearly the same material, but neglected.",
-      "to": "dark outer hull floor of a space station, thick reinforced steel panels, orange hazard stripe border at edge, rivets and panel seams, sci-fi ISS aesthetic, pixel art",
-      "fromId": 5,
-      "toId": 1,
-      "tilesetId": "e6f567dd-5cc1-4c71-9d40-aebbae9b8399",
+      "from": "metal dark floor",
+      "to": "yellow carpet",
+      "fromId": 8,
+      "toId": 21,
+      "tilesetId": "42fdb99a-3e2b-45c0-b3b4-5867d15feb2a",
       "transitionSize": 0
     },
     {
-      "from": "futuristic and space line to guide the space patrol",
-      "to": "dark outer hull floor of a space station, thick reinforced steel panels, orange hazard stripe border at edge, rivets and panel seams, sci-fi ISS aesthetic, pixel art",
-      "fromId": 4,
-      "toId": 1,
-      "tilesetId": "0c8e5a05-91c5-497c-aded-8ed7fd596e67",
+      "from": "metal dark floor",
+      "to": "top-down sci-fi spaceship floor tile, pixel art, smooth metal surface, soft blue gray color, subtle panel lines, clean minimal shading, among us style, seamless, 32x32",
+      "fromId": 8,
+      "toId": 31,
+      "tilesetId": "dd5ed886-55a6-4b93-b0ef-aa307d6f3f87",
       "transitionSize": 0
     },
     {
-      "from": "deep space void exterior,pure black with a lot of star dots, no floor surface, pixel art",
+      "from": "metal dark floor",
+      "to": "top-down sci-fi metal floor tile, pixel art, clean panel design, soft blue-gray tones, subtle seams and panel lines, minimal texture, futuristic spaceship interior, among us style, seamless tile, 32x32",
+      "fromId": 8,
+      "toId": 23,
+      "tilesetId": "f677dcc3-f4d6-47de-866c-37bd2b36a7fe",
+      "transitionSize": 0
+    },
+    {
+      "from": "metal dark floor",
+      "to": "cyan smooth floor",
+      "fromId": 8,
+      "toId": 18,
+      "tilesetId": "1a7b4711-f75d-4c76-9127-2109888f1f91",
+      "transitionSize": 0
+    },
+    {
+      "from": "metal dark floor",
+      "to": "make a big rectangles of cyan quartzo",
+      "fromId": 8,
+      "toId": 22,
+      "tilesetId": "5af55908-013a-46c3-b329-f873c59a44f6",
+      "transitionSize": 0
+    },
+    {
+      "from": "metal dark floor",
+      "to": "Dark polished panels with glowing blue circuit traces. Holographic projection circle tile with cyan ring.",
+      "fromId": 8,
+      "toId": 29,
+      "tilesetId": "6bb31d8c-feca-4ae3-8737-cb3c9adbab67",
+      "transitionSize": 0
+    },
+    {
+      "from": "metal dark floor",
+      "to": "jasmine colored base floor, with details on it",
+      "fromId": 8,
+      "toId": 17,
+      "tilesetId": "0b2cf430-01ca-450f-985a-6fb5a89ec3ce",
+      "transitionSize": 0
+    },
+    {
+      "from": "dark outer hull floor of a space station, thick reinforced steel panels, orange hazard stripe border at edge, rivets and panel seams, sci-fi ISS aesthetic, pixel art",
       "to": "deep space void exterior, pure black with distant star dots, no floor surface, pixel art",
-      "fromId": 7,
+      "fromId": 1,
       "toId": 2,
-      "tilesetId": "defb7351-4a72-4aa6-9869-5c87a1433664",
-      "transitionSize": 0
-    },
-    {
-      "from": "deep space void exterior, pure black with distant star dots, no floor surface, pixel art",
-      "to": "solid interior wall of a space station seen from directly above, thick rectangular block, dark gray brushed metal surface, faint panel lines on top face, hard edges, pixel art ",
-      "fromId": 2,
-      "toId": 3,
-      "tilesetId": "6fa00a1f-ce57-4d4d-a148-6c6f2ea0ec75",
+      "tilesetId": "ca31e858-8595-4a7e-9969-ee689f4d8d1a",
       "transitionSize": 0.5
     },
     {
@@ -41,6 +73,118 @@
       "transitionSize": 0.5
     },
     {
+      "from": "Scuffed Panels A worn-down version of the clean metal floor. Scratches, dents, and faded paint lines break the uniformity. Still clearly the same material, but neglected.",
+      "to": "dark outer hull floor of a space station, thick reinforced steel panels, orange hazard stripe border at edge, rivets and panel seams, sci-fi ISS aesthetic, pixel art",
+      "fromId": 5,
+      "toId": 1,
+      "tilesetId": "e6f567dd-5cc1-4c71-9d40-aebbae9b8399",
+      "transitionSize": 0
+    },
+    {
+      "from": "make a solid quartzo grey floor with thin lines in vertical and horizontal",
+      "to": "top-down smooth dark spaceship floor tile, pixel art, clean minimal design, dark gray metal surface, very subtle shading, no texture, futuristic interior, among us style, seamless 32x32",
+      "fromId": 14,
+      "toId": 34,
+      "tilesetId": "a339ddca-b85a-458b-8c82-d4e89d4a9713",
+      "transitionSize": 0
+    },
+    {
+      "from": "metal dark floor",
+      "to": "green ceramic floor",
+      "fromId": 8,
+      "toId": 16,
+      "tilesetId": "f50f87e8-7c32-4ace-b7a3-dc0e96726385",
+      "transitionSize": 0
+    },
+    {
+      "from": "metal dark floor",
+      "to": "office dark cyan blue floor",
+      "fromId": 8,
+      "toId": 24,
+      "tilesetId": "b9c748ed-3356-4948-b590-7141fc1af846",
+      "transitionSize": 0
+    },
+    {
+      "from": "metal dark floor",
+      "to": "Medium gray metal panels with blue LED strip light along the base. Upper tile has wall-mounted terminal screen.",
+      "fromId": 8,
+      "toId": 28,
+      "tilesetId": "e1e81836-4a58-406f-85c3-ff3789861040",
+      "transitionSize": 0
+    },
+    {
+      "from": "metal dark floor",
+      "to": "red carpet",
+      "fromId": 8,
+      "toId": 11,
+      "tilesetId": "60b6fdc4-fe10-494d-a159-5d73b30221e0",
+      "transitionSize": 0
+    },
+    {
+      "from": "top-down smooth dark spaceship floor tile, pixel art, clean minimal design, dark gray metal surface, very subtle shading, no texture, futuristic interior, among us style, seamless 32x32",
+      "to": "futuristic and space line to guide the space patrol",
+      "fromId": 34,
+      "toId": 4,
+      "tilesetId": "ebbf3af2-4968-4585-91ed-0839ce2c9fd2",
+      "transitionSize": 0
+    },
+    {
+      "from": "metal dark floor",
+      "to": "top-down smooth dark spaceship floor tile, pixel art, clean minimal design, dark gray metal surface, very subtle shading, no texture, futuristic interior, among us style, seamless 32x32",
+      "fromId": 8,
+      "toId": 34,
+      "tilesetId": "efd4db6b-d7c6-4fea-aa12-020378044909",
+      "transitionSize": 0
+    },
+    {
+      "from": "clean and light wood floor",
+      "to": "top-down smooth dark spaceship floor tile, pixel art, clean minimal design, dark gray metal surface, very subtle shading, no texture, futuristic interior, among us style, seamless 32x32",
+      "fromId": 12,
+      "toId": 34,
+      "tilesetId": "f04a825c-e1d1-4b9a-ad45-053f49f3fbb2",
+      "transitionSize": 0
+    },
+    {
+      "from": "metal dark floor",
+      "to": "top-down smooth spaceship floor tile, pixel art, very light color, clean minimal design, almost no texture, soft shading, futuristic interior, among us style, seamless 32x32",
+      "fromId": 8,
+      "toId": 32,
+      "tilesetId": "d881daf8-9c1b-472b-afd2-d07e8e8bab44",
+      "transitionSize": 0
+    },
+    {
+      "from": "top-down sci-fi wall tile, pixel art, thick spaceship wall, rounded edges, soft shadow on bottom side, light gray metal with panel details, among us style, 32x32",
+      "to": "solid interior wall of a space station seen from directly above, thick rectangular block, dark gray brushed metal surface, faint panel lines on top face, hard edges, pixel art ",
+      "fromId": 25,
+      "toId": 3,
+      "tilesetId": "f273b2f3-2d18-4105-a0f0-43e82cf60c02",
+      "transitionSize": 1
+    },
+    {
+      "from": "top-down sci-fi metal floor tile, pixel art, clean panel design, soft blue-gray tones, subtle seams and panel lines, minimal texture, futuristic spaceship interior, among us style, seamless tile, 32x32",
+      "to": "solid interior wall of a space station seen from directly above, thick rectangular block, dark gray brushed metal surface, faint panel lines on top face, hard edges, pixel art ",
+      "fromId": 23,
+      "toId": 3,
+      "tilesetId": "d7353a3b-69e9-40a5-ba7a-b19aa1374814",
+      "transitionSize": 1
+    },
+    {
+      "from": "top-down smooth dark spaceship floor tile, pixel art, clean minimal design, dark gray metal surface, very subtle shading, no texture, futuristic interior, among us style, seamless 32x32",
+      "to": "red carpet",
+      "fromId": 34,
+      "toId": 11,
+      "tilesetId": "05f14d56-e749-4d62-a77d-b82ea7a45424",
+      "transitionSize": 0.25
+    },
+    {
+      "from": "metal dark floor",
+      "to": "black and yellow striped floor",
+      "fromId": 8,
+      "toId": 20,
+      "tilesetId": "ac2b2cfa-1104-4f97-a620-b45bd6dbfb6c",
+      "transitionSize": 0
+    },
+    {
       "from": "Cracked & Hazardous The floor is partially broken \u2014 deep cracks reveal a dark void or subfloor beneath, with caution markings worn off and bolts popped loose. Feels dangerous to walk on",
       "to": "Scuffed Panels A worn-down version of the clean metal floor. Scratches, dents, and faded paint lines break the uniformity. Still clearly the same material, but neglected.",
       "fromId": 6,
@@ -49,12 +193,124 @@
       "transitionSize": 0.25
     },
     {
-      "from": "dark outer hull floor of a space station, thick reinforced steel panels, orange hazard stripe border at edge, rivets and panel seams, sci-fi ISS aesthetic, pixel art",
-      "to": "deep space void exterior, pure black with distant star dots, no floor surface, pixel art",
-      "fromId": 1,
-      "toId": 2,
-      "tilesetId": "ca31e858-8595-4a7e-9969-ee689f4d8d1a",
+      "from": "clean and light wood floor",
+      "to": "metal dark floor",
+      "fromId": 12,
+      "toId": 8,
+      "tilesetId": "f7f534ed-6123-4c8b-b284-4acd059b8c4c",
+      "transitionSize": 0
+    },
+    {
+      "from": "deep space void exterior, pure black with distant star dots, no floor surface, pixel art",
+      "to": "solid interior wall of a space station seen from directly above, thick rectangular block, dark gray brushed metal surface, faint panel lines on top face, hard edges, pixel art ",
+      "fromId": 2,
+      "toId": 3,
+      "tilesetId": "6fa00a1f-ce57-4d4d-a148-6c6f2ea0ec75",
       "transitionSize": 0.5
+    },
+    {
+      "from": "deep space void exterior,pure black with a lot of star dots, no floor surface, pixel art",
+      "to": "deep space void exterior, pure black with distant star dots, no floor surface, pixel art",
+      "fromId": 7,
+      "toId": 2,
+      "tilesetId": "defb7351-4a72-4aa6-9869-5c87a1433664",
+      "transitionSize": 0
+    },
+    {
+      "from": "top-down smooth dark spaceship floor tile, pixel art, clean minimal design, dark gray metal surface, very subtle shading, no texture, futuristic interior, among us style, seamless 32x32",
+      "to": "solid interior wall of a space station seen from directly above, thick rectangular block, dark gray brushed metal surface, faint panel lines on top face, hard edges, pixel art ",
+      "fromId": 34,
+      "toId": 3,
+      "tilesetId": "c2a14359-fbb0-4a7f-8750-b976b9a1d36e",
+      "transitionSize": 1
+    },
+    {
+      "from": "clean and light wood floor",
+      "to": "solid interior wall of a space station seen from directly above, thick rectangular block, dark gray brushed metal surface, faint panel lines on top face, hard edges, pixel art ",
+      "fromId": 12,
+      "toId": 3,
+      "tilesetId": "bbde4d59-89e9-47aa-83e0-ecc1ae4a9b16",
+      "transitionSize": 1
+    },
+    {
+      "from": "metal dark floor",
+      "to": "black and yellow warning floor",
+      "fromId": 8,
+      "toId": 19,
+      "tilesetId": "588d5559-b579-4e0d-8162-305bb6c0cd58",
+      "transitionSize": 0
+    },
+    {
+      "from": "make a solid quartzo grey floor with thin lines in vertical and horizontal",
+      "to": "metal dark floor",
+      "fromId": 14,
+      "toId": 8,
+      "tilesetId": "c7b1fa07-9b58-495a-8431-8212080609e1",
+      "transitionSize": 0
+    },
+    {
+      "from": "futuristic and space line to guide the space patrol",
+      "to": "dark outer hull floor of a space station, thick reinforced steel panels, orange hazard stripe border at edge, rivets and panel seams, sci-fi ISS aesthetic, pixel art",
+      "fromId": 4,
+      "toId": 1,
+      "tilesetId": "0c8e5a05-91c5-497c-aded-8ed7fd596e67",
+      "transitionSize": 0
+    },
+    {
+      "from": "metal dark floor",
+      "to": "top-down sci-fi wall tile, pixel art, thick spaceship wall, rounded edges, soft shadow on bottom side, light gray metal with panel details, among us style, 32x32",
+      "fromId": 8,
+      "toId": 25,
+      "tilesetId": "d5c1b908-d39b-43e0-b531-5673962defd2",
+      "transitionSize": 0
+    },
+    {
+      "from": "futuristic and space line to guide the space patrol",
+      "to": "metal dark floor",
+      "fromId": 4,
+      "toId": 8,
+      "tilesetId": "bca5c29d-8739-40a0-801f-883200763c6f",
+      "transitionSize": 0
+    },
+    {
+      "from": "make a solid quartzo grey floor with thin lines in vertical and horizontal",
+      "to": "solid interior wall of a space station seen from directly above, thick rectangular block, dark gray brushed metal surface, faint panel lines on top face, hard edges, pixel art ",
+      "fromId": 14,
+      "toId": 3,
+      "tilesetId": "6fc33dcb-54b2-4c67-8ba5-6aa58b84ad2b",
+      "transitionSize": 1
+    },
+    {
+      "from": "futuristic and space line to guide the space patrol",
+      "to": "solid interior wall of a space station seen from directly above, thick rectangular block, dark gray brushed metal surface, faint panel lines on top face, hard edges, pixel art ",
+      "fromId": 4,
+      "toId": 3,
+      "tilesetId": "0a5b5cc0-8fe3-41ff-9901-9722653b9d12",
+      "transitionSize": 1
+    },
+    {
+      "from": "make a big rectangles of cyan quartzo",
+      "to": "solid interior wall of a space station seen from directly above, thick rectangular block, dark gray brushed metal surface, faint panel lines on top face, hard edges, pixel art ",
+      "fromId": 22,
+      "toId": 3,
+      "tilesetId": "55dc3265-e844-44e2-b4e0-4c52f9ab74db",
+      "transitionSize": 1
+    },
+    {
+      "from": "metal dark floor",
+      "to": "solid interior wall of a space station seen from directly above, thick rectangular block, dark gray brushed metal surface, faint panel lines on top face, hard edges, pixel art ",
+      "fromId": 8,
+      "toId": 3,
+      "tilesetId": "95d67aea-e8fb-4863-a9d8-98746dff6e02",
+      "transitionSize": 1
+    },
+    {
+      "from": "top-down smooth dark spaceship floor tile, pixel art, clean minimal design, dark gray metal surface, very subtle shading, no texture, futuristic interior, among us style, seamless 32x32",
+      "to": "top-down sci-fi wall tile, pixel art, thick spaceship wall, rounded edges, soft shadow on bottom side, light gray metal with panel details, among us style, 32x32",
+      "fromId": 34,
+      "toId": 25,
+      "tilesetId": "8cb55abe-b18c-4e50-a950-acdd725c406a",
+      "transitionSize": 0
     }
   ]
 }
