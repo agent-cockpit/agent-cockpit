@@ -296,6 +296,61 @@ describe('hookServer', () => {
     await responsePromise;
   });
 
+  it('dedupes equivalent PreToolUse + PermissionRequest approvals into one decision', async () => {
+    const decisions: Array<{ approvalId: string; event: NormalizedEvent }> = [];
+    server = createHookServer(
+      port,
+      () => {},
+      (approvalId, event) => decisions.push({ approvalId, event }),
+    );
+    await new Promise<void>((resolve) => server.once('listening', resolve));
+
+    const addr = server.address() as { port: number };
+    const sharedPayload = {
+      session_id: 'test-sess-cross-hook-dedupe',
+      tool_name: 'Bash',
+      tool_use_id: 'tool-use-123',
+      tool_input: { command: 'git status' },
+    };
+
+    const sendHeldRequest = (hook_event_name: 'PreToolUse' | 'PermissionRequest') =>
+      new Promise<void>((resolve, reject) => {
+        const data = JSON.stringify({
+          hook_event_name,
+          ...sharedPayload,
+        });
+        const req = http.request(
+          {
+            hostname: '127.0.0.1',
+            port: addr.port,
+            path: '/hook',
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Content-Length': Buffer.byteLength(data),
+            },
+          },
+          (res) => {
+            res.resume();
+            res.on('end', () => resolve());
+          },
+        );
+        req.on('error', reject);
+        req.write(data);
+        req.end();
+      });
+
+    const req1 = sendHeldRequest('PreToolUse');
+    const req2 = sendHeldRequest('PermissionRequest');
+    await new Promise<void>((r) => setTimeout(r, 100));
+
+    expect(decisions).toHaveLength(1);
+    expect(decisions[0]!.event.type).toBe('approval_request');
+
+    resolveApproval(decisions[0]!.approvalId, 'allow');
+    await Promise.all([req1, req2]);
+  });
+
   it('Test 14: resolveApproval allow closes held response with correct PermissionRequest envelope', async () => {
     const decisions: Array<{ approvalId: string }> = [];
     server = createHookServer(

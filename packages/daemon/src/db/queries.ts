@@ -35,6 +35,91 @@ function toBoolean(value: unknown): boolean | null {
   return null
 }
 
+function normalizeText(value: unknown): string {
+  if (typeof value !== 'string') return ''
+  return value.trim().replace(/\s+/g, ' ')
+}
+
+function normalizeAffectedPaths(value: unknown): string[] {
+  if (!Array.isArray(value)) return []
+  const normalized = value
+    .filter((entry): entry is string => typeof entry === 'string')
+    .map((entry) => entry.trim())
+    .filter((entry) => entry.length > 0)
+  return [...new Set(normalized)].sort((a, b) => a.localeCompare(b))
+}
+
+type SessionStartSignature = {
+  provider: string
+  workspacePath: string
+  managedByDaemon: boolean | null
+  canSendMessage: boolean | null
+  canTerminateSession: boolean | null
+  reason: string
+}
+
+type ApprovalSignature = {
+  actionType: string
+  riskLevel: string
+  proposedAction: string
+  affectedPaths: string[]
+  whyRisky: string
+}
+
+function isEventOfType(event: NormalizedEvent, type: string): boolean {
+  return (event as Record<string, unknown>)['type'] === type
+}
+
+function toSessionStartSignature(event: NormalizedEvent): SessionStartSignature {
+  const payload = event as Record<string, unknown>
+  return {
+    provider: normalizeText(payload['provider'] ?? ''),
+    workspacePath: normalizeText(payload['workspacePath'] ?? ''),
+    managedByDaemon: toBoolean(payload['managedByDaemon']),
+    canSendMessage: toBoolean(payload['canSendMessage']),
+    canTerminateSession: toBoolean(payload['canTerminateSession']),
+    reason: normalizeText(payload['reason'] ?? ''),
+  }
+}
+
+function areSessionStartSignaturesEqual(a: SessionStartSignature, b: SessionStartSignature): boolean {
+  return (
+    a.provider === b.provider &&
+    a.workspacePath === b.workspacePath &&
+    a.managedByDaemon === b.managedByDaemon &&
+    a.canSendMessage === b.canSendMessage &&
+    a.canTerminateSession === b.canTerminateSession &&
+    a.reason === b.reason
+  )
+}
+
+function toApprovalSignature(event: NormalizedEvent): ApprovalSignature {
+  const payload = event as Record<string, unknown>
+  return {
+    actionType: normalizeText(payload['actionType'] ?? ''),
+    riskLevel: normalizeText(payload['riskLevel'] ?? ''),
+    proposedAction: normalizeText(payload['proposedAction'] ?? ''),
+    affectedPaths: normalizeAffectedPaths(payload['affectedPaths']),
+    whyRisky: normalizeText(payload['whyRisky'] ?? ''),
+  }
+}
+
+function areApprovalSignaturesEqual(a: ApprovalSignature, b: ApprovalSignature): boolean {
+  if (
+    a.actionType !== b.actionType ||
+    a.riskLevel !== b.riskLevel ||
+    a.proposedAction !== b.proposedAction ||
+    a.whyRisky !== b.whyRisky
+  ) {
+    return false
+  }
+  if (a.affectedPaths.length !== b.affectedPaths.length) return false
+  for (let i = 0; i < a.affectedPaths.length; i++) {
+    if (a.affectedPaths[i] !== b.affectedPaths[i]) return false
+  }
+  return true
+}
+
 function inferManagedByDaemon(db: Database.Database, sessionId: string, provider: string): boolean {
   if (provider === 'codex') {
     const row = db
@@ -181,6 +266,66 @@ export function persistEvent(
   return { ...event, sequenceNumber };
 }
 
+export function hasEquivalentSessionStart(db: Database.Database, event: NormalizedEvent): boolean {
+  if (!isEventOfType(event, 'session_start')) return false
+  const candidate = toSessionStartSignature(event)
+  const rows = db.prepare<[string], { payload: string }>(
+    `SELECT payload
+     FROM events
+     WHERE session_id = ? AND type = 'session_start'`
+  ).all(event.sessionId)
+
+  for (const row of rows) {
+    const existing = JSON.parse(row.payload) as NormalizedEvent
+    if (areSessionStartSignaturesEqual(candidate, toSessionStartSignature(existing))) {
+      return true
+    }
+  }
+  return false
+}
+
+export function hasEquivalentPendingApprovalRequest(db: Database.Database, event: NormalizedEvent): boolean {
+  if (!isEventOfType(event, 'approval_request')) return false
+  const candidate = toApprovalSignature(event)
+  const rows = db.prepare<[string], { payload: string }>(
+    `SELECT e.payload
+     FROM events e
+     WHERE e.session_id = ?
+       AND e.type = 'approval_request'
+       AND NOT EXISTS (
+         SELECT 1
+         FROM events r
+         WHERE r.session_id = e.session_id
+           AND r.type = 'approval_resolved'
+           AND COALESCE(JSON_EXTRACT(r.payload, '$.approvalId'), '') =
+               COALESCE(JSON_EXTRACT(e.payload, '$.approvalId'), '')
+       )
+     ORDER BY e.sequence_number DESC
+     LIMIT 200`
+  ).all(event.sessionId)
+
+  for (const row of rows) {
+    const existing = JSON.parse(row.payload) as NormalizedEvent
+    if (areApprovalSignaturesEqual(candidate, toApprovalSignature(existing))) {
+      return true
+    }
+  }
+  return false
+}
+
+export function shouldPersistEvent(db: Database.Database, event: NormalizedEvent): {
+  shouldPersist: boolean
+  reason?: 'duplicate_session_start' | 'duplicate_pending_approval'
+} {
+  if (isEventOfType(event, 'session_start') && hasEquivalentSessionStart(db, event)) {
+    return { shouldPersist: false, reason: 'duplicate_session_start' }
+  }
+  if (isEventOfType(event, 'approval_request') && hasEquivalentPendingApprovalRequest(db, event)) {
+    return { shouldPersist: false, reason: 'duplicate_pending_approval' }
+  }
+  return { shouldPersist: true }
+}
+
 export function getEventsBySession(
   db: Database.Database,
   sessionId: string,
@@ -284,6 +429,112 @@ export function backfillSessionStarts(db: Database.Database): void {
     });
     insert.run(row.session_id, payload, row.created_at);
   }
+}
+
+export interface CleanupDuplicateResult {
+  deletedSessionStartEvents: number
+  deletedApprovalRequestEvents: number
+  deletedPendingApprovals: number
+}
+
+export function cleanupDuplicateRecords(db: Database.Database): CleanupDuplicateResult {
+  return db.transaction(() => {
+    const duplicateSessionStartRows = db.prepare<[], { sequence_number: number }>(`
+      WITH ranked AS (
+        SELECT
+          sequence_number,
+          ROW_NUMBER() OVER (
+            PARTITION BY
+              session_id,
+              COALESCE(JSON_EXTRACT(payload, '$.provider'), ''),
+              COALESCE(JSON_EXTRACT(payload, '$.workspacePath'), ''),
+              COALESCE(JSON_EXTRACT(payload, '$.managedByDaemon'), ''),
+              COALESCE(JSON_EXTRACT(payload, '$.canSendMessage'), ''),
+              COALESCE(JSON_EXTRACT(payload, '$.canTerminateSession'), ''),
+              COALESCE(JSON_EXTRACT(payload, '$.reason'), '')
+            ORDER BY sequence_number ASC
+          ) AS rn
+        FROM events
+        WHERE type = 'session_start'
+      )
+      SELECT sequence_number
+      FROM ranked
+      WHERE rn > 1
+    `).all()
+
+    const duplicateApprovalRequestRows = db.prepare<[], { sequence_number: number }>(`
+      WITH ranked AS (
+        SELECT
+          sequence_number,
+          ROW_NUMBER() OVER (
+            PARTITION BY
+              session_id,
+              COALESCE(JSON_EXTRACT(payload, '$.actionType'), ''),
+              COALESCE(JSON_EXTRACT(payload, '$.riskLevel'), ''),
+              COALESCE(JSON_EXTRACT(payload, '$.proposedAction'), ''),
+              COALESCE(JSON_EXTRACT(payload, '$.whyRisky'), ''),
+              COALESCE(JSON_EXTRACT(payload, '$.affectedPaths'), '')
+            ORDER BY sequence_number ASC
+          ) AS rn
+        FROM events
+        WHERE type = 'approval_request'
+      )
+      SELECT sequence_number
+      FROM ranked
+      WHERE rn > 1
+    `).all()
+
+    const duplicatePendingApprovals = db.prepare<[], { approval_id: string }>(`
+      WITH ranked AS (
+        SELECT
+          approval_id,
+          ROW_NUMBER() OVER (
+            PARTITION BY
+              session_id,
+              status,
+              action_type,
+              risk_level,
+              proposed_action,
+              COALESCE(affected_paths, ''),
+              COALESCE(why_risky, '')
+            ORDER BY created_at ASC, approval_id ASC
+          ) AS rn
+        FROM approvals
+        WHERE status = 'pending'
+      )
+      SELECT approval_id
+      FROM ranked
+      WHERE rn > 1
+    `).all()
+
+    const deleteEvent = db.prepare('DELETE FROM events WHERE sequence_number = ?')
+    const deleteEventFts = db.prepare(
+      "DELETE FROM search_fts WHERE source_type = 'event' AND source_id = ?"
+    )
+    for (const row of duplicateSessionStartRows) {
+      deleteEvent.run(row.sequence_number)
+      deleteEventFts.run(String(row.sequence_number))
+    }
+    for (const row of duplicateApprovalRequestRows) {
+      deleteEvent.run(row.sequence_number)
+      deleteEventFts.run(String(row.sequence_number))
+    }
+
+    const deleteApproval = db.prepare('DELETE FROM approvals WHERE approval_id = ?')
+    const deleteApprovalFts = db.prepare(
+      "DELETE FROM search_fts WHERE source_type = 'approval' AND source_id = ?"
+    )
+    for (const row of duplicatePendingApprovals) {
+      deleteApproval.run(row.approval_id)
+      deleteApprovalFts.run(row.approval_id)
+    }
+
+    return {
+      deletedSessionStartEvents: duplicateSessionStartRows.length,
+      deletedApprovalRequestEvents: duplicateApprovalRequestRows.length,
+      deletedPendingApprovals: duplicatePendingApprovals.length,
+    }
+  })()
 }
 
 export function setClaudeSessionId(

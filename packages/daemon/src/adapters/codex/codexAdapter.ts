@@ -30,10 +30,13 @@ type CodexApprovalMethod =
   | 'execCommandApproval';
 
 type PendingCodexApprovalEntry = {
-  serverRequestId: CodexServerRequestId;
-  method: CodexApprovalMethod;
-  params: Record<string, unknown>;
   approvalId: string;
+  requests: Array<{
+    serverRequestId: CodexServerRequestId;
+    method: CodexApprovalMethod;
+    params: Record<string, unknown>;
+  }>;
+  signature: string;
   timer: ReturnType<typeof setTimeout>;
 };
 
@@ -70,7 +73,7 @@ export class CodexAdapter {
   // Map from outgoing JSON-RPC request ID → resolver
   private readonly pendingRequests = new Map<number, (result: unknown) => void>();
 
-  // Map from Codex server request id → approval state
+  // Map from approvalId → approval state (one entry may fan out to multiple server request ids)
   private readonly pendingCodexApprovals = new Map<string, PendingCodexApprovalEntry>();
 
   // Parser context — mutated by parseCodexLine
@@ -226,24 +229,14 @@ export class CodexAdapter {
   // Called by external code (e.g. resolveCodexApproval module export)
   // -------------------------------------------------------------------------
   resolveApproval(approvalId: string, decision: 'approve' | 'deny' | 'always_allow'): void {
-    // Find the pending approval by approvalId.
-    let approvalEntry: PendingCodexApprovalEntry | undefined;
-    let approvalKey: string | undefined;
-    for (const [entryKey, entry] of this.pendingCodexApprovals) {
-      if (entry.approvalId === approvalId) {
-        approvalEntry = entry;
-        approvalKey = entryKey;
-        break;
-      }
-    }
-
-    if (!approvalEntry || !approvalKey) {
+    const approvalEntry = this.pendingCodexApprovals.get(approvalId);
+    if (!approvalEntry) {
       // Already resolved or unknown — no-op
       return;
     }
 
     clearTimeout(approvalEntry.timer);
-    this.pendingCodexApprovals.delete(approvalKey);
+    this.pendingCodexApprovals.delete(approvalId);
     codexApprovalResolvers.delete(approvalId);
 
     // Guard: no-op if process has exited
@@ -251,13 +244,18 @@ export class CodexAdapter {
       return;
     }
 
-    const resultPayload = this.buildApprovalResult(
-      approvalEntry.method,
-      approvalEntry.params,
-      decision,
-    );
-
-    this.writeToStdin({ id: approvalEntry.serverRequestId, result: resultPayload });
+    const sent = new Set<string>();
+    for (const request of approvalEntry.requests) {
+      const dedupeKey = this.getServerRequestKey(request.serverRequestId);
+      if (sent.has(dedupeKey)) continue;
+      sent.add(dedupeKey);
+      const resultPayload = this.buildApprovalResult(
+        request.method,
+        request.params,
+        decision,
+      );
+      this.writeToStdin({ id: request.serverRequestId, result: resultPayload });
+    }
   }
 
   // -------------------------------------------------------------------------
@@ -435,6 +433,32 @@ export class CodexAdapter {
     return `${typeof serverRequestId}:${String(serverRequestId)}`;
   }
 
+  private normalizeText(value: unknown): string {
+    if (typeof value !== 'string') return '';
+    return value.trim().replace(/\s+/g, ' ');
+  }
+
+  private normalizeAffectedPaths(value: unknown): string[] {
+    if (!Array.isArray(value)) return [];
+    const normalized = value
+      .filter((entry): entry is string => typeof entry === 'string')
+      .map((entry) => entry.trim())
+      .filter((entry) => entry.length > 0);
+    return [...new Set(normalized)].sort((a, b) => a.localeCompare(b));
+  }
+
+  private buildApprovalSignature(event: NormalizedEvent): string {
+    const payload = event as Record<string, unknown>;
+    return JSON.stringify({
+      sessionId: event.sessionId,
+      actionType: this.normalizeText(payload['actionType']),
+      riskLevel: this.normalizeText(payload['riskLevel']),
+      proposedAction: this.normalizeText(payload['proposedAction']),
+      affectedPaths: this.normalizeAffectedPaths(payload['affectedPaths']),
+      whyRisky: this.normalizeText(payload['whyRisky']),
+    });
+  }
+
   private buildApprovalResult(
     method: CodexApprovalMethod,
     params: Record<string, unknown>,
@@ -490,17 +514,27 @@ export class CodexAdapter {
     }
 
     const { approvalId } = event as { approvalId: string };
+    const signature = this.buildApprovalSignature(event);
+    const requestKey = this.getServerRequestKey(serverRequestId);
+
+    // Deduplicate equivalent pending approvals (e.g. legacy/new method variants for same action).
+    for (const [, entry] of this.pendingCodexApprovals) {
+      if (entry.signature !== signature) continue;
+      if (!entry.requests.some((request) => this.getServerRequestKey(request.serverRequestId) === requestKey)) {
+        entry.requests.push({ serverRequestId, method, params });
+      }
+      return;
+    }
 
     // 30-second auto-deny timer
     const timer = setTimeout(() => {
       this.resolveApproval(approvalId, 'deny');
     }, 30_000);
 
-    this.pendingCodexApprovals.set(this.getServerRequestKey(serverRequestId), {
-      serverRequestId,
-      method,
-      params,
+    this.pendingCodexApprovals.set(approvalId, {
       approvalId,
+      requests: [{ serverRequestId, method, params }],
+      signature,
       timer,
     });
 
@@ -517,7 +551,7 @@ export class CodexAdapter {
   }
 
   private clearPendingApprovals(): void {
-    for (const [, { approvalId, timer }] of this.pendingCodexApprovals) {
+    for (const [approvalId, { timer }] of this.pendingCodexApprovals) {
       clearTimeout(timer);
       codexApprovalResolvers.delete(approvalId);
     }
