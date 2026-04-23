@@ -63,6 +63,9 @@ function probePid(pid: number): PidProbeStatus {
     const code = (err as NodeJS.ErrnoException).code
     if (code === 'ESRCH') return 'dead'
     if (code === 'EPERM') return 'unknown'
+    // Unknown error codes (platform-specific) — treat as unknown to avoid false session_end.
+    // Log so we can diagnose platform-specific probe failures.
+    console.warn(`[externalSessionIngest] probePid(${pid}) unexpected error code=${code ?? 'undefined'}: ${String(err)}`)
     return 'unknown'
   }
 }

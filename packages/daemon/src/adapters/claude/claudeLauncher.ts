@@ -4,6 +4,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { setClaudeSessionId } from '../../db/queries.js';
+import { platform } from '../../platform/index.js';
 import { COCKPIT_ALLOWED_TOOLS } from './hookParser.js';
 
 export class LaunchError extends Error {
@@ -172,8 +173,14 @@ export class ClaudeLauncher {
     if (!fs.existsSync(workspacePath)) {
       throw new LaunchError('INVALID_WORKSPACE', `Workspace path does not exist: ${workspacePath}`);
     }
+    let claudePath: string;
     try {
-      execFileSync('claude', ['--version'], { stdio: 'pipe' });
+      claudePath = platform.resolveBinary('claude');
+    } catch {
+      throw new LaunchError('MISSING_BINARY', 'claude binary not found on PATH');
+    }
+    try {
+      execFileSync(claudePath, ['--version'], { stdio: 'pipe' });
     } catch {
       throw new LaunchError('MISSING_BINARY', 'claude binary not found on PATH');
     }
@@ -311,13 +318,28 @@ export class ClaudeLauncher {
       }
     };
 
-    const spawnFn = this.procFactory ?? ((file, spawnArgs, options) => spawn(file, spawnArgs, options));
+    const platformOpts = platform.defaultSpawnOptions();
+    const baseEnv = { ...process.env, ...(platformOpts.env ?? {}) };
+
+    // When a custom procFactory is injected (tests), use it as-is with 'claude' as the name.
+    // In production, resolve the platform-specific binary path and merge platform spawn options.
+    const spawnFn: ProcFactory = this.procFactory
+      ? (file, spawnArgs, options) => this.procFactory!(file, spawnArgs, options)
+      : (file, spawnArgs, options) => {
+          let binary: string;
+          try {
+            binary = platform.resolveBinary(file);
+          } catch {
+            throw Object.assign(new Error(`ENOENT: binary not found: ${file}`), { code: 'ENOENT' });
+          }
+          return spawn(binary, spawnArgs, { ...platformOpts, ...options, env: baseEnv });
+        };
 
     let proc: ChildProcessWithoutNullStreams;
     try {
       proc = spawnFn('claude', args, {
         cwd: workspacePath,
-        env: { ...process.env },
+        env: baseEnv,
         stdio: 'pipe',
       });
     } catch (err) {

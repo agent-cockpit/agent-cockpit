@@ -4,6 +4,7 @@ import type Database from 'better-sqlite3';
 import type { NormalizedEvent } from '@cockpit/shared';
 import { parseCodexLine, type CodexParserContext } from './codexParser.js';
 import { approvalQueue } from '../../approvals/approvalQueue.js';
+import { platform } from '../../platform/index.js';
 
 // ---------------------------------------------------------------------------
 // Module-level ID counter for outgoing JSON-RPC requests
@@ -88,8 +89,16 @@ export class CodexAdapter {
     this.db = db;
     this.onEvent = onEvent;
     this.parserCtx = { sessionId, workspacePath, sessionStartEmitted: false };
-    // Default factory spawns the real codex binary
-    this.procFactory = procFactory ?? (() => spawn('codex', ['app-server'], { stdio: ['pipe', 'pipe', 'pipe'] }));
+    // Default factory spawns the real codex binary using the platform-resolved path
+    this.procFactory = procFactory ?? (() => {
+      const codexBinary = platform.resolveBinary('codex');
+      const platformOpts = platform.defaultSpawnOptions();
+      return spawn(codexBinary, ['app-server'], {
+        ...platformOpts,
+        env: { ...process.env, ...(platformOpts.env ?? {}) },
+        stdio: ['pipe', 'pipe', 'pipe'],
+      });
+    });
   }
 
   // -------------------------------------------------------------------------
