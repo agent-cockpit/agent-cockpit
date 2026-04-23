@@ -275,6 +275,24 @@ describe('POST /api/sessions', () => {
 });
 
 describe('ClaudeLauncher preflight', () => {
+  it('supports Windows .cmd Claude wrappers in preflight', async () => {
+    const { ClaudeLauncher } = await import('../adapters/claude/claudeLauncher.js');
+    const cp = await import('node:child_process');
+    const { platform } = await import('../platform/index.js');
+    vi.spyOn(platform, 'resolveBinary').mockReturnValue(
+      'C:\\Users\\LucaL\\AppData\\Roaming\\npm\\claude.cmd',
+    );
+
+    const launcher = new ClaudeLauncher(3002);
+    await expect(launcher.preflight('/tmp')).resolves.toBeUndefined();
+
+    expect(vi.mocked(cp.execFileSync)).toHaveBeenCalledWith(
+      'cmd.exe',
+      ['/d', '/s', '/c', '"C:\\Users\\LucaL\\AppData\\Roaming\\npm\\claude.cmd" --version'],
+      { stdio: 'pipe' },
+    );
+  });
+
   it('throws LaunchError with code MISSING_BINARY when claude binary is absent', async () => {
     const { ClaudeLauncher, LaunchError } = await import('../adapters/claude/claudeLauncher.js');
     const cp = await import('node:child_process');

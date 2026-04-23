@@ -156,6 +156,11 @@ function createUserTurnPayload(content: string): string {
   });
 }
 
+function isWindowsCommandWrapper(binaryPath: string): boolean {
+  const ext = path.extname(binaryPath).toLowerCase();
+  return ext === '.cmd' || ext === '.bat';
+}
+
 export class ClaudeLauncher {
   private readonly db: Database.Database | null;
   private readonly procFactory: ProcFactory | undefined;
@@ -180,7 +185,11 @@ export class ClaudeLauncher {
       throw new LaunchError('MISSING_BINARY', 'claude binary not found on PATH');
     }
     try {
-      execFileSync(claudePath, ['--version'], { stdio: 'pipe' });
+      if (isWindowsCommandWrapper(claudePath)) {
+        execFileSync('cmd.exe', ['/d', '/s', '/c', `"${claudePath}" --version`], { stdio: 'pipe' });
+      } else {
+        execFileSync(claudePath, ['--version'], { stdio: 'pipe' });
+      }
     } catch {
       throw new LaunchError('MISSING_BINARY', 'claude binary not found on PATH');
     }
