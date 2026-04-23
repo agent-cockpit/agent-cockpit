@@ -128,7 +128,7 @@ describe('win32Backend.resolveBinary', () => {
 });
 
 describe('win32Backend.defaultSpawnOptions', () => {
-  it('returns windowsHide: true', () => {
-    expect(win32Backend.defaultSpawnOptions()).toEqual({ windowsHide: true });
+  it('returns windowsHide: true and shell: true for .cmd wrappers', () => {
+    expect(win32Backend.defaultSpawnOptions()).toEqual({ windowsHide: true, shell: true });
   });
 });

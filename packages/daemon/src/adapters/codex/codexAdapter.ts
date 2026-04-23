@@ -4,6 +4,7 @@ import type Database from 'better-sqlite3';
 import type { NormalizedEvent } from '@cockpit/shared';
 import { parseCodexLine, type CodexParserContext } from './codexParser.js';
 import { approvalQueue } from '../../approvals/approvalQueue.js';
+import { logger } from '../../logger.js';
 import { platform } from '../../platform/index.js';
 
 // ---------------------------------------------------------------------------
@@ -93,11 +94,19 @@ export class CodexAdapter {
     this.procFactory = procFactory ?? (() => {
       const codexBinary = platform.resolveBinary('codex');
       const platformOpts = platform.defaultSpawnOptions();
-      return spawn(codexBinary, ['app-server'], {
+      const spawnOptions = {
         ...platformOpts,
         env: { ...process.env, ...(platformOpts.env ?? {}) },
         stdio: ['pipe', 'pipe', 'pipe'],
+      };
+      const { env: _env, ...spawnOptionsForLog } = spawnOptions;
+      logger.info('launch', 'Spawning codex app-server', {
+        sessionId: this.sessionId,
+        workspacePath: this.workspacePath,
+        codexBinary,
+        spawnOptions: spawnOptionsForLog,
       });
+      return spawn(codexBinary, ['app-server'], spawnOptions);
     });
   }
 

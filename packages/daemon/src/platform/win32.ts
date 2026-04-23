@@ -56,6 +56,9 @@ export const win32Backend: PlatformBackend = {
     return {
       // Hide the console window that would otherwise appear for .cmd spawns
       windowsHide: true,
+      // npm-installed CLIs on Windows are often .cmd wrappers and require
+      // cmd.exe mediation; spawning directly can fail with EINVAL.
+      shell: true,
     };
   },
 };
