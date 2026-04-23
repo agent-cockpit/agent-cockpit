@@ -5,6 +5,7 @@ import { useStore } from '../store/index.js'
 import { useActiveSessions } from '../store/selectors.js'
 import { sendWsMessage } from '../hooks/useSessionEvents.js'
 import { audioSystem } from '../audio/audioSystem.js'
+import { getSessionTitle } from '../lib/sessionTitle.js'
 import { InstancePopupHub } from '../components/office/InstancePopupHub.js'
 import { MenuPopup } from '../components/office/MenuPopup.js'
 import { EjectAllSessionsDialog } from '../components/office/EjectAllSessionsDialog.js'
@@ -704,7 +705,7 @@ function PopupDockAvatar({ character, label }: { character: CharacterType; label
     return (
       <span
         aria-label={`${label} avatar fallback`}
-        className="inline-flex h-4 w-4 shrink-0 items-center justify-center border border-[color-mix(in_srgb,var(--color-cockpit-accent)_55%,transparent)] bg-[color-mix(in_srgb,var(--color-cockpit-accent)_18%,transparent)] text-[8px] font-semibold uppercase text-[var(--color-cockpit-accent)]"
+        className="inline-flex h-5 w-5 shrink-0 items-center justify-center border border-[color-mix(in_srgb,var(--color-cockpit-accent)_55%,transparent)] bg-[color-mix(in_srgb,var(--color-cockpit-accent)_18%,transparent)] text-[9px] font-semibold uppercase text-[var(--color-cockpit-accent)]"
       >
         {character[0]}
       </span>
@@ -714,11 +715,11 @@ function PopupDockAvatar({ character, label }: { character: CharacterType; label
     <img
       src={characterFaceUrl(character)}
       alt={`${label} avatar`}
-      width={16}
-      height={16}
+      width={20}
+      height={20}
       onError={() => setFailed(true)}
       style={{ imageRendering: 'pixelated' }}
-      className="h-4 w-4 shrink-0 border border-[color-mix(in_srgb,var(--color-cockpit-accent)_55%,transparent)] object-cover"
+      className="h-5 w-5 shrink-0 object-cover"
     />
   )
 }
@@ -1805,12 +1806,7 @@ export function OfficePage() {
 
   function popupLabel(sessionId: string): string {
     const source = liveSessionsById[sessionId] ?? historySessionsById[sessionId]
-    const workspacePath = source?.workspacePath
-    if (workspacePath) {
-      const project = workspacePath.split('/').at(-1)
-      if (project) return project
-    }
-    return sessionId.slice(0, 8)
+    return getSessionTitle(source?.workspacePath, sessionId)
   }
 
   function popupCharacter(sessionId: string): CharacterType {
@@ -1941,9 +1937,13 @@ export function OfficePage() {
               className="pointer-events-auto absolute bottom-2 left-1/2 -translate-x-1/2"
               data-testid="popup-dock-bar"
             >
-              <div className="cockpit-frame-full flex max-w-[min(92vw,1120px)] items-center gap-1 overflow-x-auto border border-[color-mix(in_srgb,var(--color-cockpit-accent)_35%,var(--color-border))] bg-[linear-gradient(180deg,oklch(0.18_0.03_252)_0%,oklch(0.16_0.03_252)_100%)] px-2 py-1">
+              <div className="cockpit-frame-full flex max-w-[min(92vw,1120px)] items-center gap-2 overflow-x-auto border border-[color-mix(in_srgb,var(--color-cockpit-accent)_35%,var(--color-border))] bg-[linear-gradient(180deg,oklch(0.18_0.03_252)_0%,oklch(0.16_0.03_252)_100%)] px-3 py-1.5">
                 <span className="cockpit-corner cockpit-corner-tl" aria-hidden />
                 <span className="cockpit-corner cockpit-corner-tr" aria-hidden />
+                <span className="shrink-0 [font-family:var(--font-mono-data)] text-[9px] uppercase tracking-[0.16em] text-[var(--color-cockpit-dim)] pr-1 select-none">
+                  Open Agents
+                </span>
+                <span className="shrink-0 w-px h-4 bg-border/50" aria-hidden />
                 {orderedPopupSessionIds.map((sessionId) => {
                   const popup = popupWindows[sessionId]
                   if (!popup) return null
@@ -1956,12 +1956,12 @@ export function OfficePage() {
                     >
                       <button
                         type="button"
-                        className={`flex items-center gap-1 border px-2 py-1 [font-family:var(--font-mono-data)] text-[10px] uppercase tracking-[0.12em] transition-colors ${
+                        className={`flex items-center gap-1.5 border px-2 py-1 [font-family:var(--font-mono-data)] text-[10px] uppercase tracking-[0.12em] transition-colors ${
                           focused
-                            ? 'border-[color-mix(in_srgb,var(--color-cockpit-accent)_65%,transparent)] bg-[color-mix(in_srgb,var(--color-cockpit-accent)_18%,transparent)] text-[var(--color-cockpit-accent)]'
+                            ? 'border-[#c87941] bg-[color-mix(in_srgb,#c87941_12%,transparent)] text-[#e8a96a]'
                             : minimized
-                              ? 'border-border/70 bg-background/40 text-muted-foreground hover:text-foreground'
-                              : 'border-border/70 bg-[color-mix(in_srgb,var(--color-cockpit-accent)_8%,transparent)] text-foreground hover:border-[color-mix(in_srgb,var(--color-cockpit-accent)_50%,transparent)]'
+                              ? 'border-[#6b6ab0] bg-[color-mix(in_srgb,#6b6ab0_10%,transparent)] text-muted-foreground hover:text-foreground hover:border-[#8b8ad0]'
+                              : 'border-[#6b6ab0] bg-[color-mix(in_srgb,#6b6ab0_10%,transparent)] text-foreground hover:border-[#8b8ad0]'
                         }`}
                         onClick={() => {
                           if (minimized) {
@@ -1972,19 +1972,17 @@ export function OfficePage() {
                         }}
                         data-testid={`popup-dock-${sessionId}`}
                       >
+                        <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-green-400" aria-hidden />
                         <PopupDockAvatar
                           character={popupCharacter(sessionId)}
                           label={popupLabel(sessionId)}
                         />
                         <span className="truncate max-w-40">{popupLabel(sessionId)}</span>
-                        {minimized ? (
-                          <span className="text-[var(--color-cockpit-dim)]">min</span>
-                        ) : null}
                       </button>
                       <button
                         type="button"
                         aria-label={`Close popup ${popupLabel(sessionId)}`}
-                        className="ml-1 inline-flex h-4 w-4 items-center justify-center border border-red-500/40 text-[9px] text-red-300 hover:bg-red-500/20"
+                        className="inline-flex h-4 w-4 items-center justify-center border border-red-500/40 text-[9px] text-red-300 hover:bg-red-500/20"
                         onClick={(event) => {
                           event.stopPropagation()
                           closeSessionPopup(sessionId)

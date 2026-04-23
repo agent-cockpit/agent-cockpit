@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router'
 import { ComparePanel } from '../components/panels/ComparePanel.js'
 import { DAEMON_URL } from '../lib/daemonUrl.js'
+import { getSessionTitle } from '../lib/sessionTitle.js'
 import { useStore, type SessionSummary } from '../store/index.js'
 
 type ProviderFilter = 'all' | string
@@ -261,7 +262,7 @@ export function HistoryPage({ onSessionOpen }: HistoryPageProps) {
           <option value="all">All projects</option>
           {uniqueProjects.map((p) => (
             <option key={p} value={p}>
-              {p.split('/').pop() ?? p}
+              {getSessionTitle(p)}
             </option>
           ))}
         </select>

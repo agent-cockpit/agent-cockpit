@@ -9,7 +9,14 @@ export function resolveClaudeMdPath(workspacePath: string): string {
 }
 
 export function resolveAutoMemoryPath(workspacePath: string): string {
-  const encoded = workspacePath.replace(/^\//, '').replace(/\//g, '-');
+  const encoded = workspacePath
+    .trim()
+    .replace(/^[a-zA-Z]:/, (drive) => drive[0]!.toLowerCase())
+    .replace(/[\\/]+/g, '-')
+    .replace(/:/g, '-')
+    .replace(/[^a-zA-Z0-9._-]/g, '-')
+    .replace(/-+/g, '-')
+    .replace(/^-+|-+$/g, '') || 'workspace';
   return path.join(os.homedir(), '.claude', 'projects', encoded, 'memory', 'MEMORY.md');
 }
 

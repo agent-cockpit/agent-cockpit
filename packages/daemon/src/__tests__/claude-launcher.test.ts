@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import os from 'node:os';
 import fs from 'node:fs';
+import path from 'node:path';
 import { EventEmitter } from 'node:events';
 import type { ChildProcessWithoutNullStreams } from 'node:child_process';
 import { openDatabase } from '../db/database.js';
@@ -83,8 +84,13 @@ describe('ClaudeLauncher.launch()', () => {
     vi.useRealTimers();
   });
 
-  async function launchReady<T>(promise: Promise<T>): Promise<T> {
-    await vi.advanceTimersByTimeAsync(300);
+  function emitInit(proc: MockProc, model = 'test-model'): void {
+    proc.__emitStdout(JSON.stringify({ type: 'system', subtype: 'init', model }));
+  }
+
+  async function launchReady<T>(promise: Promise<T>, proc?: MockProc): Promise<T> {
+    if (proc) emitInit(proc);
+    await vi.advanceTimersByTimeAsync(100);
     return promise;
   }
 
@@ -95,9 +101,9 @@ describe('ClaudeLauncher.launch()', () => {
     const launcher = new ClaudeLauncher(3333, db, procFactory as never);
 
     const sessionId = 'aaaaaaaa-0000-0000-0000-000000000001';
-    await launchReady(launcher.launch(sessionId, '/tmp'));
+    await launchReady(launcher.launch(sessionId, '/tmp'), mockProc);
 
-    const expectedPath = `${os.tmpdir()}/cockpit-claude-${sessionId}.json`;
+    const expectedPath = path.join(os.tmpdir(), `cockpit-claude-${sessionId}.json`);
     expect(vi.mocked(fs.writeFileSync)).toHaveBeenCalledWith(
       expectedPath,
       expect.any(String),
@@ -111,9 +117,12 @@ describe('ClaudeLauncher.launch()', () => {
     const launcher = new ClaudeLauncher(4444, db, procFactory as never);
 
     const sessionId = 'aaaaaaaa-0000-0000-0000-000000000002';
-    await launchReady(launcher.launch(sessionId, '/tmp'));
+    await launchReady(launcher.launch(sessionId, '/tmp'), mockProc);
 
-    const writeCall = vi.mocked(fs.writeFileSync).mock.calls[0];
+    const expectedPath = path.join(os.tmpdir(), `cockpit-claude-${sessionId}.json`);
+    const writeCall = vi
+      .mocked(fs.writeFileSync)
+      .mock.calls.find((call) => call[0] === expectedPath);
     expect(writeCall).toBeDefined();
     const written = JSON.parse(writeCall[1] as string) as {
       hooks: Record<string, Array<{ matcher?: string; hooks: Array<{ type: string; command: string }> }>>;
@@ -135,6 +144,7 @@ describe('ClaudeLauncher.launch()', () => {
     for (const event of hookEvents) {
       expect(written.hooks[event]).toBeDefined();
       expect(written.hooks[event][0]?.hooks[0]?.type).toBe('command');
+      expect(written.hooks[event][0]?.hooks[0]?.command).toContain(process.execPath);
       expect(written.hooks[event][0]?.hooks[0]?.command).toContain('http://127.0.0.1:4444/hook');
     }
     expect(written.hooks['PreToolUse'][0]?.matcher).toBe('');
@@ -148,7 +158,7 @@ describe('ClaudeLauncher.launch()', () => {
     const launcher = new ClaudeLauncher(5555, db, procFactory as never);
 
     const sessionId = 'aaaaaaaa-0000-0000-0000-000000000099';
-    await launchReady(launcher.launch(sessionId, '/tmp', undefined, undefined, 'dangerously_skip'));
+    await launchReady(launcher.launch(sessionId, '/tmp', undefined, undefined, 'dangerously_skip'), mockProc);
 
     const [, args] = (procFactory.mock.calls[0] as unknown) as [string, string[], unknown];
     expect(args).toContain('--dangerously-skip-permissions');
@@ -163,7 +173,7 @@ describe('ClaudeLauncher.launch()', () => {
     const launcher = new ClaudeLauncher(5556, db, procFactory as never);
 
     const sessionId = 'aaaaaaaa-0000-0000-0000-000000000100';
-    await launchReady(launcher.launch(sessionId, '/tmp', undefined, undefined, true));
+    await launchReady(launcher.launch(sessionId, '/tmp', undefined, undefined, true), mockProc);
 
     const [, args] = (procFactory.mock.calls[0] as unknown) as [string, string[], unknown];
     expect(args).toContain('--dangerously-skip-permissions');
@@ -177,7 +187,7 @@ describe('ClaudeLauncher.launch()', () => {
     const launcher = new ClaudeLauncher(3333, db, procFactory as never);
 
     const sessionId = 'aaaaaaaa-0000-0000-0000-000000000003';
-    await launchReady(launcher.launch(sessionId, '/tmp'));
+    await launchReady(launcher.launch(sessionId, '/tmp'), mockProc);
 
     expect(procFactory).toHaveBeenCalledTimes(1);
     const [file, args] = (procFactory.mock.calls[0] as unknown) as [string, string[], unknown];
@@ -188,7 +198,7 @@ describe('ClaudeLauncher.launch()', () => {
     expect(args).toContain('--session-id');
     expect(args).toContain(sessionId);
     expect(args).toContain('--settings');
-    expect(args).toContain(`${os.tmpdir()}/cockpit-claude-${sessionId}.json`);
+    expect(args).toContain(path.join(os.tmpdir(), `cockpit-claude-${sessionId}.json`));
     // --allowedTools must be present so Claude fires PermissionRequest for unlisted tools
     expect(args).toContain('--allowedTools');
     const allowedIdx = args.indexOf('--allowedTools');
@@ -208,7 +218,7 @@ describe('ClaudeLauncher.launch()', () => {
     const launcher = new ClaudeLauncher(3333, db, procFactory as never);
 
     const sessionId = 'aaaaaaaa-0000-0000-0000-000000000004';
-    await launchReady(launcher.launch(sessionId, '/workspace'));
+    await launchReady(launcher.launch(sessionId, '/workspace'), mockProc);
 
     const stored = getClaudeSessionId(db, sessionId);
     expect(stored).toBe(sessionId);
@@ -252,7 +262,7 @@ describe('ClaudeLauncher.launch()', () => {
     const procFactory = vi.fn(() => mockProc);
     const launcher = new ClaudeLauncher(3333, db, procFactory as never);
 
-    const runtime = await launchReady(launcher.launch('session-send', '/tmp'));
+    const runtime = await launchReady(launcher.launch('session-send', '/tmp'), mockProc);
 
     const sendPromise = runtime.sendMessage('hello from ui');
     mockProc.__emitStdout(JSON.stringify({ type: 'assistant', message: { role: 'assistant', content: [{ type: 'text', text: 'OK' }] } }));
@@ -277,7 +287,7 @@ describe('ClaudeLauncher.launch()', () => {
     const procFactory = vi.fn(() => mockProc);
     const launcher = new ClaudeLauncher(3333, db, procFactory as never);
 
-    const runtime = await launchReady(launcher.launch('session-assistant', '/tmp', undefined, onAssistantOutput));
+    const runtime = await launchReady(launcher.launch('session-assistant', '/tmp', undefined, onAssistantOutput), mockProc);
 
     const sendPromise = runtime.sendMessage('responda apenas OK');
     mockProc.__emitStdout(JSON.stringify({
@@ -297,7 +307,7 @@ describe('ClaudeLauncher.launch()', () => {
     const procFactory = vi.fn(() => mockProc);
     const launcher = new ClaudeLauncher(3333, db, procFactory as never);
 
-    const runtime = await launchReady(launcher.launch('session-delta-stream', '/tmp', undefined, onAssistantOutput));
+    const runtime = await launchReady(launcher.launch('session-delta-stream', '/tmp', undefined, onAssistantOutput), mockProc);
 
     const sendPromise = runtime.sendMessage('responda apenas OK');
     mockProc.__emitStdout(JSON.stringify({
@@ -327,7 +337,7 @@ describe('ClaudeLauncher.launch()', () => {
     const procFactory = vi.fn(() => mockProc);
     const launcher = new ClaudeLauncher(3333, db, procFactory as never);
 
-    const runtime = await launchReady(launcher.launch('session-error-result', '/tmp', undefined, onAssistantOutput));
+    const runtime = await launchReady(launcher.launch('session-error-result', '/tmp', undefined, onAssistantOutput), mockProc);
 
     const sendPromise = runtime.sendMessage('responda apenas OK');
     mockProc.__emitStdout(JSON.stringify({
@@ -349,6 +359,7 @@ describe('ClaudeLauncher.launch()', () => {
 
     const runtime = await launchReady(
       launcher.launch('session-usage-snapshots', '/tmp', undefined, undefined, 'default', onUsageSnapshot),
+      mockProc,
     );
 
     mockProc.__emitStdout(JSON.stringify({

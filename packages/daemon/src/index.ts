@@ -12,8 +12,29 @@ import { ingestExternalClaudeSessions } from './adapters/claude/externalSessionI
 import type { WebSocketServer } from 'ws';
 import type Database from 'better-sqlite3';
 import type http from 'node:http';
+import os from 'node:os';
+import path from 'node:path';
 
-const DB_PATH = process.env['COCKPIT_DB_PATH'] ?? `${process.env['HOME']}/.local/share/agent-cockpit/events.db`;
+function resolveDefaultDataDir(): string {
+  const explicit = process.env['COCKPIT_DATA_DIR']?.trim();
+  if (explicit) return explicit;
+
+  const homeDir = os.homedir();
+  if (process.platform === 'win32') {
+    const localAppData = process.env['LOCALAPPDATA']?.trim();
+    if (localAppData) return path.join(localAppData, 'agent-cockpit');
+    return path.join(homeDir, 'AppData', 'Local', 'agent-cockpit');
+  }
+  if (process.platform === 'darwin') {
+    return path.join(homeDir, 'Library', 'Application Support', 'agent-cockpit');
+  }
+
+  const xdgDataHome = process.env['XDG_DATA_HOME']?.trim();
+  if (xdgDataHome) return path.join(xdgDataHome, 'agent-cockpit');
+  return path.join(homeDir, '.local', 'share', 'agent-cockpit');
+}
+
+const DB_PATH = process.env['COCKPIT_DB_PATH'] ?? path.join(resolveDefaultDataDir(), 'events.db');
 const WS_PORT = parseInt(process.env['COCKPIT_WS_PORT'] ?? '3001', 10);
 const HOOK_PORT = parseInt(process.env['COCKPIT_HOOK_PORT'] ?? '3002', 10);
 const CODEX_EXTERNAL_POLL_MS = parseInt(process.env['COCKPIT_CODEX_EXTERNAL_POLL_MS'] ?? '5000', 10);
