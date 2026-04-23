@@ -289,7 +289,6 @@ export class ClaudeLauncher {
       '--verbose',
       '--output-format=stream-json',
       '--input-format=stream-json',
-      '--include-hook-events',
       '--include-partial-messages',
       '--session-id',
       sessionId,
