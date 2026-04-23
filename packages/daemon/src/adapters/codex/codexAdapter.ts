@@ -127,8 +127,23 @@ export class CodexAdapter {
 
     this.proc = proc;
 
+    // Capture stderr for diagnostics
+    if (proc.stderr) {
+      proc.stderr.setEncoding('utf8');
+      let stderrBuf = '';
+      proc.stderr.on('data', (chunk: string) => {
+        stderrBuf += chunk;
+        const lines = stderrBuf.split('\n');
+        stderrBuf = lines.pop() ?? '';
+        for (const line of lines) {
+          if (line.trim()) console.warn(`[CodexAdapter] [stderr] ${line}`);
+        }
+      });
+    }
+
     // Handle ENOENT from spawn (async, via 'error' event)
     proc.on('error', (err: NodeJS.ErrnoException) => {
+      this.rejectPendingRequests(new Error(`codex process error: ${err.message}`));
       if (err.code === 'ENOENT') {
         this.onEvent({
           schemaVersion: 1,
@@ -145,6 +160,7 @@ export class CodexAdapter {
     // Cleanup on exit
     proc.on('exit', (code) => {
       this.proc = null;
+      this.rejectPendingRequests(new Error(`codex process exited (code ${code ?? 0})`));
       this.clearPendingApprovals();
 
       if (this.parserCtx.sessionStartEmitted) {
@@ -172,6 +188,10 @@ export class CodexAdapter {
     }
 
     void lineSource; // suppress unused warning
+
+    // Emit session_start immediately so the UI shows the session while the
+    // handshake is in progress. Exit handler emits session_end if this fails.
+    this.emitSessionStartIfNeeded();
 
     // Initialize handshake: initialize request followed by initialized notification.
     await this.sendRequest('initialize', {
@@ -212,10 +232,6 @@ export class CodexAdapter {
           .run(this.sessionId, threadId, this.workspacePath, new Date().toISOString());
       }
     }
-
-    // Emit session_start even before the first turn begins so newly launched
-    // Codex sessions appear in the UI immediately.
-    this.emitSessionStartIfNeeded();
 
     // Clean up readline on close
     rl?.on('close', () => { /* readline closed */ });
@@ -514,6 +530,13 @@ export class CodexAdapter {
 
     // Emit event so UI receives it
     this.onEvent(event);
+  }
+
+  private rejectPendingRequests(error: Error): void {
+    for (const [id, resolve] of this.pendingRequests) {
+      this.pendingRequests.delete(id);
+      resolve({ error: { message: error.message } });
+    }
   }
 
   private clearPendingApprovals(): void {
