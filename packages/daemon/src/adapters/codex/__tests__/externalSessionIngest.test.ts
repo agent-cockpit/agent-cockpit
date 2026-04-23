@@ -132,4 +132,30 @@ describe('ingestExternalCodexCliSessions', () => {
 
     daemonDb.close()
   })
+
+  it('does not import external thread ids that belong to managed Codex sessions', () => {
+    const daemonDb = openDatabase(':memory:')
+    const codexHomePath = mktempDir('codex-home-managed-thread-')
+    const stateDb = createStateDb(codexHomePath)
+    const nowSec = Math.floor(Date.now() / 1000)
+
+    stateDb.prepare(
+      'INSERT INTO threads (id, cwd, created_at, updated_at, source, archived) VALUES (?, ?, ?, ?, ?, ?)',
+    ).run(CLI_SESSION_ID, '/workspace/managed-thread', nowSec, nowSec, 'cli', 0)
+    stateDb.close()
+
+    daemonDb.prepare(
+      'INSERT INTO codex_sessions (session_id, thread_id, workspace, created_at) VALUES (?, ?, ?, ?)',
+    ).run('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', CLI_SESSION_ID, '/workspace/managed-thread', new Date().toISOString())
+
+    const imported = ingestExternalCodexCliSessions(daemonDb, undefined, { codexHomePath, lookbackSeconds: 3600 })
+    expect(imported).toBe(0)
+
+    const startEventCount = daemonDb.prepare(
+      "SELECT COUNT(*) AS count FROM events WHERE session_id = ? AND type = 'session_start'",
+    ).get(CLI_SESSION_ID) as { count: number }
+    expect(startEventCount.count).toBe(0)
+
+    daemonDb.close()
+  })
 })

@@ -55,9 +55,13 @@ function buildApprovalDedupeKey(payload: HookPayload, event: NormalizedEvent): s
   }
   const toolUseId = typeof payload.tool_use_id === 'string' ? payload.tool_use_id.trim() : '';
   if (toolUseId.length > 0) {
-    return `${event.sessionId}|${payload.hook_event_name}|${toolUseId}`;
+    // Treat PreToolUse + PermissionRequest as the same approval operation when tool_use_id matches.
+    return `${event.sessionId}|tool_use|${toolUseId}`;
   }
   const toolName = payload.tool_name ?? 'Unknown';
+  if (payload.hook_event_name === 'PreToolUse' || payload.hook_event_name === 'PermissionRequest') {
+    return `${event.sessionId}|approval_tool|${toolName}|${stableStringify(payload.tool_input ?? {})}`;
+  }
   return `${event.sessionId}|${payload.hook_event_name}|${toolName}|${stableStringify(payload.tool_input ?? {})}`;
 }
 
