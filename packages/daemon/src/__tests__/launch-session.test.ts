@@ -43,6 +43,15 @@ vi.mock('node:child_process', async (importOriginal) => {
         proc.emit('exit', 0, null);
         return true;
       });
+      // Emit the init envelope so ClaudeLauncher settles without waiting for the fallback timer
+      if (file !== 'codex' && proc.stdout) {
+        setImmediate(() => {
+          (proc.stdout as EventEmitter).emit(
+            'data',
+            Buffer.from(JSON.stringify({ type: 'system', subtype: 'init', model: 'test-claude' }) + '\n'),
+          );
+        });
+      }
       return proc;
     }),
   };

@@ -256,7 +256,7 @@ export class ClaudeLauncher {
 
     const settings = {
       hooks: {
-        SessionStart: [{ matcher: 'startup', hooks: [{ type: 'command', command: hookCmd, timeout: HOOK_TIMEOUT_S }] }],
+        SessionStart: [{ hooks: [{ type: 'command', command: hookCmd, timeout: HOOK_TIMEOUT_S }] }],
         SessionEnd: [hookEntry()],
         PreToolUse: [hookEntry('')],
         PostToolUse: [hookEntry('')],
@@ -362,6 +362,44 @@ export class ClaudeLauncher {
       let cumulativeOutputTokens = 0;
       let cumulativeCachedInputTokens = 0;
 
+      const makeRuntime = (): ManagedClaudeRuntime => ({
+        sendMessage: async (message) => {
+          if (!active || proc.killed || proc.stdin.destroyed || !proc.stdin.writable) {
+            throw new LaunchError('SPAWN_FAILED', 'claude runtime is not available');
+          }
+          const content = message.trim();
+          if (!content) return;
+          const payload = `${createUserTurnPayload(content)}\n`;
+          console.log('[ClaudeLauncher] writing user turn via stream-json stdin');
+
+          return new Promise<void>((resolveTurn, rejectTurn) => {
+            pendingTurns.push({
+              sawAssistant: false,
+              resolve: resolveTurn,
+              reject: rejectTurn,
+            });
+
+            try {
+              proc.stdin.write(payload);
+            } catch (err) {
+              const pending = pendingTurns.pop();
+              const writeErr = err instanceof Error ? err : new Error(String(err));
+              pending?.reject(writeErr);
+            }
+          });
+        },
+        terminateSession: () => {
+          if (!active) return;
+          active = false;
+          try {
+            proc.kill();
+          } catch {
+            // already exited
+          }
+        },
+        isActive: () => active,
+      });
+
       const settleResolve = (runtime: ManagedClaudeRuntime): void => {
         if (settled) return;
         settled = true;
@@ -385,6 +423,13 @@ export class ClaudeLauncher {
         }
       };
 
+      const handleStderrLine = (line: string): void => {
+        const trimmed = line.trim();
+        if (!trimmed) return;
+        startupOutput += `[stderr] ${trimmed}\n`;
+        console.warn(`[ClaudeLauncher] [stderr] ${trimmed}`);
+      };
+
       const handleJsonLine = (line: string): void => {
         const trimmed = line.trim();
         if (!trimmed) return;
@@ -400,6 +445,7 @@ export class ClaudeLauncher {
         const modelFromInit = extractInitModel(envelope);
         if (modelFromInit) {
           activeModel = modelFromInit;
+          settleResolve(makeRuntime());
         }
 
         const activeTurn = pendingTurns[0];
@@ -472,7 +518,7 @@ export class ClaudeLauncher {
       };
 
       proc.stdout.on('data', wireLineStream(handleJsonLine));
-      proc.stderr.on('data', wireLineStream(handleJsonLine));
+      proc.stderr.on('data', wireLineStream(handleStderrLine));
 
       proc.once('error', (err) => {
         const msg = err instanceof Error ? err.message : String(err);
@@ -501,51 +547,22 @@ export class ClaudeLauncher {
           return;
         }
 
-        console.log(`[ClaudeLauncher] session ${sessionId} exited (${reason})`);
+        if (exitCode !== 0 && exitCode !== null) {
+          console.warn(`[ClaudeLauncher] session ${sessionId} exited unexpectedly (${reason}). Output:\n${startupOutput.slice(-2000).trim()}`);
+        } else {
+          console.log(`[ClaudeLauncher] session ${sessionId} exited (${reason})`);
+        }
         cleanupSettings();
         onExit?.();
       });
 
+      // Settle on first {type:"system",subtype:"init"} envelope — that's Claude's ready signal.
+      // Fall back to a 5 s timeout so the session still opens when Claude skips the init envelope.
       startupTimer = setTimeout(() => {
         if (!active) return;
-        settleResolve({
-          sendMessage: async (message) => {
-            if (!active || proc.killed || proc.stdin.destroyed || !proc.stdin.writable) {
-              throw new LaunchError('SPAWN_FAILED', 'claude runtime is not available');
-            }
-            const content = message.trim();
-            if (!content) return;
-            const payload = `${createUserTurnPayload(content)}\n`;
-            console.log('[ClaudeLauncher] writing user turn via stream-json stdin');
-
-            return new Promise<void>((resolveTurn, rejectTurn) => {
-              pendingTurns.push({
-                sawAssistant: false,
-                resolve: resolveTurn,
-                reject: rejectTurn,
-              });
-
-              try {
-                proc.stdin.write(payload);
-              } catch (err) {
-                const pending = pendingTurns.pop();
-                const writeErr = err instanceof Error ? err : new Error(String(err));
-                pending?.reject(writeErr);
-              }
-            });
-          },
-          terminateSession: () => {
-            if (!active) return;
-            active = false;
-            try {
-              proc.kill();
-            } catch {
-              // already exited
-            }
-          },
-          isActive: () => active,
-        });
-      }, 300);
+        console.warn('[ClaudeLauncher] startup timeout: no init envelope in 5s, settling');
+        settleResolve(makeRuntime());
+      }, 5000);
     });
   }
 }

@@ -12,13 +12,6 @@ export const linuxBackend: PlatformBackend = {
   },
 
   defaultSpawnOptions(): Partial<SpawnOptionsWithoutStdio> {
-    return {
-      env: {
-        ...process.env,
-        // Prevent claude from detecting absence of a TTY and exiting early.
-        // With stdio: 'pipe', TERM is unset which can trigger TTY checks in some CLIs.
-        TERM: process.env['TERM'] ?? 'dumb',
-      },
-    };
+    return {};
   },
 };
