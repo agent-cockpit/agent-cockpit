@@ -40,7 +40,7 @@ describe('win32Backend.resolveBinary', () => {
     expect(mockExecFileSync).toHaveBeenCalledWith('where.exe', ['claude'], { stdio: 'pipe' });
   });
 
-  it('takes first result when where.exe returns multiple lines', () => {
+  it('takes first result when where.exe returns multiple lines with same extension', () => {
     mockExecFileSync.mockReturnValue(
       Buffer.from(
         'C:\\first\\claude.exe\r\nC:\\second\\claude.exe\r\n',
@@ -49,6 +49,19 @@ describe('win32Backend.resolveBinary', () => {
     mockExistsSync.mockReturnValue(true);
 
     expect(win32Backend.resolveBinary('claude')).toBe('C:\\first\\claude.exe');
+  });
+
+  it('prefers .cmd over extensionless when npm returns Unix script first', () => {
+    // npm global installs on Windows create both an extensionless Unix shebang
+    // script and a .cmd wrapper; where.exe often returns the shebang first.
+    mockExecFileSync.mockReturnValue(
+      Buffer.from(
+        'C:\\npm\\bin\\codex\r\nC:\\npm\\bin\\codex.cmd\r\nC:\\npm\\bin\\codex.ps1\r\n',
+      ),
+    );
+    mockExistsSync.mockReturnValue(true);
+
+    expect(win32Backend.resolveBinary('codex')).toBe('C:\\npm\\bin\\codex.cmd');
   });
 
   it('falls back to manual PATH walk when where.exe throws', () => {

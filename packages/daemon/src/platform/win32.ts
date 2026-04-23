@@ -9,11 +9,17 @@ const PATH_SEP = ';';
 const WIN_EXTENSIONS = ['.cmd', '.exe', '.bat', ''];
 
 function searchPath(name: string): string | null {
-  // Try `where.exe` first — it handles PATH and PATHEXT correctly
+  // Try `where.exe` first — it handles PATH and PATHEXT correctly.
+  // npm installs both a Unix shebang script (no extension) and a .cmd wrapper;
+  // where.exe may return the extensionless script first. Prefer .cmd > .exe > .bat.
   try {
     const result = execFileSync('where.exe', [name], { stdio: 'pipe' }).toString().trim();
-    const first = result.split(/\r?\n/)[0];
-    if (first && fs.existsSync(first)) return first;
+    const candidates = result.split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
+    const preferred = WIN_EXTENSIONS.slice(0, -1) // ['.cmd', '.exe', '.bat']
+      .map((ext) => candidates.find((c) => c.toLowerCase().endsWith(ext)))
+      .find(Boolean);
+    const pick = preferred ?? candidates[0];
+    if (pick && fs.existsSync(pick)) return pick;
   } catch {
     // where.exe not found or name not found — fall through to manual search
   }
