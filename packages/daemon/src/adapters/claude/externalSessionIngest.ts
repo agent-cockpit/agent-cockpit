@@ -2,7 +2,7 @@ import * as fs from 'node:fs'
 import * as os from 'node:os'
 import * as path from 'node:path'
 import type Database from 'better-sqlite3'
-import type { NormalizedEvent } from '@cockpit/shared'
+import type { NormalizedEvent } from '@agentcockpit/shared'
 import { EXTERNAL_SESSION_REASON, persistEvent } from '../../db/queries.js'
 import { getOrCreateSessionId } from './hookParser.js'
 

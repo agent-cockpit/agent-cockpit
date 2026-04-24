@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest'
-import type { NormalizedEvent } from '@cockpit/shared'
+import type { NormalizedEvent } from '@agentcockpit/shared'
 
 async function loadStore() {
   vi.resetModules()

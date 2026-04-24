@@ -8,7 +8,7 @@ import {
   AgentAnimState,
 } from '../components/office/spriteStates.js'
 import type { SessionRecord } from '../store/index.js'
-import type { NormalizedEvent } from '@cockpit/shared'
+import type { NormalizedEvent } from '@agentcockpit/shared'
 
 const activeSession: SessionRecord = {
   sessionId: 'sess-1',

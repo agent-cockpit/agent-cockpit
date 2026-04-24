@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import type { NormalizedEvent } from '@cockpit/shared';
+import type { NormalizedEvent } from '@agentcockpit/shared';
 import type Database from 'better-sqlite3';
 import { classifyRisk } from './riskClassifier.js';
 import { getClaudeSessionId, setClaudeSessionId } from '../../db/queries.js';

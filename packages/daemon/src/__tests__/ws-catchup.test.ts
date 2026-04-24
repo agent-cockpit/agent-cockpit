@@ -5,7 +5,7 @@ import { openDatabase } from '../db/database.js';
 import { persistEvent } from '../db/queries.js';
 import { handleConnection } from '../ws/handlers.js';
 import { broadcast } from '../ws/server.js';
-import type { NormalizedEvent } from '@cockpit/shared';
+import type { NormalizedEvent } from '@agentcockpit/shared';
 import type { Database } from 'better-sqlite3';
 
 interface CatchupCompleteMessage {

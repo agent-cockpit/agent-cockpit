@@ -1,4 +1,4 @@
-import type { NormalizedEvent } from '@cockpit/shared'
+import type { NormalizedEvent } from '@agentcockpit/shared'
 import { create } from 'zustand'
 import { subscribeWithSelector } from 'zustand/middleware'
 import {

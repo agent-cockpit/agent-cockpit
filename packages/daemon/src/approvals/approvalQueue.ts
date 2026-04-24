@@ -1,5 +1,5 @@
 import type Database from 'better-sqlite3';
-import type { NormalizedEvent } from '@cockpit/shared';
+import type { NormalizedEvent } from '@agentcockpit/shared';
 import { eventBus } from '../eventBus.js';
 import { resolveApproval } from '../adapters/claude/hookServer.js';
 import { resolveCodexApproval } from '../adapters/codex/codexAdapter.js';

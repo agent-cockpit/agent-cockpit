@@ -3,7 +3,7 @@ import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import { MemoryRouter, Route, Routes } from 'react-router'
 import { useStore } from '../store/index.js'
 import { MemoryPanel } from '../components/panels/MemoryPanel.js'
-import type { NormalizedEvent } from '@cockpit/shared'
+import type { NormalizedEvent } from '@agentcockpit/shared'
 
 const SESSION_ID = '00000000-0000-0000-0000-000000000001'
 const WORKSPACE = '/home/user/project'

@@ -1,5 +1,5 @@
 import { EventEmitter } from 'node:events';
-import type { NormalizedEvent } from '@cockpit/shared';
+import type { NormalizedEvent } from '@agentcockpit/shared';
 
 // Typed event emitter for the daemon's internal event pipeline.
 // Adapters emit here; the daemon's index.ts subscribes to persist and broadcast.

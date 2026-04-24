@@ -1,6 +1,6 @@
 import http from 'node:http';
 import type { IncomingMessage, ServerResponse } from 'node:http';
-import type { NormalizedEvent } from '@cockpit/shared';
+import type { NormalizedEvent } from '@agentcockpit/shared';
 import { parseHookPayload, type HookPayload } from './hookParser.js';
 import { logger } from '../../logger.js';
 

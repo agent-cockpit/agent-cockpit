@@ -1,7 +1,7 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { useStore } from '../../store/index.js'
 import { sendWsMessage } from '../../hooks/useSessionEvents.js'
-import type { NormalizedEvent } from '@cockpit/shared'
+import type { NormalizedEvent } from '@agentcockpit/shared'
 import { EMPTY_EVENTS } from '../../store/eventsSlice.js'
 import { usePanelSessionId } from './sessionScope.js'
 

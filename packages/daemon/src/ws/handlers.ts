@@ -1,7 +1,7 @@
 import { WebSocket } from 'ws';
 import type { IncomingMessage } from 'node:http';
 import type Database from 'better-sqlite3';
-import type { NormalizedEvent } from '@cockpit/shared';
+import type { NormalizedEvent } from '@agentcockpit/shared';
 import { getEventsSince, getSessionSummary } from '../db/queries.js';
 import { approvalQueue } from '../approvals/approvalQueue.js';
 import { logger } from '../logger.js';

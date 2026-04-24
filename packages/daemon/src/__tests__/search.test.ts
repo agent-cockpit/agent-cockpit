@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { openDatabase } from '../db/database.js';
 import { indexForSearch, searchAll } from '../db/queries.js';
-import type { NormalizedEvent } from '@cockpit/shared';
+import type { NormalizedEvent } from '@agentcockpit/shared';
 
 function makeSessionStartEvent(sessionId: string): NormalizedEvent {
   return {

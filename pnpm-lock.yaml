@@ -20,7 +20,7 @@ importers:
 
   packages/daemon:
     dependencies:
-      '@cockpit/shared':
+      '@agentcockpit/shared':
         specifier: workspace:*
         version: link:../shared
       better-sqlite3:
@@ -29,6 +29,9 @@ importers:
       node-pty:
         specifier: ^1.1.0
         version: 1.1.0
+      tsx:
+        specifier: latest
+        version: 4.21.0
       ws:
         specifier: ^8.18.3
         version: 8.20.0
@@ -42,9 +45,6 @@ importers:
       '@types/ws':
         specifier: ^8.18.1
         version: 8.18.1
-      tsx:
-        specifier: latest
-        version: 4.21.0
       typescript:
         specifier: ^5.0.0
         version: 5.9.3
@@ -67,7 +67,7 @@ importers:
 
   packages/ui:
     dependencies:
-      '@cockpit/shared':
+      '@agentcockpit/shared':
         specifier: workspace:*
         version: link:../shared
       '@dnd-kit/core':
