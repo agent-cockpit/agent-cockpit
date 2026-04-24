@@ -421,7 +421,7 @@ $env:OPENAI_API_KEY = "sk-..."
 **Via npx (recommended):**
 
 ```bash
-npx agent-cockpit
+npx @agentcockpit/agent-cockpit
 ```
 
 **Or clone for development:**
