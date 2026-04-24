@@ -1,17 +1,12 @@
 #!/usr/bin/env node
-import { spawn, execSync } from 'node:child_process';
-import { fileURLToPath } from 'node:url';
-import { dirname, resolve } from 'node:path';
+import { register } from 'tsx/esm/api';
 import { createConnection } from 'node:net';
+import { execSync } from 'node:child_process';
 
-const __dirname = dirname(fileURLToPath(import.meta.url));
-const root = resolve(__dirname, '..');
-const tsxBin = resolve(root, 'node_modules', '.bin', 'tsx');
-const entry = resolve(root, 'src', 'index.ts');
+register();
+
 const port = parseInt(process.env.COCKPIT_WS_PORT ?? '54321', 10);
 const url = `http://localhost:${port}`;
-
-const child = spawn(tsxBin, [entry], { stdio: 'inherit' });
 
 function waitForPort(retries = 50) {
   return new Promise((resolve, reject) => {
@@ -34,8 +29,6 @@ waitForPort().then(() => {
     process.platform === 'win32' ? 'start' :
     'xdg-open';
   try { execSync(`${opener} ${url}`, { stdio: 'ignore' }); } catch { /* ignore */ }
-}).catch(() => { /* daemon failed to start */ });
+}).catch(() => {});
 
-child.on('exit', (code) => process.exit(code ?? 0));
-process.on('SIGINT', () => child.kill('SIGINT'));
-process.on('SIGTERM', () => child.kill('SIGTERM'));
+await import('../src/index.ts');

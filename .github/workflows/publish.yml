@@ -32,7 +32,7 @@ jobs:
           VERSION="${{ github.event.release.tag_name }}"
           VERSION="${VERSION#v}"
           pnpm --filter @agentcockpit/shared exec npm version "$VERSION" --no-git-tag-version
-          pnpm --filter agent-cockpit exec npm version "$VERSION" --no-git-tag-version
+          pnpm --filter @agentcockpit/agent-cockpit exec npm version "$VERSION" --no-git-tag-version
 
       - name: Publish @agentcockpit/shared
         run: pnpm --filter @agentcockpit/shared publish --no-git-checks --access public
@@ -40,6 +40,6 @@ jobs:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
       - name: Publish agent-cockpit
-        run: pnpm --filter agent-cockpit publish --no-git-checks --access public
+        run: pnpm --filter @agentcockpit/agent-cockpit publish --no-git-checks --access public
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}

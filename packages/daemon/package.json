@@ -1,6 +1,6 @@
 {
-  "name": "agent-cockpit",
-  "version": "0.0.0",
+  "name": "@agentcockpit/agent-cockpit",
+  "version": "0.1.2",
   "private": false,
   "type": "module",
   "bin": {
