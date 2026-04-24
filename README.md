@@ -153,10 +153,58 @@ Supporting folders include:
 
 ## Installation
 
+### 1. Install Claude Code CLI
+
+**Mac / Linux:**
+
 ```bash
+curl -fsSL https://claude.ai/install.sh | bash
+```
+
+**Windows (PowerShell):**
+
+```powershell
+irm https://claude.ai/install.ps1 | iex
+```
+
+**Or via npm (all OS):**
+
+```bash
+npm install -g @anthropic-ai/claude-code
+claude auth login
+```
+
+### 2. Install Codex CLI
+
+```bash
+npm install -g @openai/codex
+```
+
+Set your API key:
+
+```bash
+export OPENAI_API_KEY=sk-...        # Mac / Linux
+$env:OPENAI_API_KEY = "sk-..."      # Windows PowerShell
+```
+
+### 3. Clone and run Agent Cockpit
+
+```bash
+git clone https://github.com/agent-cockpit/agent-cockpit.git
+cd agent-cockpit
 pnpm install
 pnpm build
+```
+
+Start the daemon (terminal 1):
+
+```bash
 pnpm --filter @cockpit/daemon dev
+```
+
+Start the UI (terminal 2):
+
+```bash
 pnpm --filter @cockpit/ui dev
 ```
 
