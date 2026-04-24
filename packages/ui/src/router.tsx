@@ -1,11 +1,17 @@
 import { createBrowserRouter } from 'react-router'
 import { OpsLayout } from './components/layout/OpsLayout.js'
 
-// Session detail is rendered as a popup overlay (InstancePopupHub) driven by
-// store.sessionDetailOpen — not as a route. OfficePage is always the base view.
+// `/` renders the StartPage (pixel-art title screen). `/manage` mounts the
+// live OpsLayout + OfficePage game world. Session detail is still rendered
+// inside the office as a popup overlay driven by store.sessionDetailOpen.
 export const router = createBrowserRouter([
   {
     path: '/',
+    lazy: () =>
+      import('./pages/StartPage.js').then((m) => ({ Component: m.StartPage })),
+  },
+  {
+    path: '/manage',
     Component: OpsLayout,
     children: [
       {
