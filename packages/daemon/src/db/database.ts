@@ -34,6 +34,10 @@ export function openDatabase(dbPath: string): Database.Database {
     );
     CREATE INDEX IF NOT EXISTS idx_events_session
       ON events (session_id, sequence_number);
+    CREATE INDEX IF NOT EXISTS idx_events_session_type_timestamp
+      ON events (session_id, type, timestamp);
+    CREATE INDEX IF NOT EXISTS idx_events_type_session
+      ON events (type, session_id);
 
     CREATE TABLE IF NOT EXISTS approvals (
       approval_id      TEXT PRIMARY KEY,

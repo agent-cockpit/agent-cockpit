@@ -1,6 +1,14 @@
 import { describe, it, expect, afterEach, beforeEach } from 'vitest';
 import { openDatabase, initializeClaudeSessionCache } from '../db/database.js';
-import { persistEvent, getEventsSince, getEventsBySession, getClaudeSessionId, setClaudeSessionId } from '../db/queries.js';
+import {
+  persistEvent,
+  getEventsSince,
+  getEventsBySession,
+  getClaudeSessionId,
+  setClaudeSessionId,
+  shouldPersistEvent,
+  cleanupDuplicateRecords,
+} from '../db/queries.js';
 import type { NormalizedEvent } from '@cockpit/shared';
 import * as os from 'node:os';
 import * as path from 'node:path';
@@ -306,5 +314,102 @@ describe('claude_sessions table and cache', () => {
     const result = db.prepare('SELECT session_id FROM claude_sessions WHERE claude_id = ?')
       .get(testClaudeId) as { session_id: string };
     expect(result.session_id).toBe(testSessionId);
+  });
+});
+
+describe('event dedupe guards', () => {
+  it('suppresses duplicate equivalent session_start events', () => {
+    const db = openDatabase(':memory:');
+    const event = makeEvent({
+      sessionId: 'dedupe-session-start',
+      type: 'session_start',
+      provider: 'claude',
+      workspacePath: '/tmp/workspace',
+      managedByDaemon: true,
+      canSendMessage: true,
+      canTerminateSession: true,
+    });
+    persistEvent(db, event);
+    const check = shouldPersistEvent(db, event);
+    expect(check.shouldPersist).toBe(false);
+    expect(check.reason).toBe('duplicate_session_start');
+    db.close();
+  });
+
+  it('suppresses duplicate equivalent pending approval_request events', () => {
+    const db = openDatabase(':memory:');
+    const sessionId = 'dedupe-approval-session';
+    const approval = makeEvent({
+      sessionId,
+      type: 'approval_request',
+      actionType: 'shell_command',
+      riskLevel: 'high',
+      approvalId: 'approval-a',
+      proposedAction: 'Bash: {"command":"git log main..HEAD --oneline"}',
+      affectedPaths: [],
+      whyRisky: 'shell',
+    });
+    persistEvent(db, approval);
+    const check = shouldPersistEvent(db, {
+      ...approval,
+      approvalId: 'approval-b',
+      timestamp: new Date().toISOString(),
+    });
+    expect(check.shouldPersist).toBe(false);
+    expect(check.reason).toBe('duplicate_pending_approval');
+    db.close();
+  });
+});
+
+describe('cleanupDuplicateRecords', () => {
+  it('removes duplicate session_start and pending approvals while preserving one canonical row', () => {
+    const db = openDatabase(':memory:');
+    const sessionId = 'cleanup-session';
+    const ts = new Date().toISOString();
+
+    persistEvent(db, makeEvent({
+      sessionId,
+      type: 'session_start',
+      provider: 'claude',
+      workspacePath: '/tmp/workspace',
+      managedByDaemon: true,
+      canSendMessage: true,
+      canTerminateSession: true,
+      timestamp: ts,
+    }));
+    persistEvent(db, makeEvent({
+      sessionId,
+      type: 'session_start',
+      provider: 'claude',
+      workspacePath: '/tmp/workspace',
+      managedByDaemon: true,
+      canSendMessage: true,
+      canTerminateSession: true,
+      timestamp: ts,
+    }));
+
+    db.prepare(`
+      INSERT INTO approvals
+        (approval_id, session_id, status, action_type, risk_level, proposed_action, affected_paths, why_risky, created_at)
+      VALUES
+        ('pending-a', ?, 'pending', 'shell_command', 'high', 'Bash: {"command":"pwd"}', '[]', 'shell', ?),
+        ('pending-b', ?, 'pending', 'shell_command', 'high', 'Bash: {"command":"pwd"}', '[]', 'shell', ?)
+    `).run(sessionId, ts, sessionId, ts);
+
+    const result = cleanupDuplicateRecords(db);
+    expect(result.deletedSessionStartEvents).toBe(1);
+    expect(result.deletedPendingApprovals).toBe(1);
+
+    const starts = db.prepare(
+      "SELECT COUNT(*) AS count FROM events WHERE session_id = ? AND type = 'session_start'"
+    ).get(sessionId) as { count: number };
+    expect(starts.count).toBe(1);
+
+    const pending = db.prepare(
+      "SELECT COUNT(*) AS count FROM approvals WHERE session_id = ? AND status = 'pending'"
+    ).get(sessionId) as { count: number };
+    expect(pending.count).toBe(1);
+
+    db.close();
   });
 });

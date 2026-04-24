@@ -235,6 +235,56 @@ describe('CodexAdapter', () => {
     });
   });
 
+  it('dedupes equivalent Codex approval variants and resolves all server request ids', async () => {
+    const adapter = new CodexAdapter(
+      'session-cross-variant-dedupe',
+      '/workspace',
+      mockDb as unknown as import('better-sqlite3').Database,
+      onEvent,
+      undefined,
+      () => mockProc as unknown as import('node:child_process').ChildProcess,
+    );
+
+    await startAdapter(adapter, mockProc, emitLine);
+    onEvent.mockClear();
+
+    emitLine(JSON.stringify({
+      id: 1001,
+      method: 'item/commandExecution/requestApproval',
+      params: {
+        item: { type: 'commandExecution', command: ['git', 'status'] },
+      },
+    }));
+    emitLine(JSON.stringify({
+      id: 1002,
+      method: 'execCommandApproval',
+      params: {
+        command: ['git', 'status'],
+        cwd: '/workspace',
+      },
+    }));
+
+    expect(onEvent).toHaveBeenCalledTimes(1);
+    const emittedEvent = onEvent.mock.calls[0][0] as Record<string, unknown>;
+    const approvalId = emittedEvent['approvalId'] as string;
+
+    adapter.resolveApproval(approvalId, 'approve');
+
+    const replyMessages = mockProc.stdin.calls
+      .map((s) => JSON.parse(s) as Record<string, unknown>)
+      .filter((m) => m['id'] === 1001 || m['id'] === 1002);
+
+    expect(replyMessages).toHaveLength(2);
+    expect(replyMessages.find((m) => m['id'] === 1001)).toMatchObject({
+      id: 1001,
+      result: { decision: 'accept' },
+    });
+    expect(replyMessages.find((m) => m['id'] === 1002)).toMatchObject({
+      id: 1002,
+      result: { decision: 'approved' },
+    });
+  });
+
   it('permissions approval deny responds with empty granted permissions and turn scope', async () => {
     const adapter = new CodexAdapter(
       'session-perm-approval',

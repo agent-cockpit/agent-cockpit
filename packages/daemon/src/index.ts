@@ -1,5 +1,12 @@
 import { openDatabase, initializeClaudeSessionCache } from './db/database.js';
-import { persistEvent, getStartedSessionIds, backfillSessionStarts, getOrphanedSessionIds } from './db/queries.js';
+import {
+  persistEvent,
+  getStartedSessionIds,
+  backfillSessionStarts,
+  getOrphanedSessionIds,
+  shouldPersistEvent,
+  cleanupDuplicateRecords,
+} from './db/queries.js';
 import { createWsServer, broadcast } from './ws/server.js';
 import { createHookServer, initStartedSessions } from './adapters/claude/hookServer.js';
 import { setClaudeSessionCache, setClaudeSessionDb } from './adapters/claude/hookParser.js';
@@ -51,6 +58,15 @@ setClaudeSessionDb(db);
 // Backfill session_start events for sessions in claude_sessions that lack one (idempotent)
 backfillSessionStarts(db);
 
+const cleanup = cleanupDuplicateRecords(db);
+if (
+  cleanup.deletedSessionStartEvents > 0 ||
+  cleanup.deletedApprovalRequestEvents > 0 ||
+  cleanup.deletedPendingApprovals > 0
+) {
+  logger.info('daemon', 'Removed duplicate historical records', cleanup);
+}
+
 // Pre-populate started sessions so daemon restarts don't re-emit session_start for existing sessions
 initStartedSessions(getStartedSessionIds(db));
 
@@ -72,6 +88,15 @@ const { wss, httpServer } = createWsServer(db, WS_PORT);
 // Must be wired before stale approval expiry so approval_resolved events are persisted.
 eventBus.on('event', (rawEvent) => {
   logger.debug('daemon', `Event pipeline: ${rawEvent.type}`, { sessionId: rawEvent.sessionId });
+  const dedupe = shouldPersistEvent(db, rawEvent);
+  if (!dedupe.shouldPersist) {
+    logger.info('daemon', 'Duplicate event suppressed', {
+      type: rawEvent.type,
+      sessionId: rawEvent.sessionId,
+      reason: dedupe.reason,
+    });
+    return;
+  }
   const saved = persistEvent(db, rawEvent);
   logger.debug('daemon', `Event persisted: seq=${(saved as { sequenceNumber?: number }).sequenceNumber}`, {
     type: saved.type,

@@ -106,6 +106,15 @@ function getKnownSessionStarts(db: Database.Database): Set<string> {
   return new Set(rows.map((row) => row.session_id))
 }
 
+function getManagedCodexThreadIds(db: Database.Database): Set<string> {
+  const rows = db.prepare(
+    `SELECT DISTINCT thread_id
+     FROM codex_sessions
+     WHERE thread_id IS NOT NULL AND thread_id != ''`,
+  ).all() as Array<{ thread_id: string }>
+  return new Set(rows.map((row) => row.thread_id))
+}
+
 export function ingestExternalCodexCliSessions(
   db: Database.Database,
   emitEvent?: (event: NormalizedEvent) => void,
@@ -122,10 +131,12 @@ export function ingestExternalCodexCliSessions(
   if (externalThreads.length === 0) return 0
 
   const knownSessionStarts = getKnownSessionStarts(db)
+  const managedThreadIds = getManagedCodexThreadIds(db)
   let imported = 0
 
   for (const thread of externalThreads) {
     if (!isUuidLike(thread.sessionId)) continue
+    if (managedThreadIds.has(thread.sessionId)) continue
     if (knownSessionStarts.has(thread.sessionId)) continue
 
     const event: NormalizedEvent = {
