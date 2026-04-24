@@ -35,11 +35,7 @@ jobs:
           pnpm --filter agent-cockpit exec npm version "$VERSION" --no-git-tag-version
 
       - name: Publish @agentcockpit/shared
-        run: pnpm --filter @agentcockpit/shared publish --no-git-checks --access public
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: pnpm --filter @agentcockpit/shared publish --no-git-checks --access public --provenance
 
       - name: Publish agent-cockpit
-        run: pnpm --filter agent-cockpit publish --no-git-checks --access public
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: pnpm --filter agent-cockpit publish --no-git-checks --access public --provenance
