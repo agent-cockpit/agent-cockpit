@@ -5,7 +5,7 @@ import { WebSocket } from 'ws';
 import { openDatabase } from '../db/database.js';
 import { persistEvent } from '../db/queries.js';
 import { handleConnection } from '../ws/handlers.js';
-import type { NormalizedEvent } from '@cockpit/shared';
+import type { NormalizedEvent } from '@agentcockpit/shared';
 
 class FakeWs extends EventEmitter {
   readyState = WebSocket.OPEN;

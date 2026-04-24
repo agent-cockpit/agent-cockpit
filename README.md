@@ -416,13 +416,20 @@ export OPENAI_API_KEY=sk-...
 $env:OPENAI_API_KEY = "sk-..."
 ```
 
-### 3. Clone and install
+### 3. Install Agent Cockpit
+
+**Via npx (recommended):**
+
+```bash
+npx agent-cockpit
+```
+
+**Or clone for development:**
 
 ```bash
 git clone https://github.com/agent-cockpit/agent-cockpit.git
 cd agent-cockpit
 pnpm install
-pnpm build
 ```
 
 ### 4. Configure Claude Hooks
@@ -438,7 +445,7 @@ Agent Cockpit receives Claude Code events through HTTP lifecycle hooks. Add the 
         "hooks": [
           {
             "type": "command",
-            "command": "curl -s -X POST http://localhost:3001/hooks/claude -H 'Content-Type: application/json' -d @-"
+            "command": "curl -s -X POST http://localhost:54322/hooks/claude -H 'Content-Type: application/json' -d @-"
           }
         ]
       }
@@ -449,7 +456,7 @@ Agent Cockpit receives Claude Code events through HTTP lifecycle hooks. Add the 
         "hooks": [
           {
             "type": "command",
-            "command": "curl -s -X POST http://localhost:3001/hooks/claude -H 'Content-Type: application/json' -d @-"
+            "command": "curl -s -X POST http://localhost:54322/hooks/claude -H 'Content-Type: application/json' -d @-"
           }
         ]
       }
@@ -460,7 +467,7 @@ Agent Cockpit receives Claude Code events through HTTP lifecycle hooks. Add the 
         "hooks": [
           {
             "type": "command",
-            "command": "curl -s -X POST http://localhost:3001/hooks/claude -H 'Content-Type: application/json' -d @-"
+            "command": "curl -s -X POST http://localhost:54322/hooks/claude -H 'Content-Type: application/json' -d @-"
           }
         ]
       }
@@ -471,7 +478,7 @@ Agent Cockpit receives Claude Code events through HTTP lifecycle hooks. Add the 
         "hooks": [
           {
             "type": "command",
-            "command": "curl -s -X POST http://localhost:3001/hooks/claude -H 'Content-Type: application/json' -d @-"
+            "command": "curl -s -X POST http://localhost:54322/hooks/claude -H 'Content-Type: application/json' -d @-"
           }
         ]
       }
@@ -486,19 +493,15 @@ You can also configure hooks at the project level by placing the same JSON in `.
 
 ### 5. Start the application
 
-Start the daemon (terminal 1):
+**If installed via npx**, it starts automatically and opens your browser.
+
+**If running from source:**
 
 ```bash
-pnpm --filter @cockpit/daemon dev
+pnpm dev
 ```
 
-Start the UI (terminal 2):
-
-```bash
-pnpm --filter @cockpit/ui dev
-```
-
-Open [http://localhost:5173](http://localhost:5173) in your browser.
+Open [http://localhost:54321](http://localhost:54321) in your browser.
 
 On **Windows**, make sure both `claude` and `codex` are available on `PATH` in the same shell where you start the daemon. The daemon spawns them as child processes.
 

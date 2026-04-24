@@ -1,5 +1,6 @@
 node_modules/
 dist/
+packages/daemon/public/
 *.tsbuildinfo
 .DS_Store
 

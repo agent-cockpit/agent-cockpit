@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import type { NormalizedEvent } from '@cockpit/shared';
+import type { NormalizedEvent } from '@agentcockpit/shared';
 import { classifyCodexApproval } from './codexRiskClassifier.js';
 
 export type CodexMessage = Record<string, unknown>;

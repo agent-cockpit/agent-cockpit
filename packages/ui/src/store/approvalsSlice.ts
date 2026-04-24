@@ -1,4 +1,4 @@
-import type { NormalizedEvent } from '@cockpit/shared'
+import type { NormalizedEvent } from '@agentcockpit/shared'
 
 export interface PendingApproval {
   approvalId: string

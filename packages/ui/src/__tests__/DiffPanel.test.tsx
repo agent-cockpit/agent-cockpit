@@ -3,7 +3,7 @@ import { render, screen, fireEvent, within, act } from '@testing-library/react'
 import { MemoryRouter, Route, Routes } from 'react-router'
 import { useStore } from '../store/index.js'
 import { DiffPanel } from '../components/panels/DiffPanel.js'
-import type { NormalizedEvent } from '@cockpit/shared'
+import type { NormalizedEvent } from '@agentcockpit/shared'
 
 const mockFetch = vi.fn()
 global.fetch = mockFetch

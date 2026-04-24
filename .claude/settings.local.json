@@ -1,6 +1,20 @@
 {
+  "permissions": {
+    "allow": [
+      "mcp__code-review-graph__get_architecture_overview_tool",
+      "Bash(rtk ls *)",
+      "Bash(rtk read *)",
+      "Bash(rtk grep *)",
+      "Bash(chmod +x /Users/leostuart/agent-cockpit/packages/daemon/bin/agent-cockpit.js)",
+      "Bash(pnpm typecheck *)",
+      "Bash(pnpm build *)",
+      "Bash(rtk find *)",
+      "Bash(xargs sed *)",
+      "Bash(rtk pnpm *)"
+    ]
+  },
+  "enableAllProjectMcpServers": true,
   "enabledMcpjsonServers": [
     "code-review-graph"
-  ],
-  "enableAllProjectMcpServers": true
+  ]
 }

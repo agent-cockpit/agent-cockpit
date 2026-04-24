@@ -1,0 +1,45 @@
+name: Publish
+
+on:
+  release:
+    types: [published]
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          registry-url: https://registry.npmjs.org
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      - run: pnpm build
+
+      - name: Set version from release tag
+        run: |
+          VERSION="${{ github.event.release.tag_name }}"
+          VERSION="${VERSION#v}"
+          pnpm --filter @agentcockpit/shared exec npm version "$VERSION" --no-git-tag-version
+          pnpm --filter agent-cockpit exec npm version "$VERSION" --no-git-tag-version
+
+      - name: Publish @agentcockpit/shared
+        run: pnpm --filter @agentcockpit/shared publish --no-git-checks --access public
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+      - name: Publish agent-cockpit
+        run: pnpm --filter agent-cockpit publish --no-git-checks --access public
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}

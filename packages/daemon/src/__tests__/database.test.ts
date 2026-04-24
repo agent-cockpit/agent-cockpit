@@ -9,7 +9,7 @@ import {
   shouldPersistEvent,
   cleanupDuplicateRecords,
 } from '../db/queries.js';
-import type { NormalizedEvent } from '@cockpit/shared';
+import type { NormalizedEvent } from '@agentcockpit/shared';
 import * as os from 'node:os';
 import * as path from 'node:path';
 import * as fs from 'node:fs';

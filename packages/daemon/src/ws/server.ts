@@ -1,10 +1,11 @@
-import type { NormalizedEvent } from '@cockpit/shared';
+import type { NormalizedEvent } from '@agentcockpit/shared';
 import type Database from 'better-sqlite3';
 import crypto from 'node:crypto';
 import fs from 'node:fs';
 import http, { createServer } from 'node:http';
 import os from 'node:os';
 import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { WebSocket, WebSocketServer } from 'ws';
 import { ClaudeLauncher, type ClaudePermissionMode, LaunchError } from '../adapters/claude/claudeLauncher.js';
 import { markSessionStarted } from '../adapters/claude/hookServer.js';
@@ -16,6 +17,10 @@ import { logger } from '../logger.js';
 import { deleteNote, insertNote, listNotes } from '../memory/memoryNotes.js';
 import { getWorkspacePath, readFileSafe, resolveAutoMemoryPath, resolveClaudeMdPath, writeFileSafe } from '../memory/memoryReader.js';
 import { handleConnection } from './handlers.js';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+const PUBLIC_DIR = path.resolve(__dirname, '..', '..', 'public');
 
 // Pending agent-suggested memory writes: memoryKey → { workspace, value }
 const pendingSuggestions = new Map<string, { workspace: string; value: string }>();
@@ -276,6 +281,58 @@ function handleLaunchSession(
       }
     })();
   });
+}
+
+const MIME_TYPES: Record<string, string> = {
+  '.html': 'text/html; charset=utf-8',
+  '.js': 'application/javascript',
+  '.css': 'text/css',
+  '.json': 'application/json',
+  '.svg': 'image/svg+xml',
+  '.png': 'image/png',
+  '.ico': 'image/x-icon',
+  '.woff': 'font/woff',
+  '.woff2': 'font/woff2',
+  '.ttf': 'font/ttf',
+  '.txt': 'text/plain',
+};
+
+function serveStaticFile(res: http.ServerResponse, filePath: string): void {
+  const content = fs.readFileSync(filePath);
+  const ext = path.extname(filePath).toLowerCase();
+  res.writeHead(200, { 'Content-Type': MIME_TYPES[ext] ?? 'application/octet-stream' });
+  res.end(content);
+}
+
+function serveStatic(req: http.IncomingMessage, res: http.ServerResponse): void {
+  if (req.method !== 'GET') {
+    res.writeHead(404);
+    res.end();
+    return;
+  }
+  const urlPath = new URL(req.url ?? '/', 'http://localhost').pathname;
+  const safePath = path.normalize(urlPath).replace(/^(\.\.[/\\])+/, '');
+  const filePath = path.join(PUBLIC_DIR, safePath);
+  if (!filePath.startsWith(PUBLIC_DIR)) {
+    res.writeHead(403);
+    res.end();
+    return;
+  }
+  if (fs.existsSync(filePath) && fs.statSync(filePath).isFile()) {
+    serveStaticFile(res, filePath);
+    return;
+  }
+  if (fs.existsSync(path.join(filePath, 'index.html'))) {
+    serveStaticFile(res, path.join(filePath, 'index.html'));
+    return;
+  }
+  const indexHtml = path.join(PUBLIC_DIR, 'index.html');
+  if (fs.existsSync(indexHtml)) {
+    serveStaticFile(res, indexHtml);
+    return;
+  }
+  res.writeHead(404);
+  res.end();
 }
 
 export function createWsServer(
@@ -600,8 +657,7 @@ export function createWsServer(
       return;
     }
 
-    res.writeHead(404);
-    res.end();
+    serveStatic(req, res);
   });
 
   httpServer.on('upgrade', (request, socket, head) => {

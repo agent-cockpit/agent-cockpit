@@ -1,8 +1,16 @@
 {
-  "name": "@cockpit/daemon",
+  "name": "agent-cockpit",
   "version": "0.0.0",
-  "private": true,
+  "private": false,
   "type": "module",
+  "bin": {
+    "agent-cockpit": "./bin/agent-cockpit.js"
+  },
+  "files": [
+    "bin",
+    "src",
+    "public"
+  ],
   "scripts": {
     "start": "tsx src/index.ts",
     "dev": "tsx watch src/index.ts",
@@ -10,16 +18,16 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@cockpit/shared": "workspace:*",
+    "@agentcockpit/shared": "workspace:*",
     "better-sqlite3": "^12.8.0",
     "node-pty": "^1.1.0",
+    "tsx": "latest",
     "ws": "^8.18.3",
     "zod": "^4.0.0"
   },
   "devDependencies": {
     "@types/better-sqlite3": "^7.6.13",
     "@types/ws": "^8.18.1",
-    "tsx": "latest",
     "typescript": "^5.0.0",
     "vitest": "^3.0.0"
   }

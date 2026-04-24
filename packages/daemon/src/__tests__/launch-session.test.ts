@@ -8,7 +8,7 @@ import { openDatabase } from '../db/database.js';
 import { persistEvent } from '../db/queries.js';
 import { eventBus } from '../eventBus.js';
 import type Database from 'better-sqlite3';
-import type { NormalizedEvent } from '@cockpit/shared';
+import type { NormalizedEvent } from '@agentcockpit/shared';
 import { EventEmitter } from 'node:events';
 
 // Module-level mock for child_process so we can control execFileSync behavior

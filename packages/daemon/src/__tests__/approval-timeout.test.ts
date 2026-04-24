@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { openDatabase } from '../db/database.js';
 import type { Database } from 'better-sqlite3';
-import type { NormalizedEvent } from '@cockpit/shared';
+import type { NormalizedEvent } from '@agentcockpit/shared';
 import { getApprovalById } from '../approvals/approvalStore.js';
 
 // ─── Approval timeout integration tests ──────────────────────────────────────

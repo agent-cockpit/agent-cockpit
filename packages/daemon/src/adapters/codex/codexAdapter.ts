@@ -1,7 +1,7 @@
 import { spawn, type ChildProcess } from 'node:child_process';
 import readline from 'node:readline';
 import type Database from 'better-sqlite3';
-import type { NormalizedEvent } from '@cockpit/shared';
+import type { NormalizedEvent } from '@agentcockpit/shared';
 import { parseCodexLine, type CodexParserContext } from './codexParser.js';
 import { approvalQueue } from '../../approvals/approvalQueue.js';
 import { logger } from '../../logger.js';

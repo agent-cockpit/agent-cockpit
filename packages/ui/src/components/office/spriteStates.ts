@@ -1,4 +1,4 @@
-import type { NormalizedEvent } from '@cockpit/shared'
+import type { NormalizedEvent } from '@agentcockpit/shared'
 import type { SessionRecord } from '../../store/index.js'
 
 export type Direction =

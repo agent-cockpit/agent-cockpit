@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import type { NormalizedEvent } from '@cockpit/shared';
+import type { NormalizedEvent } from '@agentcockpit/shared';
 import { openDatabase } from '../db/database.js';
 import { getAllSessions, persistEvent } from '../db/queries.js';
 

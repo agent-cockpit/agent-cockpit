@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import type { NormalizedEvent } from '@cockpit/shared'
+import type { NormalizedEvent } from '@agentcockpit/shared'
 import { useStore } from '../../store/index.js'
 import { EMPTY_EVENTS } from '../../store/eventsSlice.js'
 import { DAEMON_URL } from '../../lib/daemonUrl.js'

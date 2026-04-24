@@ -1,5 +1,5 @@
 import { useEffect } from 'react'
-import type { NormalizedEvent } from '@cockpit/shared'
+import type { NormalizedEvent } from '@agentcockpit/shared'
 import { useStore } from '../store/index.js'
 import { WS_URL } from '../lib/daemonUrl.js'
 const MAX_RETRIES = 12

@@ -1,7 +1,7 @@
 // DnD removed in Phase 15-03. AgentSprite is now a pure canvas draw utility.
 // The React component is gone. Positions are owned by gameState.npcs. Zone assignment in Phase 17.
 
-import type { NormalizedEvent } from '@cockpit/shared'
+import type { NormalizedEvent } from '@agentcockpit/shared'
 import type { SessionRecord } from '../../store/index.js'
 import {
   STATE_ROW_OFFSET,

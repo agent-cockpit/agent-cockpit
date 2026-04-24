@@ -1,4 +1,4 @@
-import type { NormalizedEvent } from '@cockpit/shared';
+import type { NormalizedEvent } from '@agentcockpit/shared';
 import type Database from 'better-sqlite3';
 import http from 'node:http';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';

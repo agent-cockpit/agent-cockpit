@@ -1,4 +1,4 @@
-import type { NormalizedEvent } from '@cockpit/shared';
+import type { NormalizedEvent } from '@agentcockpit/shared';
 import type Database from 'better-sqlite3';
 
 export interface SearchResult {

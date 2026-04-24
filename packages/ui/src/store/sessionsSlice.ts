@@ -1,4 +1,4 @@
-import type { NormalizedEvent } from '@cockpit/shared'
+import type { NormalizedEvent } from '@agentcockpit/shared'
 import type { AppStore, SessionRecord } from './index.js'
 import type { CharacterType } from '../components/office/characterMapping.js'
 

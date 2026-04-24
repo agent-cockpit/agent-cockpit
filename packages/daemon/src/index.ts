@@ -42,8 +42,8 @@ function resolveDefaultDataDir(): string {
 }
 
 const DB_PATH = process.env['COCKPIT_DB_PATH'] ?? path.join(resolveDefaultDataDir(), 'events.db');
-const WS_PORT = parseInt(process.env['COCKPIT_WS_PORT'] ?? '3001', 10);
-const HOOK_PORT = parseInt(process.env['COCKPIT_HOOK_PORT'] ?? '3002', 10);
+const WS_PORT = parseInt(process.env['COCKPIT_WS_PORT'] ?? '54321', 10);
+const HOOK_PORT = parseInt(process.env['COCKPIT_HOOK_PORT'] ?? '54322', 10);
 const CODEX_EXTERNAL_POLL_MS = parseInt(process.env['COCKPIT_CODEX_EXTERNAL_POLL_MS'] ?? '5000', 10);
 const CLAUDE_EXTERNAL_POLL_MS = parseInt(process.env['COCKPIT_CLAUDE_EXTERNAL_POLL_MS'] ?? '5000', 10);
 
@@ -168,7 +168,7 @@ for (const sessionId of orphaned) {
     type: 'session_end',
     provider: 'claude',
     timestamp: new Date().toISOString(),
-  } as import('@cockpit/shared').NormalizedEvent);
+  } as import('@agentcockpit/shared').NormalizedEvent);
 }
 
 // Graceful shutdown

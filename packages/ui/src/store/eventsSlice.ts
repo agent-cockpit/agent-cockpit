@@ -1,4 +1,4 @@
-import type { NormalizedEvent } from '@cockpit/shared'
+import type { NormalizedEvent } from '@agentcockpit/shared'
 import type { AppStore } from './index.js'
 
 // Module-level constant to avoid creating new [] references for missing sessions

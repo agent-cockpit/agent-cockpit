@@ -3,7 +3,7 @@ import { render, screen, fireEvent, within } from '@testing-library/react'
 import { MemoryRouter, Route, Routes } from 'react-router'
 import { useStore } from '../store/index.js'
 import { TimelinePanel } from '../components/panels/TimelinePanel.js'
-import type { NormalizedEvent } from '@cockpit/shared'
+import type { NormalizedEvent } from '@agentcockpit/shared'
 
 // Mock fetch globally
 const mockFetch = vi.fn()
