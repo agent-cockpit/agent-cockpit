@@ -5,7 +5,7 @@ import { StartMenu, type MenuItem } from '../components/start/StartMenu.js'
 import { SettingsDialog } from '../components/start/SettingsDialog.js'
 import { useStore } from '../store/index.js'
 
-const DOCS_URL = 'https://agent-cockpit.vercel.app/docs'
+const DOCS_URL = 'https://agent-cockpit.dev/docs'
 
 const MENU_ITEMS: MenuItem[] = [
   { id: 'manage', label: 'START MANAGING' },
