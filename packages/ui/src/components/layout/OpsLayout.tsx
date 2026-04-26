@@ -2,12 +2,14 @@ import { Outlet } from 'react-router'
 import { useState } from 'react'
 import { MapSidebar } from './MapSidebar.js'
 import { HistoryPopup } from '../office/HistoryPopup.js'
+import { StatsPopup } from '../office/StatsPopup.js'
 import { scrollToSession } from '../../pages/OfficePage.js'
 import { useActiveSessions } from '../../store/selectors.js'
 
 export function OpsLayout() {
   const activeSessions = useActiveSessions()
   const [historyOpen, setHistoryOpen] = useState(false)
+  const [statsOpen, setStatsOpen] = useState(false)
   const activeSessionCount = activeSessions.length
 
   return (
@@ -49,6 +51,12 @@ export function OpsLayout() {
               >
                 History
               </button>
+              <button
+                onClick={() => setStatsOpen(true)}
+                className="cockpit-btn shrink-0"
+              >
+                Stats
+              </button>
             </div>
           </div>
         </div>
@@ -62,6 +70,7 @@ export function OpsLayout() {
       <main className="flex-1 overflow-hidden">
         <Outlet />
         <HistoryPopup open={historyOpen} onClose={() => setHistoryOpen(false)} />
+        <StatsPopup open={statsOpen} onClose={() => setStatsOpen(false)} />
       </main>
     </div>
   )
