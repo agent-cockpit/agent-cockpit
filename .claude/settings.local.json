@@ -13,7 +13,8 @@
       "Bash(rtk pnpm *)",
       "mcp__code-review-graph__semantic_search_nodes_tool",
       "Bash(grep -E \"\\\\.ts$\")",
-      "Bash(rtk wc *)"
+      "Bash(rtk wc *)",
+      "Bash(rtk tsc *)"
     ]
   },
   "enableAllProjectMcpServers": true,

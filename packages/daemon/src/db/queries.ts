@@ -548,6 +548,132 @@ export function setClaudeSessionId(
   ).run(sessionId, claudeId, workspace, new Date().toISOString());
 }
 
+export interface SessionStats {
+  tokens: {
+    input: number
+    output: number
+    cached: number
+    total: number
+    model: string | null
+  }
+  toolCalls: {
+    total: number
+    byTool: Array<{ toolName: string; count: number }>
+  }
+  fileChanges: {
+    total: number
+    created: number
+    modified: number
+    deleted: number
+  }
+  approvals: {
+    total: number
+    approved: number
+    denied: number
+  }
+  subagentSpawns: number
+  duration: number | null
+}
+
+export function getSessionStats(db: Database.Database, sessionId: string): SessionStats {
+  // Tokens — last session_usage event for this session
+  const usageRow = db.prepare<[string], {
+    inputTokens: number | null
+    outputTokens: number | null
+    cachedInputTokens: number | null
+    model: string | null
+  }>(`
+    SELECT
+      CAST(JSON_EXTRACT(payload, '$.inputTokens') AS INTEGER)       AS inputTokens,
+      CAST(JSON_EXTRACT(payload, '$.outputTokens') AS INTEGER)      AS outputTokens,
+      CAST(JSON_EXTRACT(payload, '$.cachedInputTokens') AS INTEGER) AS cachedInputTokens,
+      JSON_EXTRACT(payload, '$.model')                               AS model
+    FROM events
+    WHERE session_id = ? AND type = 'session_usage'
+    ORDER BY sequence_number DESC
+    LIMIT 1
+  `).get(sessionId)
+
+  // Tool calls
+  const toolRows = db.prepare<[string], { toolName: string; count: number }>(`
+    SELECT JSON_EXTRACT(payload, '$.toolName') AS toolName, COUNT(*) AS count
+    FROM events
+    WHERE session_id = ? AND type = 'tool_call'
+      AND JSON_EXTRACT(payload, '$.toolName') IS NOT NULL
+    GROUP BY toolName
+    ORDER BY count DESC
+    LIMIT 10
+  `).all(sessionId)
+
+  const totalToolCalls = db.prepare<[string], { count: number }>(
+    `SELECT COUNT(*) AS count FROM events WHERE session_id = ? AND type = 'tool_call'`
+  ).get(sessionId)?.count ?? 0
+
+  // File changes
+  const fileRows = db.prepare<[string], { changeType: string; count: number }>(`
+    SELECT COALESCE(JSON_EXTRACT(payload, '$.changeType'), 'modified') AS changeType, COUNT(*) AS count
+    FROM events
+    WHERE session_id = ? AND type = 'file_change'
+    GROUP BY changeType
+  `).all(sessionId)
+
+  const fileByType = Object.fromEntries(fileRows.map((r) => [r.changeType, r.count]))
+  const totalFiles = fileRows.reduce((s, r) => s + r.count, 0)
+
+  // Approvals
+  const approvalRow = db.prepare<[string], { total: number; approved: number; denied: number }>(`
+    SELECT
+      COUNT(*) AS total,
+      SUM(CASE WHEN status = 'approved'                  THEN 1 ELSE 0 END) AS approved,
+      SUM(CASE WHEN status IN ('denied', 'timeout')      THEN 1 ELSE 0 END) AS denied
+    FROM approvals WHERE session_id = ?
+  `).get(sessionId) ?? { total: 0, approved: 0, denied: 0 }
+
+  // Subagents
+  const subagents = db.prepare<[string], { count: number }>(
+    `SELECT COUNT(*) AS count FROM events WHERE session_id = ? AND type = 'subagent_spawn'`
+  ).get(sessionId)?.count ?? 0
+
+  // Duration (ms)
+  const timeRow = db.prepare<[string, string], { startedAt: string | null; endedAt: string | null }>(`
+    SELECT
+      (SELECT timestamp FROM events WHERE session_id = ? AND type = 'session_start' ORDER BY sequence_number ASC LIMIT 1) AS startedAt,
+      (SELECT timestamp FROM events WHERE session_id = ? AND type = 'session_end'   ORDER BY sequence_number DESC LIMIT 1) AS endedAt
+  `).get(sessionId, sessionId)
+
+  const duration =
+    timeRow?.startedAt && timeRow?.endedAt
+      ? new Date(timeRow.endedAt).getTime() - new Date(timeRow.startedAt).getTime()
+      : null
+
+  return {
+    tokens: {
+      input:  usageRow?.inputTokens  ?? 0,
+      output: usageRow?.outputTokens ?? 0,
+      cached: usageRow?.cachedInputTokens ?? 0,
+      total:  (usageRow?.inputTokens ?? 0) + (usageRow?.outputTokens ?? 0),
+      model:  usageRow?.model ?? null,
+    },
+    toolCalls: {
+      total: totalToolCalls,
+      byTool: toolRows,
+    },
+    fileChanges: {
+      total: totalFiles,
+      created:  fileByType['created']  ?? 0,
+      modified: fileByType['modified'] ?? 0,
+      deleted:  fileByType['deleted']  ?? 0,
+    },
+    approvals: {
+      total:    approvalRow.total    ?? 0,
+      approved: approvalRow.approved ?? 0,
+      denied:   approvalRow.denied   ?? 0,
+    },
+    subagentSpawns: subagents,
+    duration,
+  }
+}
+
 export interface UsageStats {
   sessions: {
     total: number
