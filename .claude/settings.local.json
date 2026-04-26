@@ -10,7 +10,11 @@
       "Bash(pnpm build *)",
       "Bash(rtk find *)",
       "Bash(xargs sed *)",
-      "Bash(rtk pnpm *)"
+      "Bash(rtk pnpm *)",
+      "mcp__code-review-graph__semantic_search_nodes_tool",
+      "Bash(grep -E \"\\\\.ts$\")",
+      "Bash(rtk wc *)",
+      "Bash(rtk tsc *)"
     ]
   },
   "enableAllProjectMcpServers": true,

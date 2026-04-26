@@ -11,7 +11,7 @@ import { ClaudeLauncher, type ClaudePermissionMode, LaunchError } from '../adapt
 import { markSessionStarted } from '../adapters/claude/hookServer.js';
 import { CodexAdapter } from '../adapters/codex/codexAdapter.js';
 import { getApprovalsBySession } from '../approvals/approvalStore.js';
-import { deleteSessionRecords, getAllSessions, getEventsBySession, getSessionSummary, persistEvent, searchAll, type SessionSummary } from '../db/queries.js';
+import { deleteSessionRecords, getAllSessions, getEventsBySession, getSessionStats, getSessionSummary, getUsageStats, persistEvent, searchAll, type SessionSummary } from '../db/queries.js';
 import { eventBus } from '../eventBus.js';
 import { logger } from '../logger.js';
 import { deleteNote, insertNote, listNotes } from '../memory/memoryNotes.js';
@@ -411,6 +411,16 @@ export function createWsServer(
       return;
     }
 
+    // GET /api/sessions/:id/stats
+    const sessionStatsMatch = req.method === 'GET' && req.url?.match(/^\/api\/sessions\/([^/]+)\/stats$/);
+    if (sessionStatsMatch) {
+      const sessionId = sessionStatsMatch[1]!;
+      const stats = getSessionStats(db, sessionId);
+      res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
+      res.end(JSON.stringify(stats));
+      return;
+    }
+
     // GET /api/sessions/:id/summary (must come BEFORE /api/sessions list)
     const sessionSummaryMatch = req.method === 'GET' && req.url?.match(/^\/api\/sessions\/([^/]+)\/summary$/);
     if (sessionSummaryMatch) {
@@ -425,6 +435,14 @@ export function createWsServer(
         res.end(JSON.stringify(withRuntime));
       }
       return;
+    }
+
+    // GET /api/stats
+    if (req.method === 'GET' && req.url === '/api/stats') {
+      const stats = getUsageStats(db)
+      res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' })
+      res.end(JSON.stringify(stats))
+      return
     }
 
     // GET /api/sessions (all sessions list)

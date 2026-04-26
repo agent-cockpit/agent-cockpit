@@ -1,64 +1,396 @@
+import { useEffect, useState } from 'react'
+import { DAEMON_URL } from '../../lib/daemonUrl.js'
+import { getSessionTitle } from '../../lib/sessionTitle.js'
 import type { SessionSummary } from '../../store/index.js'
 
-function formatRuntime(startedAt: string, endedAt: string | null): string {
-  if (!endedAt) return 'in progress'
-  const ms = new Date(endedAt).getTime() - new Date(startedAt).getTime()
-  const totalSec = Math.floor(ms / 1000)
-  const m = Math.floor(totalSec / 60)
-  const s = totalSec % 60
-  return m > 0 ? `${m}m ${s}s` : `${s}s`
+interface SessionStats {
+  tokens: { input: number; output: number; cached: number; total: number; model: string | null }
+  toolCalls: { total: number; byTool: Array<{ toolName: string; count: number }> }
+  fileChanges: { total: number; created: number; modified: number; deleted: number }
+  approvals: { total: number; approved: number; denied: number }
+  subagentSpawns: number
+  duration: number | null
 }
 
-function SessionSummaryCard({ summary }: { summary: SessionSummary }) {
-  const statusColor =
-    summary.finalStatus === 'active' ? 'var(--color-cockpit-green)' :
-    summary.finalStatus === 'error' ? 'var(--color-cockpit-red)' :
-    'var(--color-cockpit-dim)'
+function fmt(n: number): string {
+  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`
+  if (n >= 1_000) return `${(n / 1_000).toFixed(1)}K`
+  return String(n)
+}
 
+function fmtDuration(ms: number | null): string {
+  if (ms === null) return 'live'
+  const s = Math.floor(ms / 1000)
+  const m = Math.floor(s / 60)
+  const h = Math.floor(m / 60)
+  if (h > 0) return `${h}h ${m % 60}m`
+  if (m > 0) return `${m}m ${s % 60}s`
+  return `${s}s`
+}
+
+function useSessionStats(sessionId: string): SessionStats | null {
+  const [stats, setStats] = useState<SessionStats | null>(null)
+  useEffect(() => {
+    fetch(`${DAEMON_URL}/api/sessions/${sessionId}/stats`)
+      .then((r) => r.json() as Promise<SessionStats>)
+      .then(setStats)
+      .catch(() => {})
+  }, [sessionId])
+  return stats
+}
+
+function providerColor(provider: string) {
+  return provider === 'claude' ? 'var(--color-provider-claude)' : 'var(--color-provider-codex)'
+}
+
+function statusColor(status: string) {
+  if (status === 'active') return 'var(--color-cockpit-green)'
+  if (status === 'error') return 'var(--color-cockpit-red)'
+  return 'var(--color-cockpit-dim)'
+}
+
+// ── Section divider ────────────────────────────────────────────
+function SectionDivider({ label }: { label: string }) {
   return (
-    <div className="cockpit-frame-full flex flex-col gap-3 p-4 bg-[var(--color-panel-surface)]">
-      <span className="cockpit-corner cockpit-corner-tl" aria-hidden />
-      <span className="cockpit-corner cockpit-corner-br" aria-hidden />
-      <div className="data-readout text-xs">{summary.sessionId.slice(0, 8)}</div>
-      <dl className="flex flex-col gap-1.5">
-        <div className="flex items-center gap-2">
-          <dt className="cockpit-label w-24 shrink-0">Provider</dt>
-          <dd className={`px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wide ${summary.provider === 'claude' ? 'badge-provider-claude' : 'badge-provider-codex'}`}>
-            {summary.provider}
-          </dd>
-        </div>
-        <div className="flex items-center gap-2">
-          <dt className="cockpit-label w-24 shrink-0">Status</dt>
-          <dd className="[font-family:var(--font-mono-data)] text-[10px] uppercase tracking-wide" style={{ color: statusColor }}>
-            {summary.finalStatus}
-          </dd>
-        </div>
-        <div className="flex items-center gap-2">
-          <dt className="cockpit-label w-24 shrink-0">Runtime</dt>
-          <dd className="data-readout text-[10px] tabular-nums">{formatRuntime(summary.startedAt, summary.endedAt)}</dd>
-        </div>
-        <div className="flex items-center gap-2">
-          <dt className="cockpit-label w-24 shrink-0">Approvals</dt>
-          <dd className="data-readout text-[10px] tabular-nums">{summary.approvalCount}</dd>
-        </div>
-        <div className="flex items-center gap-2">
-          <dt className="cockpit-label w-24 shrink-0">Files chgd</dt>
-          <dd className="data-readout text-[10px] tabular-nums">{summary.filesChanged}</dd>
-        </div>
-      </dl>
+    <div className="flex items-center gap-0 my-0">
+      <div className="flex-1 h-px bg-border/60" />
+      <span
+        className="px-3 py-1 text-[9px] tracking-[0.2em] uppercase font-mono"
+        style={{ color: 'var(--color-cockpit-dim)', background: 'var(--color-background)' }}
+      >
+        {label}
+      </span>
+      <div className="flex-1 h-px bg-border/60" />
     </div>
   )
 }
 
-export function ComparePanel({ left, right }: { left: SessionSummary; right: SessionSummary }) {
+// ── Single metric row: left value | label | right value ────────
+function MetricRow({
+  label,
+  left,
+  right,
+  leftColor,
+  rightColor,
+  highlight,
+}: {
+  label: string
+  left: string | number
+  right: string | number
+  leftColor?: string
+  rightColor?: string
+  highlight?: 'left' | 'right' | 'none'
+}) {
+  const lNum = typeof left === 'number' ? left : null
+  const rNum = typeof right === 'number' ? right : null
+  const win = highlight === 'none' ? null
+    : lNum !== null && rNum !== null && lNum > rNum ? 'left'
+    : lNum !== null && rNum !== null && rNum > lNum ? 'right'
+    : null
+
+  const leftVal = typeof left === 'number' ? fmt(left) : left
+  const rightVal = typeof right === 'number' ? fmt(right) : right
+
+  const leftFinal = leftColor ?? (win === 'left' ? 'var(--color-cockpit-cyan)' : 'var(--color-foreground)')
+  const rightFinal = rightColor ?? (win === 'right' ? 'var(--color-cockpit-cyan)' : 'var(--color-foreground)')
+
   return (
-    <div className="grid grid-cols-2 h-full divide-x divide-border/50" data-testid="compare-panel">
-      <div className="overflow-auto min-w-0">
-        <SessionSummaryCard summary={left} />
+    <div className="grid items-center font-mono text-[11px]" style={{ gridTemplateColumns: '1fr auto 1fr' }}>
+      <span
+        className="text-right tabular-nums pr-4 py-0.5 text-base font-semibold"
+        style={{ color: leftFinal }}
+      >
+        {leftVal}
+      </span>
+      <span className="text-center text-[9px] uppercase tracking-[0.15em] text-muted-foreground w-24 shrink-0">
+        {label}
+      </span>
+      <span
+        className="text-left tabular-nums pl-4 py-0.5 text-base font-semibold"
+        style={{ color: rightFinal }}
+      >
+        {rightVal}
+      </span>
+    </div>
+  )
+}
+
+// ── Mirrored bar chart for tools ───────────────────────────────
+function MirroredToolBars({
+  left,
+  right,
+}: {
+  left: SessionStats['toolCalls']
+  right: SessionStats['toolCalls']
+}) {
+  const allTools = Array.from(
+    new Set([...left.byTool.map((t) => t.toolName), ...right.byTool.map((t) => t.toolName)])
+  ).slice(0, 8)
+
+  if (allTools.length === 0) {
+    return (
+      <div className="text-center text-[10px] font-mono py-3" style={{ color: 'var(--color-cockpit-dim)' }}>
+        no tool calls recorded
       </div>
-      <div className="overflow-auto min-w-0">
-        <SessionSummaryCard summary={right} />
+    )
+  }
+
+  const leftMap = new Map(left.byTool.map((t) => [t.toolName, t.count]))
+  const rightMap = new Map(right.byTool.map((t) => [t.toolName, t.count]))
+  const max = Math.max(...allTools.flatMap((t) => [leftMap.get(t) ?? 0, rightMap.get(t) ?? 0]), 1)
+
+  return (
+    <div className="space-y-1.5 py-1">
+      {allTools.map((tool) => {
+        const l = leftMap.get(tool) ?? 0
+        const r = rightMap.get(tool) ?? 0
+        const lPct = (l / max) * 100
+        const rPct = (r / max) * 100
+        return (
+          <div key={tool} className="grid items-center gap-2 font-mono text-[10px]" style={{ gridTemplateColumns: '1fr auto 1fr' }}>
+            {/* left bar — fills right-to-left */}
+            <div className="flex items-center justify-end gap-1.5">
+              <span className="tabular-nums w-5 text-right shrink-0" style={{ color: 'var(--color-cockpit-dim)' }}>{l || ''}</span>
+              <div className="flex-1 h-2 bg-muted/40 rounded-sm overflow-hidden flex justify-end">
+                <div
+                  className="h-full rounded-sm transition-all"
+                  style={{
+                    width: `${lPct}%`,
+                    background: l >= r
+                      ? 'linear-gradient(to left, var(--color-cockpit-cyan), oklch(0.65 0.18 195 / 0.6))'
+                      : 'var(--color-cockpit-dim)',
+                  }}
+                />
+              </div>
+            </div>
+
+            {/* center label */}
+            <span className="text-center text-[9px] uppercase tracking-wider w-24 shrink-0 truncate" style={{ color: 'var(--color-muted-foreground)' }}>
+              {tool}
+            </span>
+
+            {/* right bar */}
+            <div className="flex items-center gap-1.5">
+              <div className="flex-1 h-2 bg-muted/40 rounded-sm overflow-hidden">
+                <div
+                  className="h-full rounded-sm transition-all"
+                  style={{
+                    width: `${rPct}%`,
+                    background: r >= l
+                      ? 'linear-gradient(to right, var(--color-cockpit-cyan), oklch(0.65 0.18 195 / 0.6))'
+                      : 'var(--color-cockpit-dim)',
+                  }}
+                />
+              </div>
+              <span className="tabular-nums w-5 shrink-0" style={{ color: 'var(--color-cockpit-dim)' }}>{r || ''}</span>
+            </div>
+          </div>
+        )
+      })}
+    </div>
+  )
+}
+
+// ── Session identity header ────────────────────────────────────
+function SessionHeader({ summary, align }: { summary: SessionSummary; align: 'left' | 'right' }) {
+  const pColor = providerColor(summary.provider)
+  const sColor = statusColor(summary.finalStatus)
+  const title = getSessionTitle(summary.workspacePath, summary.sessionId)
+  const isLeft = align === 'left'
+
+  return (
+    <div className={`flex flex-col gap-0.5 ${isLeft ? 'items-start' : 'items-end'}`}>
+      <div className={`flex items-center gap-2 ${isLeft ? '' : 'flex-row-reverse'}`}>
+        <span
+          className="px-2 py-0.5 text-[9px] font-bold uppercase tracking-widest border"
+          style={{ color: pColor, borderColor: pColor }}
+        >
+          {summary.provider}
+        </span>
+        <span className="text-[9px] font-mono uppercase tracking-widest" style={{ color: sColor }}>
+          {summary.finalStatus}
+        </span>
       </div>
+      <p
+        className="font-mono text-sm font-semibold leading-tight truncate max-w-[220px]"
+        style={{ color: 'var(--color-foreground)' }}
+        title={summary.workspacePath}
+      >
+        {title}
+      </p>
+      <p className="font-mono text-[10px]" style={{ color: 'var(--color-cockpit-dim)' }}>
+        {summary.sessionId.slice(0, 8)}
+      </p>
+    </div>
+  )
+}
+
+// ── Main export ────────────────────────────────────────────────
+export function ComparePanel({ left, right }: { left: SessionSummary; right: SessionSummary }) {
+  const leftStats  = useSessionStats(left.sessionId)
+  const rightStats = useSessionStats(right.sessionId)
+
+  const loading = !leftStats || !rightStats
+
+  return (
+    <div className="h-full overflow-y-auto font-mono" data-testid="compare-panel">
+      {/* ── Header: two identities ── */}
+      <div
+        className="grid sticky top-0 z-10 border-b border-border/60"
+        style={{
+          gridTemplateColumns: '1fr auto 1fr',
+          background: 'var(--color-panel-surface)',
+        }}
+      >
+        <div className="px-5 py-3 border-r border-border/40">
+          <SessionHeader summary={left} align="left" />
+        </div>
+        <div
+          className="flex items-center justify-center px-3"
+          style={{ color: 'var(--color-cockpit-dim)' }}
+        >
+          <span className="text-[10px] tracking-[0.2em] uppercase">vs</span>
+        </div>
+        <div className="px-5 py-3">
+          <SessionHeader summary={right} align="right" />
+        </div>
+      </div>
+
+      {loading ? (
+        <div className="flex items-center justify-center h-40 text-[11px]" style={{ color: 'var(--color-cockpit-dim)' }}>
+          loading…
+        </div>
+      ) : (
+        <div className="px-4 py-3 space-y-1">
+
+          {/* ── Tokens ── */}
+          <SectionDivider label="Tokens" />
+          <div className="py-1 space-y-0.5">
+            <MetricRow
+              label="Input"
+              left={leftStats.tokens.input}
+              right={rightStats.tokens.input}
+              leftColor="var(--color-cockpit-cyan)"
+              rightColor="var(--color-cockpit-cyan)"
+            />
+            <MetricRow
+              label="Output"
+              left={leftStats.tokens.output}
+              right={rightStats.tokens.output}
+              leftColor="var(--color-cockpit-amber)"
+              rightColor="var(--color-cockpit-amber)"
+            />
+            <MetricRow
+              label="Cached"
+              left={leftStats.tokens.cached}
+              right={rightStats.tokens.cached}
+              leftColor="var(--color-cockpit-green)"
+              rightColor="var(--color-cockpit-green)"
+            />
+            <MetricRow
+              label="Total"
+              left={leftStats.tokens.total}
+              right={rightStats.tokens.total}
+            />
+          </div>
+
+          {/* model names */}
+          {(leftStats.tokens.model || rightStats.tokens.model) && (
+            <div className="grid text-[9px] pb-1" style={{ gridTemplateColumns: '1fr auto 1fr' }}>
+              <span className="text-right pr-4" style={{ color: 'var(--color-cockpit-dim)' }}>
+                {leftStats.tokens.model ?? '—'}
+              </span>
+              <span className="w-24 text-center" style={{ color: 'var(--color-cockpit-dim)' }}>model</span>
+              <span className="pl-4" style={{ color: 'var(--color-cockpit-dim)' }}>
+                {rightStats.tokens.model ?? '—'}
+              </span>
+            </div>
+          )}
+
+          {/* ── File Changes ── */}
+          <SectionDivider label="File Changes" />
+          <div className="py-1 space-y-0.5">
+            <MetricRow
+              label="Created"
+              left={leftStats.fileChanges.created}
+              right={rightStats.fileChanges.created}
+              leftColor="var(--color-cockpit-green)"
+              rightColor="var(--color-cockpit-green)"
+            />
+            <MetricRow
+              label="Modified"
+              left={leftStats.fileChanges.modified}
+              right={rightStats.fileChanges.modified}
+              leftColor="var(--color-cockpit-amber)"
+              rightColor="var(--color-cockpit-amber)"
+            />
+            <MetricRow
+              label="Deleted"
+              left={leftStats.fileChanges.deleted}
+              right={rightStats.fileChanges.deleted}
+              leftColor="var(--color-cockpit-red)"
+              rightColor="var(--color-cockpit-red)"
+            />
+          </div>
+
+          {/* ── Approvals ── */}
+          <SectionDivider label="Approvals" />
+          <div className="py-1 space-y-0.5">
+            <MetricRow
+              label="Approved"
+              left={leftStats.approvals.approved}
+              right={rightStats.approvals.approved}
+              leftColor="var(--color-cockpit-green)"
+              rightColor="var(--color-cockpit-green)"
+            />
+            <MetricRow
+              label="Denied"
+              left={leftStats.approvals.denied}
+              right={rightStats.approvals.denied}
+              leftColor="var(--color-cockpit-red)"
+              rightColor="var(--color-cockpit-red)"
+            />
+          </div>
+
+          {/* ── Tool Calls ── */}
+          <SectionDivider label="Tool Calls" />
+          <div className="py-1">
+            <div className="grid text-[10px] mb-2" style={{ gridTemplateColumns: '1fr auto 1fr' }}>
+              <span
+                className="text-right pr-4 text-base font-semibold tabular-nums"
+                style={{ color: 'var(--color-foreground)' }}
+              >
+                {fmt(leftStats.toolCalls.total)}
+              </span>
+              <span className="w-24 text-center text-[9px] uppercase tracking-wider" style={{ color: 'var(--color-cockpit-dim)' }}>total</span>
+              <span
+                className="pl-4 text-base font-semibold tabular-nums"
+                style={{ color: 'var(--color-foreground)' }}
+              >
+                {fmt(rightStats.toolCalls.total)}
+              </span>
+            </div>
+            <MirroredToolBars left={leftStats.toolCalls} right={rightStats.toolCalls} />
+          </div>
+
+          {/* ── Meta ── */}
+          <SectionDivider label="Meta" />
+          <div className="py-1 pb-4 space-y-0.5">
+            <MetricRow
+              label="Duration"
+              left={fmtDuration(leftStats.duration)}
+              right={fmtDuration(rightStats.duration)}
+            />
+            <MetricRow
+              label="Subagents"
+              left={leftStats.subagentSpawns}
+              right={rightStats.subagentSpawns}
+              leftColor="var(--color-cockpit-cyan)"
+              rightColor="var(--color-cockpit-cyan)"
+            />
+          </div>
+        </div>
+      )}
     </div>
   )
 }
