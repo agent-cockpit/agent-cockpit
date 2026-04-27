@@ -123,6 +123,53 @@ describe('searchAll', () => {
     db.close();
   });
 
+  it('returns event metadata for persisted file-change results', () => {
+    const db = openDatabase(':memory:');
+    const event = persistEvent(db, makeEvent({
+      sessionId: SESSION_A,
+      type: 'file_change',
+      filePath: '/workspace/a/src/search-target.ts',
+      changeType: 'modified',
+      diff: 'diff content',
+    } as Partial<NormalizedEvent>));
+
+    const results = searchAll(db, 'search-target');
+    expect(results[0]).toMatchObject({
+      sourceType: 'event',
+      sourceId: String(event.sequenceNumber),
+      sessionId: SESSION_A,
+      eventType: 'file_change',
+      filePath: '/workspace/a/src/search-target.ts',
+      title: '/workspace/a/src/search-target.ts',
+    });
+    expect(typeof results[0]!.timestamp).toBe('string');
+    db.close();
+  });
+
+  it('resolves memory note search results to a session for the note workspace', () => {
+    const db = openDatabase(':memory:');
+    persistEvent(db, makeEvent({
+      sessionId: SESSION_A,
+      type: 'session_start',
+      provider: 'claude',
+      workspacePath: '/workspace/a',
+    }));
+    db.prepare(
+      `INSERT INTO memory_notes (note_id, workspace, content, pinned, created_at)
+       VALUES (?, ?, ?, ?, ?)`
+    ).run('note-search-1', '/workspace/a', 'remember unique_memory_lookup', 1, new Date().toISOString());
+    indexForSearch(db, 'remember unique_memory_lookup', 'memory_note', 'note-search-1', '/workspace/a');
+
+    const results = searchAll(db, 'unique_memory_lookup');
+    expect(results[0]).toMatchObject({
+      sourceType: 'memory_note',
+      sourceId: 'note-search-1',
+      sessionId: SESSION_A,
+      eventType: 'memory_note',
+    });
+    db.close();
+  });
+
   it('Test 2: returns empty array when query does not match', () => {
     const db = openDatabase(':memory:');
     indexForSearch(db, 'some generic content', 'event', '1', SESSION_A);

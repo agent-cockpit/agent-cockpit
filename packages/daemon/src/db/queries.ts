@@ -6,6 +6,10 @@ export interface SearchResult {
   sourceId: string
   sessionId: string
   snippet: string
+  eventType?: string
+  filePath?: string
+  title?: string
+  timestamp?: string
 }
 
 export interface SessionSummary {
@@ -154,14 +158,88 @@ export function searchAll(db: Database.Database, query: string): SearchResult[] 
   // Wrap in double-quotes to force phrase query and prevent FTS5 syntax injection
   const sanitized = '"' + query.replace(/"/g, '""') + '"';
   const rows = db.prepare(`
-    SELECT source_type AS sourceType, source_id AS sourceId, session_id AS sessionId,
-           snippet(search_fts, 0, '<b>', '</b>', '...', 20) AS snippet
+    SELECT
+      search_fts.source_type AS sourceType,
+      search_fts.source_id AS sourceId,
+      CASE
+        WHEN search_fts.source_type = 'memory_note' AND m.workspace IS NOT NULL THEN COALESCE(
+          (
+            SELECT e2.session_id
+            FROM events e2
+            WHERE e2.type = 'session_start'
+              AND JSON_EXTRACT(e2.payload, '$.workspacePath') = m.workspace
+            ORDER BY e2.sequence_number DESC
+            LIMIT 1
+          ),
+          search_fts.session_id
+        )
+        ELSE search_fts.session_id
+      END AS sessionId,
+      snippet(search_fts, 0, '<b>', '</b>', '...', 20) AS snippet,
+      CASE
+        WHEN search_fts.source_type = 'event' THEN e.type
+        WHEN search_fts.source_type = 'approval' THEN 'approval_request'
+        WHEN search_fts.source_type = 'memory_note' THEN 'memory_note'
+      END AS eventType,
+      JSON_EXTRACT(e.payload, '$.filePath') AS filePath,
+      COALESCE(
+        JSON_EXTRACT(e.payload, '$.filePath'),
+        JSON_EXTRACT(e.payload, '$.workspacePath'),
+        JSON_EXTRACT(e.payload, '$.proposedAction'),
+        JSON_EXTRACT(e.payload, '$.toolName'),
+        a.proposed_action,
+        SUBSTR(m.content, 1, 80),
+        e.type,
+        search_fts.source_type
+      ) AS title,
+      COALESCE(e.timestamp, a.created_at, m.created_at) AS timestamp
     FROM search_fts
+    LEFT JOIN events e
+      ON search_fts.source_type = 'event'
+     AND e.sequence_number = CAST(search_fts.source_id AS INTEGER)
+    LEFT JOIN approvals a
+      ON search_fts.source_type = 'approval'
+     AND a.approval_id = search_fts.source_id
+    LEFT JOIN memory_notes m
+      ON search_fts.source_type = 'memory_note'
+     AND m.note_id = search_fts.source_id
     WHERE search_fts MATCH ?
     ORDER BY rank
     LIMIT 50
   `).all(sanitized) as SearchResult[];
   return rows;
+}
+
+function stringList(value: unknown): string {
+  if (!Array.isArray(value)) return ''
+  return value.filter((item): item is string => typeof item === 'string').join(' ')
+}
+
+function buildEventSearchText(event: NormalizedEvent): string {
+  const p = event as Record<string, unknown>
+  return [
+    event.type,
+    p['provider'] ?? '',
+    p['workspacePath'] ?? '',
+    p['proposedAction'] ?? '',
+    p['actionType'] ?? '',
+    p['riskLevel'] ?? '',
+    p['whyRisky'] ?? '',
+    stringList(p['affectedPaths']),
+    p['filePath'] ?? '',
+    p['changeType'] ?? '',
+    p['toolName'] ?? '',
+    typeof p['input'] === 'string' ? p['input'] : JSON.stringify(p['input'] ?? ''),
+    p['memoryKey'] ?? '',
+    p['value'] ?? '',
+    p['role'] ?? '',
+    p['content'] ?? '',
+    p['reason'] ?? '',
+    p['errorMessage'] ?? '',
+    p['rawPayload'] ?? '',
+  ]
+    .join(' ')
+    .trim()
 }
 
 export function getAllSessions(db: Database.Database): SessionSummary[] {
@@ -248,20 +326,7 @@ export function persistEvent(
 
   const sequenceNumber = result.lastInsertRowid as number;
 
-  // Index for full-text search — extract searchable text fields from payload
-  const p = event as Record<string, unknown>;
-  const searchText = [
-    event.type,
-    p['proposedAction'] ?? '',
-    p['filePath'] ?? '',
-    p['toolName'] ?? '',
-    p['workspacePath'] ?? '',
-    p['memoryKey'] ?? '',
-    p['value'] ?? '',
-  ]
-    .join(' ')
-    .trim();
-  indexForSearch(db, searchText, 'event', sequenceNumber, event.sessionId);
+  indexForSearch(db, buildEventSearchText(event), 'event', sequenceNumber, event.sessionId);
 
   return { ...event, sequenceNumber };
 }

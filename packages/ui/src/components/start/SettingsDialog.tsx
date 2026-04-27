@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react'
 import type { CharacterType } from '../office/characterMapping.js'
 import { CharacterPicker } from '../sessions/CharacterPicker.js'
 import { useStore } from '../../store/index.js'
+import { NotificationSettings } from './NotificationSettings.js'
 
 interface Props {
   open: boolean
@@ -60,6 +61,8 @@ export function SettingsDialog({ open, onClose }: Props) {
                 }}
               />
             </section>
+
+            <NotificationSettings />
 
             <section
               className="cockpit-frame-full border border-border/60 bg-[var(--color-panel-surface)] px-3 py-2"

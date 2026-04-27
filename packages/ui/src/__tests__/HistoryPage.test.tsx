@@ -52,6 +52,9 @@ beforeEach(() => {
     historySessions: {},
     historyMode: false,
     compareSelectionIds: [],
+    popupWindows: {},
+    popupWindowOrder: [],
+    selectedSessionId: null,
   })
   vi.stubGlobal(
     'fetch',
@@ -68,6 +71,33 @@ beforeEach(() => {
         })
       }
 
+      if (String(input).includes('/api/search')) {
+        return Promise.resolve({
+          ok: true,
+          json: () => Promise.resolve([
+            {
+              sourceType: 'event',
+              sourceId: '101',
+              sessionId: SESSION_1.sessionId,
+              snippet: 'changed <b>target.ts</b>',
+              eventType: 'file_change',
+              filePath: '/repos/alpha/target.ts',
+              title: '/repos/alpha/target.ts',
+              timestamp: '2026-01-01T00:00:00.000Z',
+            },
+            {
+              sourceType: 'approval',
+              sourceId: 'approval-1',
+              sessionId: SESSION_2.sessionId,
+              snippet: 'requested <b>network</b> access',
+              eventType: 'approval_request',
+              title: 'curl example.test',
+              timestamp: '2026-01-01T00:00:01.000Z',
+            },
+          ]),
+        })
+      }
+
       return Promise.resolve({
         ok: true,
         json: () => Promise.resolve([SESSION_1, SESSION_2]),
@@ -78,6 +108,7 @@ beforeEach(() => {
 })
 
 afterEach(() => {
+  vi.useRealTimers()
   vi.unstubAllGlobals()
 })
 
@@ -222,5 +253,26 @@ describe('HistoryPage', () => {
       expect(screen.queryByTestId(`session-row-${SESSION_1.sessionId}`)).not.toBeInTheDocument()
       expect(screen.queryByTestId(`session-row-${SESSION_2.sessionId}`)).not.toBeInTheDocument()
     })
+  })
+
+  it('renders grouped search results and opens the matching panel', async () => {
+    renderPage()
+    await waitFor(() => {
+      expect(screen.getByTestId(`session-row-${SESSION_1.sessionId}`)).toBeInTheDocument()
+    })
+
+    fireEvent.change(screen.getByTestId('history-search-input'), { target: { value: 'target' } })
+
+    await waitFor(() => {
+      expect(screen.getByTestId('history-search-results')).toBeInTheDocument()
+      expect(screen.getByText('File Changes')).toBeInTheDocument()
+      expect(screen.getByText('Approvals')).toBeInTheDocument()
+    })
+
+    fireEvent.click(screen.getAllByTestId('history-search-result')[0]!)
+
+    const popup = useStore.getState().popupWindows[SESSION_1.sessionId]
+    expect(useStore.getState().historyMode).toBe(true)
+    expect(popup?.preferredTab).toBe('diff')
   })
 })

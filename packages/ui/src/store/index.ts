@@ -11,10 +11,12 @@ import type { ApprovalsSlice } from './approvalsSlice.js'
 import { applyEventToApprovals } from './approvalsSlice.js'
 import { applyEventToEvents } from './eventsSlice.js'
 import { applyEventToSessions } from './sessionsSlice.js'
+import type { NotificationMode, NotificationUrgency } from '../lib/notifications.js'
 
 export type SessionStatus = 'active' | 'ended' | 'error'
 export const PLAYER_CHARACTER_STORAGE_KEY = 'cockpit.player.character.v1'
 export const SESSION_CHARACTER_STORAGE_KEY = 'cockpit.session.characters.v1'
+export const NOTIFICATION_MODE_STORAGE_KEY = 'cockpit.notifications.mode.v1'
 
 function isCharacterType(value: string): value is CharacterType {
   return CHARACTER_TYPES.includes(value as CharacterType)
@@ -94,6 +96,18 @@ function removeStoredSessionCharacter(sessionId: string): void {
   persistSessionCharacterCache()
 }
 
+function readNotificationMode(): NotificationMode {
+  if (typeof window === 'undefined') return 'browser'
+  try {
+    const stored = window.localStorage.getItem(NOTIFICATION_MODE_STORAGE_KEY)
+    return stored === 'off' || stored === 'in_app' || stored === 'browser'
+      ? stored
+      : 'browser'
+  } catch {
+    return 'browser'
+  }
+}
+
 export interface SessionSummary {
   sessionId: string
   provider: string
@@ -144,6 +158,18 @@ export interface SessionPopupWindowPatch {
   y?: number
   width?: number
   height?: number
+}
+
+export interface CockpitNotification {
+  id: string
+  dedupeKey: string
+  title: string
+  body: string
+  urgency: NotificationUrgency
+  sessionId?: string
+  preferredTab?: PopupTabId
+  createdAt: string
+  read: boolean
 }
 
 interface SessionsSlice {
@@ -201,7 +227,18 @@ interface HistorySlice {
   toggleCompareSelection: (id: string) => void
 }
 
-export type AppStore = SessionsSlice & UiSlice & WsSlice & EventsSlice & HistorySlice & ApprovalsSlice
+interface NotificationsSlice {
+  notifications: CockpitNotification[]
+  notificationMode: NotificationMode
+  unreadNotificationCount: number
+  addNotification: (notification: Omit<CockpitNotification, 'id' | 'createdAt' | 'read'>) => CockpitNotification | null
+  markNotificationRead: (id: string) => void
+  dismissNotification: (id: string) => void
+  clearNotifications: () => void
+  setNotificationMode: (mode: NotificationMode) => void
+}
+
+export type AppStore = SessionsSlice & UiSlice & WsSlice & EventsSlice & HistorySlice & ApprovalsSlice & NotificationsSlice
 
 const POPUP_DEFAULT_WIDTH = 980
 const POPUP_DEFAULT_HEIGHT = 640
@@ -595,5 +632,61 @@ export const useStore = create<AppStore>()(
         const next = current.length >= 2 ? [current[1]!, id] : [...current, id]
         return { compareSelectionIds: next }
       }),
+
+    // notificationsSlice
+    notifications: [],
+    notificationMode: readNotificationMode(),
+    unreadNotificationCount: 0,
+    addNotification: (notification) => {
+      const id = `${notification.dedupeKey}:${Date.now()}`
+      const createdAt = new Date().toISOString()
+      const nextNotification: CockpitNotification = {
+        ...notification,
+        id,
+        createdAt,
+        read: false,
+      }
+      let inserted: CockpitNotification | null = null
+      set((s) => {
+        if (s.notificationMode === 'off') return {}
+        if (s.notifications.some((existing) => existing.dedupeKey === notification.dedupeKey)) {
+          return {}
+        }
+        inserted = nextNotification
+        const notifications = [nextNotification, ...s.notifications].slice(0, 50)
+        return {
+          notifications,
+          unreadNotificationCount: notifications.filter((item) => !item.read).length,
+        }
+      })
+      return inserted
+    },
+    markNotificationRead: (id) =>
+      set((s) => {
+        const notifications = s.notifications.map((item) =>
+          item.id === id ? { ...item, read: true } : item,
+        )
+        return {
+          notifications,
+          unreadNotificationCount: notifications.filter((item) => !item.read).length,
+        }
+      }),
+    dismissNotification: (id) =>
+      set((s) => {
+        const notifications = s.notifications.filter((item) => item.id !== id)
+        return {
+          notifications,
+          unreadNotificationCount: notifications.filter((item) => !item.read).length,
+        }
+      }),
+    clearNotifications: () => set({ notifications: [], unreadNotificationCount: 0 }),
+    setNotificationMode: (mode) => {
+      try {
+        window.localStorage.setItem(NOTIFICATION_MODE_STORAGE_KEY, mode)
+      } catch {
+        // Ignore storage failures and keep the in-memory setting.
+      }
+      set({ notificationMode: mode })
+    },
   }))
 )

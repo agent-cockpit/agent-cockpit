@@ -8,6 +8,18 @@ import { useStore, type SessionSummary } from '../store/index.js'
 type ProviderFilter = 'all' | string
 type StatusFilter = 'all' | 'active' | 'ended' | 'error'
 type DateFilter = 'all' | '7d' | '30d'
+type SearchStatus = 'idle' | 'loading' | 'loaded' | 'error'
+
+interface SearchResult {
+  sourceType: 'event' | 'approval' | 'memory_note'
+  sourceId: string
+  sessionId: string
+  snippet: string
+  eventType?: string
+  filePath?: string
+  title?: string
+  timestamp?: string
+}
 
 interface HistoryPageProps {
   onSessionOpen?: () => void
@@ -24,6 +36,7 @@ export function HistoryPage({ onSessionOpen }: HistoryPageProps) {
     toggleCompareSelection,
     selectSession,
     setSessionDetailOpen,
+    openSessionPopup,
   } = useStore()
   const [providerFilter, setProviderFilter] = useState<ProviderFilter>('all')
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all')
@@ -34,6 +47,9 @@ export function HistoryPage({ onSessionOpen }: HistoryPageProps) {
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false)
   const [isDeleting, setIsDeleting] = useState(false)
   const [deleteError, setDeleteError] = useState<string | null>(null)
+  const [searchQuery, setSearchQuery] = useState('')
+  const [searchResults, setSearchResults] = useState<SearchResult[]>([])
+  const [searchStatus, setSearchStatus] = useState<SearchStatus>('idle')
 
   useEffect(() => {
     fetch(`${DAEMON_URL}/api/sessions`)
@@ -41,6 +57,40 @@ export function HistoryPage({ onSessionOpen }: HistoryPageProps) {
       .then((sessions: SessionSummary[]) => bulkApplySessions(sessions))
       .catch(() => {})
   }, [bulkApplySessions])
+
+  useEffect(() => {
+    const query = searchQuery.trim()
+    if (!query) {
+      setSearchResults([])
+      setSearchStatus('idle')
+      return
+    }
+
+    let cancelled = false
+    setSearchStatus('loading')
+    const timer = setTimeout(() => {
+      fetch(`${DAEMON_URL}/api/search?q=${encodeURIComponent(query)}`)
+        .then((r) => {
+          if (!r.ok) throw new Error('search failed')
+          return r.json() as Promise<SearchResult[]>
+        })
+        .then((results) => {
+          if (cancelled) return
+          setSearchResults(results)
+          setSearchStatus('loaded')
+        })
+        .catch(() => {
+          if (cancelled) return
+          setSearchResults([])
+          setSearchStatus('error')
+        })
+    }, 300)
+
+    return () => {
+      cancelled = true
+      clearTimeout(timer)
+    }
+  }, [searchQuery])
 
   const sessions = Object.values(historySessions).sort(
     (a, b) => new Date(b.startedAt).getTime() - new Date(a.startedAt).getTime(),
@@ -94,6 +144,19 @@ export function HistoryPage({ onSessionOpen }: HistoryPageProps) {
     selectSession(sessionId)
     setSessionDetailOpen(true)
     navigate(`/session/${sessionId}/timeline`)
+    onSessionOpen?.()
+  }
+
+  function panelForSearchResult(result: SearchResult) {
+    if (result.sourceType === 'approval' || result.eventType === 'approval_request') return 'approvals' as const
+    if (result.sourceType === 'memory_note' || result.eventType === 'memory_write' || result.eventType === 'memory_read') return 'memory' as const
+    if (result.eventType === 'file_change') return 'diff' as const
+    return 'timeline' as const
+  }
+
+  function openSearchResult(result: SearchResult): void {
+    setHistoryMode(true)
+    openSessionPopup(result.sessionId, { preferredTab: panelForSearchResult(result) })
     onSessionOpen?.()
   }
 
@@ -189,6 +252,28 @@ export function HistoryPage({ onSessionOpen }: HistoryPageProps) {
   const selectClass =
     'rounded-none border border-[var(--color-cockpit-cyan)]/30 bg-[var(--color-panel-surface)] px-2 py-1 text-[10px] [font-family:var(--font-mono-data)] uppercase tracking-wide text-foreground focus:outline-none focus:border-[var(--color-cockpit-cyan)]/60'
 
+  const groupedSearchResults = useMemo(() => {
+    const groups: Record<string, SearchResult[]> = {}
+    for (const result of searchResults) {
+      const key =
+        result.sourceType === 'memory_note' ? 'Memory' :
+        result.sourceType === 'approval' || result.eventType === 'approval_request' ? 'Approvals' :
+        result.eventType === 'file_change' ? 'File Changes' :
+        'Events'
+      groups[key] = [...(groups[key] ?? []), result]
+    }
+    return Object.entries(groups)
+  }, [searchResults])
+
+  function renderSnippet(snippet: string) {
+    return {
+      __html: snippet
+        .replace(/<b>/g, '<mark>')
+        .replace(/<\/b>/g, '</mark>')
+        .replace(/<(?!\/?mark)[^>]+>/g, ''),
+    }
+  }
+
   return (
     <div className="flex flex-col h-full" data-testid="history-page">
       <header className="border-b border-border bg-[var(--color-panel-surface)] px-4 py-2">
@@ -227,6 +312,14 @@ export function HistoryPage({ onSessionOpen }: HistoryPageProps) {
         </div>
 
         <div className="mt-2 flex flex-wrap items-center gap-3" data-testid="history-filters-row">
+          <input
+            type="search"
+            value={searchQuery}
+            onChange={(event) => setSearchQuery(event.target.value)}
+            placeholder="Search sessions, files, approvals, memory..."
+            className="min-w-64 flex-1 rounded-none border border-[var(--color-cockpit-cyan)]/30 bg-background px-2 py-1 text-[10px] [font-family:var(--font-mono-data)] text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-[var(--color-cockpit-cyan)]/60"
+            data-testid="history-search-input"
+          />
           {/* Provider filter */}
         <select
           value={providerFilter}
@@ -281,6 +374,64 @@ export function HistoryPage({ onSessionOpen }: HistoryPageProps) {
 
         </div>
       </header>
+
+      {searchQuery.trim() && (
+        <section className="border-b border-border bg-background/70" data-testid="history-search-results">
+          <div className="px-4 py-2">
+            <div className="mb-2 flex items-center justify-between gap-3">
+              <h2 className="cockpit-label">Search Results</h2>
+              <span className="data-readout-dim text-[10px]">
+                {searchStatus === 'loading' ? 'searching' : `${searchResults.length} found`}
+              </span>
+            </div>
+            {searchStatus === 'error' && (
+              <div className="py-3 text-xs [font-family:var(--font-mono-data)] text-red-300" data-testid="history-search-error">
+                Search failed.
+              </div>
+            )}
+            {searchStatus === 'loaded' && searchResults.length === 0 && (
+              <div className="py-3 text-center cockpit-label text-muted-foreground" data-testid="history-search-empty">
+                -- NO SEARCH RESULTS --
+              </div>
+            )}
+            {groupedSearchResults.length > 0 && (
+              <div className="grid gap-2 md:grid-cols-2">
+                {groupedSearchResults.map(([group, results]) => (
+                  <div key={group} className="border border-border/60 bg-[var(--color-panel-surface)]">
+                    <div className="border-b border-border/50 px-3 py-1 cockpit-label">{group}</div>
+                    <ul>
+                      {results.map((result) => (
+                        <li key={`${result.sourceType}:${result.sourceId}:${result.sessionId}`} className="border-b border-border/35 last:border-b-0">
+                          <button
+                            type="button"
+                            onClick={() => openSearchResult(result)}
+                            className="block w-full px-3 py-2 text-left hover:bg-muted/25"
+                            data-testid="history-search-result"
+                          >
+                            <div className="flex items-center gap-2">
+                              <span className="data-readout text-[10px]">{result.sessionId.slice(0, 8)}</span>
+                              <span className="[font-family:var(--font-mono-data)] text-[10px] uppercase tracking-wide text-foreground">
+                                {result.title ?? result.eventType ?? result.sourceType}
+                              </span>
+                            </div>
+                            <div
+                              className="mt-1 text-xs text-muted-foreground"
+                              dangerouslySetInnerHTML={renderSnippet(result.snippet)}
+                            />
+                            {result.filePath && (
+                              <div className="mt-1 data-readout-dim text-[9px] truncate">{result.filePath}</div>
+                            )}
+                          </button>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </section>
+      )}
 
       {compareLeft && compareRight && (
         <div className="border-b border-border" data-testid="compare-container">

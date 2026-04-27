@@ -2,6 +2,7 @@ import { useEffect } from 'react'
 import type { NormalizedEvent } from '@agentcockpit/shared'
 import { useStore } from '../store/index.js'
 import { WS_URL } from '../lib/daemonUrl.js'
+import { buildNotificationPayload, shouldNotifyOS } from '../lib/notifications.js'
 const MAX_RETRIES = 12
 
 // Module-level singleton — one connection per app instance, survives navigation
@@ -36,6 +37,40 @@ function isNormalizedEvent(value: unknown): value is NormalizedEvent & { sequenc
   )
 }
 
+function maybeSendBrowserNotification(title: string, body: string, tag: string): void {
+  if (typeof window === 'undefined') return
+  if (!('Notification' in window)) return
+  if (Notification.permission !== 'granted') return
+  if (!shouldNotifyOS(document.visibilityState)) return
+  try {
+    new Notification(title, { body, tag })
+  } catch {
+    // Browser notification delivery is best-effort; in-app state remains authoritative.
+  }
+}
+
+function notifyFromEvent(event: NormalizedEvent & { sequenceNumber?: number }): void {
+  const payload = buildNotificationPayload(event)
+  if (!payload) return
+
+  const store = useStore.getState()
+  const inserted = store.addNotification(payload)
+  if (!inserted || store.notificationMode !== 'browser') return
+  maybeSendBrowserNotification(payload.title, payload.body, payload.dedupeKey)
+}
+
+function notifyDisconnect(): void {
+  const store = useStore.getState()
+  const inserted = store.addNotification({
+    title: 'Provider disconnected',
+    body: 'The daemon WebSocket stopped reconnecting.',
+    dedupeKey: 'ws:max_retries_disconnected',
+    urgency: 'normal',
+  })
+  if (!inserted || store.notificationMode !== 'browser') return
+  maybeSendBrowserNotification(inserted.title, inserted.body, inserted.dedupeKey)
+}
+
 /**
  * Open a WebSocket connection to the daemon.
  *
@@ -66,7 +101,7 @@ export function connectDaemon(): void {
   console.log('[WS] socket created, readyState:', socket.readyState)
   const replayBuffer: NormalizedEvent[] = []
   let replayMaxSequence = lastSeenSequence
-  let waitingForCatchupComplete = lastSeenSequence === 0
+  let waitingForCatchupComplete = true
   let catchupFallbackTimer: ReturnType<typeof setTimeout> | null = null
 
   function clearCatchupFallback(): void {
@@ -132,6 +167,7 @@ export function connectDaemon(): void {
         recordSequence(payload.sequenceNumber)
       }
       applyEvent(payload)
+      notifyFromEvent(payload)
     } catch (err) {
       console.error('[WS] applyEvent error:', err)
     }
@@ -156,6 +192,7 @@ export function connectDaemon(): void {
       retryTimer = setTimeout(connectDaemon, delay)
     } else {
       console.warn('[WS] max retries reached, giving up')
+      notifyDisconnect()
     }
   }
 
