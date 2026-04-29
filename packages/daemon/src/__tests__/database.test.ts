@@ -66,6 +66,52 @@ describe('openDatabase', () => {
     expect(row).toBeDefined();
     db.close();
   });
+
+  it('creates indexed event metadata columns for correlation and project lookups', () => {
+    const db = openDatabase(':memory:');
+    const schema = db.prepare('PRAGMA table_info(events)').all() as Array<{ name: string }>;
+    const columnNames = schema.map((col) => col.name);
+    expect(columnNames).toContain('parent_event_id');
+    expect(columnNames).toContain('correlation_id');
+    expect(columnNames).toContain('project_id');
+
+    const indexes = db.prepare("SELECT name FROM sqlite_master WHERE type='index'").all() as Array<{ name: string }>;
+    const indexNames = indexes.map((row) => row.name);
+    expect(indexNames).toContain('idx_events_correlation');
+    expect(indexNames).toContain('idx_events_project');
+    db.close();
+  });
+
+  it('migrates legacy events tables before creating metadata indexes', () => {
+    const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'cockpit-legacy-events-'));
+    const dbPath = path.join(tmpDir, 'legacy.db');
+    try {
+      const legacy = openDatabase(dbPath);
+      legacy.exec(`
+        DROP INDEX IF EXISTS idx_events_correlation;
+        DROP INDEX IF EXISTS idx_events_project;
+        CREATE TABLE legacy_events AS
+          SELECT sequence_number, session_id, type, schema_version, payload, timestamp FROM events;
+        DROP TABLE events;
+        ALTER TABLE legacy_events RENAME TO events;
+      `);
+      legacy.close();
+
+      const migrated = openDatabase(dbPath);
+      const schema = migrated.prepare('PRAGMA table_info(events)').all() as Array<{ name: string }>;
+      const columnNames = schema.map((col) => col.name);
+      expect(columnNames).toContain('correlation_id');
+      expect(columnNames).toContain('parent_event_id');
+      expect(columnNames).toContain('project_id');
+      const correlationIndex = migrated.prepare(
+        "SELECT name FROM sqlite_master WHERE type='index' AND name='idx_events_correlation'"
+      ).get();
+      expect(correlationIndex).toBeDefined();
+      migrated.close();
+    } finally {
+      fs.rmSync(tmpDir, { recursive: true, force: true });
+    }
+  });
 });
 
 describe('persistEvent', () => {
@@ -97,6 +143,51 @@ describe('persistEvent', () => {
     const parsed = JSON.parse(row!.payload);
     expect(parsed.type).toBe('session_start');
     expect(parsed.sessionId).toBe(event.sessionId);
+    db.close();
+  });
+
+  it('stores correlation metadata and a raw payload row for every event', () => {
+    const db = openDatabase(':memory:');
+    const event = makeEvent({
+      parentEventId: 7,
+      correlationId: 'flow-123',
+      projectId: 'project-abc',
+    });
+    const saved = persistEvent(db, event);
+
+    const row = db.prepare(
+      'SELECT parent_event_id, correlation_id, project_id FROM events WHERE sequence_number = ?'
+    ).get(saved.sequenceNumber) as { parent_event_id: number; correlation_id: string; project_id: string } | undefined;
+    expect(row).toEqual({
+      parent_event_id: 7,
+      correlation_id: 'flow-123',
+      project_id: 'project-abc',
+    });
+
+    const raw = db.prepare(
+      'SELECT session_id, provider, payload FROM raw_payloads WHERE sequence_number = ?'
+    ).get(saved.sequenceNumber) as { session_id: string; provider: string; payload: string } | undefined;
+    expect(raw?.session_id).toBe(event.sessionId);
+    expect(raw?.provider).toBe('claude');
+    expect(JSON.parse(raw!.payload).correlationId).toBe('flow-123');
+    db.close();
+  });
+
+  it('infers parentEventId from the previous event with the same correlationId', () => {
+    const db = openDatabase(':memory:');
+    const first = persistEvent(db, makeEvent({ correlationId: 'flow-456' }));
+    const second = persistEvent(db, makeEvent({
+      type: 'command_completed',
+      command: 'pnpm test',
+      correlationId: 'flow-456',
+    }));
+
+    expect(second.parentEventId).toBe(first.sequenceNumber);
+    const row = db.prepare(
+      'SELECT parent_event_id, payload FROM events WHERE sequence_number = ?'
+    ).get(second.sequenceNumber) as { parent_event_id: number; payload: string } | undefined;
+    expect(row?.parent_event_id).toBe(first.sequenceNumber);
+    expect(JSON.parse(row!.payload).parentEventId).toBe(first.sequenceNumber);
     db.close();
   });
 });

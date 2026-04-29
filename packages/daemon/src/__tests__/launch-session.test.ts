@@ -5,7 +5,7 @@ import path from 'node:path';
 import fs from 'node:fs';
 import { createWsServer } from '../ws/server.js';
 import { openDatabase } from '../db/database.js';
-import { persistEvent } from '../db/queries.js';
+import { getResumeContext, persistEvent, setClaudeSessionId } from '../db/queries.js';
 import { eventBus } from '../eventBus.js';
 import type Database from 'better-sqlite3';
 import type { NormalizedEvent } from '@agentcockpit/shared';
@@ -198,6 +198,24 @@ describe('POST /api/sessions', () => {
     expect(payload.canTerminateSession).toBe(true);
   });
 
+  it('persists resume context for daemon-launched Claude sessions', async () => {
+    const { status, data } = await httpPost(port, '/api/sessions', {
+      provider: 'claude',
+      workspacePath: '/tmp',
+      taskTitle: 'Inspect flaky resume state',
+    });
+
+    expect(status).toBe(200);
+    const context = getResumeContext(db, data.sessionId as string);
+    expect(context).toMatchObject({
+      provider: 'claude',
+      workspace: '/tmp',
+      lastPrompt: 'Inspect flaky resume state',
+      providerThreadId: data.sessionId,
+      resumeSource: 'launch',
+    });
+  });
+
   it('accepts explicit permissionMode=dangerously_skip for Claude launch', async () => {
     const { status, data } = await httpPost(port, '/api/sessions', {
       provider: 'claude',
@@ -271,6 +289,65 @@ describe('POST /api/sessions', () => {
     expect(status).toBe(422);
     expect(data.error_code).toBe('INVALID_WORKSPACE');
     expect(typeof data.error).toBe('string');
+  });
+});
+
+describe('POST /api/sessions/:sessionId/resume', () => {
+  it('continues daemon-managed Claude sessions with --continue and emits session_resumed', async () => {
+    const sessionId = 'aaaaaaaa-0000-0000-0000-000000000211';
+    setClaudeSessionId(db, sessionId, sessionId, '/tmp');
+    persistEvent(db, makeSessionEvent(sessionId, {
+      provider: 'claude',
+      workspacePath: '/tmp',
+      managedByDaemon: true,
+      canSendMessage: true,
+      canTerminateSession: true,
+    }));
+    persistEvent(db, {
+      schemaVersion: 1,
+      sessionId,
+      timestamp: new Date().toISOString(),
+      type: 'session_end',
+      provider: 'claude',
+      exitCode: 0,
+    } as NormalizedEvent);
+
+    const { status, data } = await httpPost(port, `/api/sessions/${sessionId}/resume`, {});
+
+    expect(status).toBe(200);
+    expect(data).toMatchObject({
+      sessionId,
+      mode: 'resumed',
+      provider: 'claude',
+      resumeSource: 'claude_continue',
+    });
+    const events = db.prepare(
+      'SELECT type, payload FROM events WHERE session_id = ? ORDER BY sequence_number ASC',
+    ).all(sessionId) as Array<{ type: string; payload: string }>;
+    const resumed = events.find((event) => event.type === 'session_resumed');
+    expect(resumed).toBeDefined();
+    expect(JSON.parse(resumed!.payload)).toMatchObject({
+      provider: 'claude',
+      resumeSource: 'claude_continue',
+      workspacePath: '/tmp',
+      providerThreadId: sessionId,
+    });
+  });
+
+  it('explains why external sessions cannot be resumed', async () => {
+    const sessionId = 'aaaaaaaa-0000-0000-0000-000000000212';
+    persistEvent(db, makeSessionEvent(sessionId, {
+      provider: 'claude',
+      workspacePath: '/tmp',
+      managedByDaemon: false,
+      canSendMessage: false,
+      canTerminateSession: false,
+    }));
+
+    const { status, data } = await httpPost(port, `/api/sessions/${sessionId}/resume`, {});
+
+    expect(status).toBe(422);
+    expect(String(data.error)).toContain('External sessions');
   });
 });
 

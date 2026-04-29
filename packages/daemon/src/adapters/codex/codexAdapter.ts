@@ -60,12 +60,19 @@ export function resolveCodexApproval(
 // CodexAdapter
 // ---------------------------------------------------------------------------
 
+export interface CodexAdapterMetadata {
+  branch?: string;
+  taskTitle?: string;
+  projectId?: string;
+}
+
 export class CodexAdapter {
   private readonly sessionId: string;
   private readonly workspacePath: string;
   private readonly db: Database.Database;
   private readonly onEvent: (event: NormalizedEvent) => void;
   private readonly procFactory: () => ChildProcess;
+  private readonly metadata: CodexAdapterMetadata;
 
   // proc is null after the process exits
   private proc: ChildProcess | null = null;
@@ -87,11 +94,13 @@ export class CodexAdapter {
     onEvent: (event: NormalizedEvent) => void,
     _threadId?: string,                                       // unused — adapter queries DB directly
     procFactory?: () => ChildProcess,
+    metadata?: CodexAdapterMetadata,
   ) {
     this.sessionId = sessionId;
     this.workspacePath = workspacePath;
     this.db = db;
     this.onEvent = onEvent;
+    this.metadata = metadata ?? {};
     this.parserCtx = { sessionId, workspacePath, sessionStartEmitted: false };
     // Default factory spawns the real codex binary using the platform-resolved path
     this.procFactory = procFactory ?? (() => {
@@ -140,6 +149,7 @@ export class CodexAdapter {
     this.proc = proc;
 
     // Capture stderr for diagnostics
+    let stderrTail = '';
     if (proc.stderr) {
       proc.stderr.setEncoding('utf8');
       let stderrBuf = '';
@@ -150,6 +160,7 @@ export class CodexAdapter {
         for (const line of lines) {
           if (line.trim()) console.warn(`[CodexAdapter] [stderr] ${line}`);
         }
+        stderrTail = (stderrTail + chunk).slice(-500);
       });
     }
 
@@ -176,13 +187,16 @@ export class CodexAdapter {
       this.clearPendingApprovals();
 
       if (this.parserCtx.sessionStartEmitted) {
+        const failed = typeof code === 'number' && code !== 0;
+        const trimmedTail = stderrTail.trim();
         this.onEvent({
           schemaVersion: 1,
           sessionId: this.sessionId,
           provider: 'codex',
           type: 'session_end',
-          exitCode: typeof code === 'number' && code !== 0 ? 1 : 0,
+          exitCode: failed ? 1 : 0,
           timestamp: new Date().toISOString(),
+          ...(failed && trimmedTail ? { failureReason: trimmedTail } : {}),
         });
       }
     });
@@ -222,8 +236,18 @@ export class CodexAdapter {
       try {
         const result = await this.sendRequest('thread/resume', { threadId: existing.thread_id });
         this.currentThreadId = this.extractThreadId(result) ?? existing.thread_id;
-      } catch {
+      } catch (err) {
         // Fall back to thread/start on resume failure
+        const reason = err instanceof Error ? err.message : String(err);
+        this.onEvent({
+          schemaVersion: 1,
+          sessionId: this.sessionId,
+          timestamp: new Date().toISOString(),
+          type: 'session_chat_error',
+          provider: 'codex',
+          reasonCode: 'RESUME_ROLLOUT_MISSING',
+          reason: `Codex thread rollout unavailable — started fresh thread. Conversation context lost. (${reason})`,
+        });
         const result = await this.sendRequest('thread/start', this.buildThreadStartParams());
         const startedThreadId = this.extractThreadId(result);
         if (startedThreadId) {
@@ -593,6 +617,7 @@ export class CodexAdapter {
   private emitSessionStartIfNeeded(): void {
     if (this.parserCtx.sessionStartEmitted) return;
     this.parserCtx.sessionStartEmitted = true;
+    const ts = new Date().toISOString();
     this.onEvent({
       schemaVersion: 1,
       sessionId: this.sessionId,
@@ -602,7 +627,22 @@ export class CodexAdapter {
       managedByDaemon: true,
       canSendMessage: true,
       canTerminateSession: true,
-      timestamp: new Date().toISOString(),
+      timestamp: ts,
+      ...(this.metadata.projectId ? { projectId: this.metadata.projectId } : {}),
+      ...(this.metadata.branch ? { branch: this.metadata.branch } : {}),
+      ...(this.metadata.taskTitle ? { taskTitle: this.metadata.taskTitle } : {}),
     });
+    if (this.metadata.taskTitle || this.metadata.branch || this.metadata.projectId) {
+      this.onEvent({
+        schemaVersion: 1,
+        sessionId: this.sessionId,
+        type: 'task_created',
+        timestamp: ts,
+        workspacePath: this.workspacePath,
+        ...(this.metadata.projectId ? { projectId: this.metadata.projectId } : {}),
+        ...(this.metadata.taskTitle ? { taskTitle: this.metadata.taskTitle } : {}),
+        ...(this.metadata.branch ? { branch: this.metadata.branch } : {}),
+      });
+    }
   }
 }

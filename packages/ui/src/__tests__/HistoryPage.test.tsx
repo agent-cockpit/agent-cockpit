@@ -19,6 +19,9 @@ const SESSION_1: SessionSummary = {
   sessionId: 'aaaaaaaa-0000-0000-0000-000000000001',
   provider: 'claude',
   workspacePath: '/repos/alpha',
+  title: 'Alpha repair',
+  tags: ['bug', 'frontend'],
+  projectId: 'alpha-12345678',
   startedAt: new Date().toISOString(),
   endedAt: null,
   approvalCount: 2,
@@ -30,6 +33,8 @@ const SESSION_2: SessionSummary = {
   sessionId: 'bbbbbbbb-0000-0000-0000-000000000002',
   provider: 'codex',
   workspacePath: '/repos/beta',
+  title: '',
+  tags: ['backend'],
   startedAt: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString(), // 30 days ago
   endedAt: '2026-01-01T01:00:00.000Z',
   approvalCount: 0,
@@ -67,6 +72,17 @@ beforeEach(() => {
             deletedSessionIds: parsed.sessionIds ?? [],
             terminatedSessionIds: [SESSION_1.sessionId],
             skipped: [],
+          }),
+        })
+      }
+
+      if (init?.method === 'PUT' && String(input).includes('/labels')) {
+        const parsed = init.body ? JSON.parse(String(init.body)) as { title?: string; tags?: string[] } : {}
+        return Promise.resolve({
+          ok: true,
+          json: () => Promise.resolve({
+            title: parsed.title ?? '',
+            tags: parsed.tags ?? [],
           }),
         })
       }
@@ -122,6 +138,22 @@ describe('HistoryPage', () => {
     expect(global.fetch).toHaveBeenCalledWith(
       expect.stringContaining('/api/sessions'),
     )
+    expect(screen.getByTestId(`session-project-${SESSION_1.sessionId}`)).toHaveTextContent('alpha-12345678')
+  })
+
+  it('labels search, filters, and row popup actions for keyboard users', async () => {
+    renderPage()
+    await waitFor(() => {
+      expect(screen.getByTestId(`session-row-${SESSION_1.sessionId}`)).toBeInTheDocument()
+    })
+    expect(screen.getByRole('searchbox', { name: /search sessions, tags, files, approvals, and memory/i })).toBeInTheDocument()
+    expect(screen.getByLabelText(/filter history by provider/i)).toBeInTheDocument()
+    expect(screen.getByLabelText(/filter history by status/i)).toBeInTheDocument()
+    expect(screen.getByLabelText(/filter history by project/i)).toBeInTheDocument()
+    expect(screen.getByLabelText(/filter history by tag/i)).toBeInTheDocument()
+    expect(screen.getByLabelText(/filter history by date/i)).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /open alpha repair session popup on timeline\. status: active\. provider: claude/i })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /edit labels for alpha repair/i })).toBeInTheDocument()
   })
 
   it('Test 2: provider filter shows only claude sessions', async () => {
@@ -157,6 +189,42 @@ describe('HistoryPage', () => {
     expect(screen.queryByTestId(`session-row-${SESSION_2.sessionId}`)).not.toBeInTheDocument()
   })
 
+  it('filters sessions by tag', async () => {
+    renderPage()
+    await waitFor(() => {
+      expect(screen.getByTestId(`session-row-${SESSION_1.sessionId}`)).toBeInTheDocument()
+    })
+    fireEvent.change(screen.getByTestId('tag-filter'), { target: { value: 'backend' } })
+    expect(screen.queryByTestId(`session-row-${SESSION_1.sessionId}`)).not.toBeInTheDocument()
+    expect(screen.getByTestId(`session-row-${SESSION_2.sessionId}`)).toBeInTheDocument()
+  })
+
+  it('edits session title and tags from the history row', async () => {
+    renderPage()
+    await waitFor(() => {
+      expect(screen.getByText('Alpha repair')).toBeInTheDocument()
+    })
+
+    fireEvent.click(screen.getByTestId(`edit-labels-${SESSION_1.sessionId}`))
+    fireEvent.change(screen.getByTestId('session-title-input'), {
+      target: { value: 'Updated task title' },
+    })
+    fireEvent.change(screen.getByTestId('session-tags-input'), {
+      target: { value: 'ops, Bug' },
+    })
+    fireEvent.click(screen.getByTestId('save-session-labels'))
+
+    await waitFor(() => {
+      expect(screen.getByText('Updated task title')).toBeInTheDocument()
+      expect(screen.getAllByText('ops').length).toBeGreaterThan(0)
+    })
+
+    expect(global.fetch).toHaveBeenCalledWith(
+      expect.stringContaining(`/api/sessions/${encodeURIComponent(SESSION_1.sessionId)}/labels`),
+      expect.objectContaining({ method: 'PUT' }),
+    )
+  })
+
   it('Test 5: date filter hides sessions older than 7 days', async () => {
     renderPage()
     await waitFor(() => {
@@ -170,7 +238,7 @@ describe('HistoryPage', () => {
     expect(screen.queryByTestId(`session-row-${SESSION_2.sessionId}`)).not.toBeInTheDocument()
   })
 
-  it('Test 6: clicking a session row calls setHistoryMode(true) and navigates to /session/:id/timeline', async () => {
+  it('Test 6: clicking a session row opens the session popup on timeline without route navigation', async () => {
     renderPage()
     await waitFor(() => {
       expect(screen.getByTestId(`session-row-${SESSION_1.sessionId}`)).toBeInTheDocument()
@@ -180,7 +248,8 @@ describe('HistoryPage', () => {
     const button = row.querySelector('button')!
     fireEvent.click(button)
     expect(useStore.getState().historyMode).toBe(true)
-    expect(mockNavigate).toHaveBeenCalledWith(`/session/${SESSION_1.sessionId}/timeline`)
+    expect(useStore.getState().popupWindows[SESSION_1.sessionId]?.preferredTab).toBe('timeline')
+    expect(mockNavigate).not.toHaveBeenCalled()
   })
 
   it('Test 7: selecting two sessions and clicking compare toggles ComparePanel open/close', async () => {

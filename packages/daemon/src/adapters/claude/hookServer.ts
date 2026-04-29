@@ -258,7 +258,7 @@ function handleRequest(
 
     if (
       payload.hook_event_name === 'PreToolUse' &&
-      event.type === 'tool_call' &&
+      (event.type === 'tool_call' || event.type === 'tool_called') &&
       payload.tool_input &&
       typeof payload.tool_input === 'object' &&
       (payload.tool_input as Record<string, unknown>)['dangerouslyDisableSandbox'] === true

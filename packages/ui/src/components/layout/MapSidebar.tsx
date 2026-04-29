@@ -158,6 +158,16 @@ export function MapSidebar({ onFocusSession }: Props) {
                         {providerLabel}
                       </span>
                     </div>
+                    {(session.status === 'ended' || session.status === 'error') && (
+                      <div
+                        data-testid="secondary-metadata"
+                        className="mt-0.5 [font-family:var(--font-mono-data)] text-[9px] text-[var(--color-cockpit-dim)] tabular-nums"
+                      >
+                        {session.lastEventAt
+                          ? new Date(session.lastEventAt).toLocaleTimeString()
+                          : session.status.toUpperCase()}
+                      </div>
+                    )}
                   </div>
                 </div>
               </button>

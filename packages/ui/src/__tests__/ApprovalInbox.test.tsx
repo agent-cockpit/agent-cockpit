@@ -4,6 +4,7 @@ import { MemoryRouter, Route, Routes } from 'react-router'
 import { useStore } from '../store/index.js'
 import { ApprovalInbox } from '../components/panels/ApprovalInbox.js'
 import type { PendingApproval } from '../store/approvalsSlice.js'
+import type { NormalizedEvent } from '@agentcockpit/shared'
 
 const SESSION_ID = '00000000-0000-0000-0000-000000000001'
 
@@ -35,6 +36,21 @@ function makeApproval(overrides: Partial<PendingApproval> = {}): PendingApproval
   }
 }
 
+function makeApprovalEvent(approvalId: string, proposedAction: string, timestamp: string): NormalizedEvent {
+  return {
+    schemaVersion: 1,
+    sessionId: SESSION_ID,
+    timestamp,
+    type: 'approval_request',
+    approvalId,
+    actionType: 'shell_command',
+    riskLevel: 'high',
+    proposedAction,
+    affectedPaths: ['/tmp'],
+    whyRisky: 'Deletes files',
+  }
+}
+
 function renderInbox(sessionId: string = SESSION_ID) {
   render(
     <MemoryRouter initialEntries={[`/session/${sessionId}/approvals`]}>
@@ -51,6 +67,7 @@ beforeEach(() => {
   useStore.setState({
     pendingApprovalsBySession: {},
     wsStatus: 'connected',
+    replayCursorBySession: {},
   })
   mockSendWsMessage.mockClear()
 })
@@ -82,6 +99,20 @@ describe('APPR-02 + APPR-04: Approval card detail fields', () => {
     })
     renderInbox()
     expect(screen.getByAltText(/high risk/i)).toBeInTheDocument()
+  })
+
+  it('approval queue and card expose accessible labels for status and command preview', () => {
+    useStore.setState({
+      pendingApprovalsBySession: { [SESSION_ID]: [makeApproval()] },
+    })
+    renderInbox()
+    expect(screen.getByRole('region', { name: /approval queue/i })).toBeInTheDocument()
+    expect(screen.getByRole('article', { name: /shell command approval 1 of 1/i })).toBeInTheDocument()
+    expect(screen.getByLabelText(/risk level high/i)).toBeInTheDocument()
+    expect(screen.getByLabelText(/requested command preview/i)).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /approve shell command approval/i })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /deny shell command approval/i })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /always allow future matching shell command approvals/i })).toBeInTheDocument()
   })
 
   it('approval card shows proposedAction text', () => {
@@ -223,5 +254,30 @@ describe('APPR-03: Buttons disabled when disconnected', () => {
     expect(screen.getByRole('button', { name: /approve/i })).not.toBeDisabled()
     expect(screen.getByRole('button', { name: /deny/i })).not.toBeDisabled()
     expect(screen.getByRole('button', { name: /always allow/i })).not.toBeDisabled()
+  })
+})
+
+describe('APPR-05: Replay cursor', () => {
+  it('renders approvals from the replay slice and disables decisions', () => {
+    useStore.setState({
+      pendingApprovalsBySession: {
+        [SESSION_ID]: [makeApproval({ approvalId: 'live-approval', proposedAction: 'echo live' })],
+      },
+      events: {
+        [SESSION_ID]: [
+          makeApprovalEvent('replay-1', 'echo first', '2026-01-01T00:00:00.000Z'),
+          makeApprovalEvent('replay-2', 'echo second', '2026-01-01T00:00:01.000Z'),
+        ],
+      },
+      replayCursorBySession: { [SESSION_ID]: 0 },
+      wsStatus: 'connected',
+    })
+
+    renderInbox()
+
+    expect(screen.getByText('echo first')).toBeInTheDocument()
+    expect(screen.queryByText('echo second')).not.toBeInTheDocument()
+    expect(screen.getByTestId('approvals-replay-banner')).toHaveTextContent('Replay view')
+    expect(screen.getByRole('button', { name: /approve shell command approval/i })).toBeDisabled()
   })
 })

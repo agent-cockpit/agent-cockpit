@@ -8,6 +8,8 @@ import type { NormalizedEvent } from '@agentcockpit/shared'
 const SESSION_ID = '00000000-0000-0000-0000-000000000001'
 const WORKSPACE = '/home/user/project'
 
+Element.prototype.scrollIntoView = vi.fn()
+
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
 function makeSession(status: 'active' | 'ended' | 'error' = 'ended') {
@@ -117,6 +119,22 @@ function makeFetchMock(overrides: Record<string, unknown> = {}): FetchMock {
     if (method === 'DELETE' && u.includes('/suggestions/')) {
       return Promise.resolve({ ok: true, json: () => Promise.resolve({ ok: true }) })
     }
+    if (method === 'GET' && u.includes('/api/search')) {
+      return Promise.resolve({
+        ok: true,
+        json: () =>
+          Promise.resolve(
+            overrides['search'] ?? [
+              {
+                sourceType: 'memory_note',
+                sourceId: 'n1',
+                sessionId: SESSION_ID,
+                snippet: '<b>project</b> note snippet',
+              },
+            ],
+          ),
+      })
+    }
     return Promise.resolve({ ok: true, json: () => Promise.resolve({}) })
   })
 }
@@ -126,6 +144,7 @@ function makeFetchMock(overrides: Record<string, unknown> = {}): FetchMock {
 beforeEach(() => {
   useStore.setState({ events: {}, sessions: {} })
   vi.stubGlobal('fetch', makeFetchMock())
+  vi.mocked(Element.prototype.scrollIntoView).mockReset()
 })
 
 afterEach(() => {
@@ -392,6 +411,31 @@ describe('MEM-04: Suggested memory writes', () => {
     await waitFor(() => {
       expect(screen.queryByRole('button', { name: /reject/i })).not.toBeInTheDocument()
     })
+  })
+
+  it('searches memory notes via FTS and opens the matching note', async () => {
+    useStore.setState({ sessions: { [SESSION_ID]: makeSession() } })
+    const fetchMock = makeFetchMock({
+      search: [
+        {
+          sourceType: 'memory_note',
+          sourceId: 'n1',
+          sessionId: SESSION_ID,
+          snippet: '<b>project</b> note snippet',
+        },
+      ],
+    })
+    vi.stubGlobal('fetch', fetchMock)
+
+    renderPanel()
+
+    const searchInput = screen.getByRole('searchbox', { name: /search memory/i })
+    fireEvent.change(searchInput, { target: { value: 'project' } })
+
+    const result = await screen.findByTestId('memory-search-result-n1')
+    expect(result).toHaveTextContent('My note')
+    fireEvent.click(screen.getByRole('button', { name: /open/i }))
+    expect(Element.prototype.scrollIntoView).toHaveBeenCalled()
   })
 })
 

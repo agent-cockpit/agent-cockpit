@@ -1,8 +1,10 @@
 import type { NormalizedEvent } from '@agentcockpit/shared';
 import type Database from 'better-sqlite3';
+import crypto from 'node:crypto';
+import path from 'node:path';
 
 export interface SearchResult {
-  sourceType: 'event' | 'approval' | 'memory_note'
+  sourceType: 'event' | 'approval' | 'memory_note' | 'session_metadata'
   sourceId: string
   sessionId: string
   snippet: string
@@ -16,6 +18,13 @@ export interface SessionSummary {
   sessionId: string
   provider: string
   workspacePath: string
+  title: string
+  tags: string[]
+  branch: string | null
+  taskTitle: string
+  projectId: string
+  parentSessionId: string | null
+  childSessionIds: string[]
   startedAt: string
   endedAt: string | null
   approvalCount: number
@@ -32,6 +41,25 @@ export interface SessionCapabilities {
 }
 
 export const EXTERNAL_SESSION_REASON = 'External session is approval-only; chat send and terminate are disabled.'
+
+export interface SessionLabels {
+  title: string
+  tags: string[]
+}
+
+export type ResumeSource = 'codex_thread' | 'codex_fresh_thread' | 'claude_continue' | 'launch' | 'unknown'
+
+export interface ResumeContext {
+  sessionId: string
+  provider: 'claude' | 'codex'
+  workspace: string
+  branch: string | null
+  lastPrompt: string | null
+  providerThreadId: string | null
+  resumeSource: ResumeSource
+  createdAt: string
+  updatedAt: string
+}
 
 function toBoolean(value: unknown): boolean | null {
   if (value === true || value === 1 || value === '1') return true
@@ -145,12 +173,125 @@ function inferManagedByDaemon(db: Database.Database, sessionId: string, provider
 export function indexForSearch(
   db: Database.Database,
   text: string,
-  sourceType: 'event' | 'approval' | 'memory_note',
+  sourceType: SearchResult['sourceType'],
   sourceId: string | number,
   sessionId: string,
 ): void {
   db.prepare(`INSERT INTO search_fts(content, source_type, source_id, session_id) VALUES (?, ?, ?, ?)`)
     .run(text, sourceType, String(sourceId), sessionId);
+}
+
+export function persistRawPayload(
+  db: Database.Database,
+  sequenceNumber: number,
+  sessionId: string,
+  provider: string,
+  rawPayload: string,
+): void {
+  db.prepare(`
+    INSERT OR IGNORE INTO raw_payloads (sequence_number, session_id, provider, payload, created_at)
+    VALUES (?, ?, ?, ?, ?)
+  `).run(sequenceNumber, sessionId, provider, rawPayload, new Date().toISOString());
+}
+
+export function getRawPayload(
+  db: Database.Database,
+  sequenceNumber: number,
+): { sessionId: string; provider: string; payload: string; createdAt: string } | null {
+  const row = db
+    .prepare('SELECT session_id, provider, payload, created_at FROM raw_payloads WHERE sequence_number = ?')
+    .get(sequenceNumber) as { session_id: string; provider: string; payload: string; created_at: string } | undefined
+  if (!row) return null
+  return {
+    sessionId: row.session_id,
+    provider: row.provider,
+    payload: row.payload,
+    createdAt: row.created_at,
+  }
+}
+
+function normalizeSessionTitle(value: unknown): string {
+  if (typeof value !== 'string') return ''
+  return value.trim().replace(/\s+/g, ' ').slice(0, 120)
+}
+
+function deriveProjectId(workspacePath: string): string {
+  const normalized = path.resolve(workspacePath || '.')
+  const basename = path.basename(normalized).trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '') || 'project'
+  const hash = crypto.createHash('sha1').update(normalized).digest('hex').slice(0, 8)
+  return `${basename}-${hash}`.slice(0, 80)
+}
+
+function normalizeSessionTags(value: unknown): string[] {
+  if (!Array.isArray(value)) return []
+  const seen = new Set<string>()
+  for (const item of value) {
+    if (typeof item !== 'string') continue
+    const tag = item.trim().replace(/\s+/g, '-').toLowerCase().slice(0, 32)
+    if (!tag) continue
+    seen.add(tag)
+    if (seen.size >= 12) break
+  }
+  return [...seen].sort((a, b) => a.localeCompare(b))
+}
+
+function parseSessionTags(raw: unknown): string[] {
+  if (typeof raw !== 'string' || !raw.trim()) return []
+  try {
+    return normalizeSessionTags(JSON.parse(raw) as unknown)
+  } catch {
+    return []
+  }
+}
+
+function buildSessionMetadataSearchText(sessionId: string, labels: SessionLabels): string {
+  return [sessionId, labels.title, labels.tags.join(' ')].join(' ').trim()
+}
+
+export function getSessionLabels(db: Database.Database, sessionId: string): SessionLabels {
+  const row = db
+    .prepare('SELECT title, tags FROM session_metadata WHERE session_id = ?')
+    .get(sessionId) as { title: string; tags: string } | undefined
+  return {
+    title: normalizeSessionTitle(row?.title ?? ''),
+    tags: parseSessionTags(row?.tags),
+  }
+}
+
+export function upsertSessionLabels(
+  db: Database.Database,
+  sessionId: string,
+  input: Partial<SessionLabels>,
+): SessionLabels {
+  const labels: SessionLabels = {
+    title: normalizeSessionTitle(input.title),
+    tags: normalizeSessionTags(input.tags),
+  }
+  const updatedAt = new Date().toISOString()
+
+  const update = db.transaction(() => {
+    db.prepare(`
+      INSERT INTO session_metadata (session_id, title, tags, updated_at)
+      VALUES (?, ?, ?, ?)
+      ON CONFLICT(session_id) DO UPDATE SET
+        title = excluded.title,
+        tags = excluded.tags,
+        updated_at = excluded.updated_at
+    `).run(sessionId, labels.title, JSON.stringify(labels.tags), updatedAt)
+
+    db.prepare(`
+      DELETE FROM search_fts
+      WHERE source_type = 'session_metadata' AND source_id = ?
+    `).run(sessionId)
+
+    const text = buildSessionMetadataSearchText(sessionId, labels)
+    if (text) {
+      indexForSearch(db, text, 'session_metadata', sessionId, sessionId)
+    }
+  })
+
+  update()
+  return labels
 }
 
 export function searchAll(db: Database.Database, query: string): SearchResult[] {
@@ -180,9 +321,11 @@ export function searchAll(db: Database.Database, query: string): SearchResult[] 
         WHEN search_fts.source_type = 'event' THEN e.type
         WHEN search_fts.source_type = 'approval' THEN 'approval_request'
         WHEN search_fts.source_type = 'memory_note' THEN 'memory_note'
+        WHEN search_fts.source_type = 'session_metadata' THEN 'session_metadata'
       END AS eventType,
       JSON_EXTRACT(e.payload, '$.filePath') AS filePath,
       COALESCE(
+        sm.title,
         JSON_EXTRACT(e.payload, '$.filePath'),
         JSON_EXTRACT(e.payload, '$.workspacePath'),
         JSON_EXTRACT(e.payload, '$.proposedAction'),
@@ -192,7 +335,7 @@ export function searchAll(db: Database.Database, query: string): SearchResult[] 
         e.type,
         search_fts.source_type
       ) AS title,
-      COALESCE(e.timestamp, a.created_at, m.created_at) AS timestamp
+      COALESCE(e.timestamp, a.created_at, m.created_at, sm.updated_at) AS timestamp
     FROM search_fts
     LEFT JOIN events e
       ON search_fts.source_type = 'event'
@@ -203,6 +346,9 @@ export function searchAll(db: Database.Database, query: string): SearchResult[] 
     LEFT JOIN memory_notes m
       ON search_fts.source_type = 'memory_note'
      AND m.note_id = search_fts.source_id
+    LEFT JOIN session_metadata sm
+      ON search_fts.source_type = 'session_metadata'
+     AND sm.session_id = search_fts.source_id
     WHERE search_fts MATCH ?
     ORDER BY rank
     LIMIT 50
@@ -220,6 +366,9 @@ function buildEventSearchText(event: NormalizedEvent): string {
   return [
     event.type,
     p['provider'] ?? '',
+    p['projectId'] ?? '',
+    p['correlationId'] ?? '',
+    p['parentEventId'] ?? '',
     p['workspacePath'] ?? '',
     p['proposedAction'] ?? '',
     p['actionType'] ?? '',
@@ -242,6 +391,14 @@ function buildEventSearchText(event: NormalizedEvent): string {
     .trim()
 }
 
+function parseChildSessionIds(raw: unknown): string[] {
+  if (typeof raw !== 'string' || !raw.trim()) return []
+  return raw
+    .split(',')
+    .map((id) => id.trim())
+    .filter(Boolean)
+}
+
 export function getAllSessions(db: Database.Database): SessionSummary[] {
   const rows = db.prepare(`
     SELECT
@@ -252,6 +409,21 @@ export function getAllSessions(db: Database.Database): SessionSummary[] {
       JSON_EXTRACT(e.payload, '$.canSendMessage') AS canSendMessage,
       JSON_EXTRACT(e.payload, '$.canTerminateSession') AS canTerminateSession,
       JSON_EXTRACT(e.payload, '$.reason') AS capabilityReason,
+      JSON_EXTRACT(e.payload, '$.branch') AS branch,
+      JSON_EXTRACT(e.payload, '$.taskTitle') AS startTaskTitle,
+      JSON_EXTRACT(e.payload, '$.projectId') AS projectId,
+      (SELECT JSON_EXTRACT(payload, '$.content') FROM events
+       WHERE session_id = e.session_id
+         AND type = 'session_chat_message'
+         AND JSON_EXTRACT(payload, '$.role') = 'user'
+       ORDER BY sequence_number ASC LIMIT 1) AS firstUserMessage,
+      COALESCE(sm.title, '') AS title,
+      COALESCE(sm.tags, '[]') AS tags,
+      (SELECT parent_session_id FROM session_relations
+       WHERE child_session_id = e.session_id
+       LIMIT 1) AS parentSessionId,
+      (SELECT GROUP_CONCAT(child_session_id) FROM session_relations
+       WHERE parent_session_id = e.session_id) AS childSessionIds,
       e.timestamp AS startedAt,
       (SELECT timestamp FROM events WHERE session_id = e.session_id AND type = 'session_end'
        ORDER BY sequence_number DESC LIMIT 1) AS endedAt,
@@ -259,11 +431,16 @@ export function getAllSessions(db: Database.Database): SessionSummary[] {
       (SELECT COUNT(DISTINCT JSON_EXTRACT(payload, '$.filePath'))
        FROM events WHERE session_id = e.session_id AND type = 'file_change') AS filesChanged
     FROM events e
+    LEFT JOIN session_metadata sm
+      ON sm.session_id = e.session_id
     WHERE e.type = 'session_start'
     ORDER BY e.timestamp DESC
   `).all() as Array<{
     sessionId: string; provider: string; workspacePath: string; startedAt: string;
     endedAt: string | null; approvalCount: number; filesChanged: number;
+    title: string; tags: string;
+    parentSessionId: string | null; childSessionIds: string | null;
+    branch: string | null; startTaskTitle: string | null; projectId: string | null; firstUserMessage: string | null;
     managedByDaemon: unknown; canSendMessage: unknown; canTerminateSession: unknown; capabilityReason: unknown;
   }>;
   return rows.map((r) => {
@@ -277,10 +454,27 @@ export function getAllSessions(db: Database.Database): SessionSummary[] {
     const reasonFromPayload = typeof r.capabilityReason === 'string' ? r.capabilityReason : undefined
     const reason = reasonFromPayload ?? (!managedByDaemon ? EXTERNAL_SESSION_REASON : undefined)
 
+    const taskTitle = normalizeSessionTitle(
+      r.startTaskTitle ?? r.firstUserMessage ?? '',
+    )
+    const branch = typeof r.branch === 'string' && r.branch.trim()
+      ? r.branch.trim().slice(0, 120)
+      : null
+    const projectId = typeof r.projectId === 'string' && r.projectId.trim()
+      ? r.projectId.trim().slice(0, 80)
+      : deriveProjectId(r.workspacePath)
+
     return {
       sessionId: r.sessionId,
       provider: r.provider,
       workspacePath: r.workspacePath,
+      title: normalizeSessionTitle(r.title),
+      tags: parseSessionTags(r.tags),
+      branch,
+      taskTitle,
+      projectId,
+      parentSessionId: typeof r.parentSessionId === 'string' && r.parentSessionId.trim() ? r.parentSessionId.trim() : null,
+      childSessionIds: parseChildSessionIds(r.childSessionIds),
       startedAt: r.startedAt,
       endedAt: r.endedAt,
       approvalCount: r.approvalCount,
@@ -305,30 +499,91 @@ export function persistEvent(
   db: Database.Database,
   event: NormalizedEvent,
 ): NormalizedEvent & { sequenceNumber: number } {
+  const inferredParentEventId =
+    event.parentEventId ??
+    (event.correlationId
+      ? (db.prepare<[string, string], { sequence_number: number }>(`
+          SELECT sequence_number
+          FROM events
+          WHERE session_id = ?
+            AND correlation_id = ?
+          ORDER BY sequence_number DESC
+          LIMIT 1
+        `).get(event.sessionId, event.correlationId)?.sequence_number ?? undefined)
+      : undefined)
+  const eventToPersist: NormalizedEvent =
+    inferredParentEventId && event.parentEventId === undefined
+      ? ({ ...event, parentEventId: inferredParentEventId } as NormalizedEvent)
+      : event
+
   const stmt = db.prepare<{
     sessionId: string;
     type: string;
     schemaVersion: number;
     payload: string;
     timestamp: string;
+    parentEventId: number | null;
+    correlationId: string | null;
+    projectId: string | null;
   }>(`
-    INSERT INTO events (session_id, type, schema_version, payload, timestamp)
-    VALUES (@sessionId, @type, @schemaVersion, @payload, @timestamp)
+    INSERT INTO events (
+      session_id,
+      type,
+      schema_version,
+      payload,
+      timestamp,
+      parent_event_id,
+      correlation_id,
+      project_id
+    )
+    VALUES (
+      @sessionId,
+      @type,
+      @schemaVersion,
+      @payload,
+      @timestamp,
+      @parentEventId,
+      @correlationId,
+      @projectId
+    )
   `);
 
   const result = stmt.run({
     sessionId: event.sessionId,
     type: event.type,
     schemaVersion: event.schemaVersion,
-    payload: JSON.stringify(event),
+    payload: JSON.stringify(eventToPersist),
     timestamp: event.timestamp,
+    parentEventId: eventToPersist.parentEventId ?? null,
+    correlationId: eventToPersist.correlationId ?? null,
+    projectId: eventToPersist.projectId ?? null,
   });
 
   const sequenceNumber = result.lastInsertRowid as number;
 
-  indexForSearch(db, buildEventSearchText(event), 'event', sequenceNumber, event.sessionId);
+  if (eventToPersist.type === 'subagent_spawn') {
+    db.prepare(`
+      INSERT INTO session_relations (child_session_id, parent_session_id, relation_type, created_at)
+      VALUES (?, ?, 'subagent', ?)
+      ON CONFLICT(child_session_id) DO UPDATE SET
+        parent_session_id = excluded.parent_session_id,
+        relation_type = excluded.relation_type,
+        created_at = excluded.created_at
+    `).run(eventToPersist.subagentSessionId, eventToPersist.sessionId, eventToPersist.timestamp)
+  }
 
-  return { ...event, sequenceNumber };
+  indexForSearch(db, buildEventSearchText(eventToPersist), 'event', sequenceNumber, eventToPersist.sessionId);
+  persistRawPayload(
+    db,
+    sequenceNumber,
+    eventToPersist.sessionId,
+    typeof (eventToPersist as { provider?: unknown }).provider === 'string'
+      ? (eventToPersist as { provider: string }).provider
+      : 'unknown',
+    JSON.stringify(eventToPersist),
+  );
+
+  return { ...eventToPersist, sequenceNumber };
 }
 
 export function hasEquivalentSessionStart(db: Database.Database, event: NormalizedEvent): boolean {
@@ -428,6 +683,28 @@ export function getClaudeSessionId(
   return row?.session_id ?? null;
 }
 
+export function getClaudeSessionRecord(
+  db: Database.Database,
+  sessionId: string,
+): { claudeId: string; workspace: string } | null {
+  const row = db.prepare(
+    'SELECT claude_id, workspace FROM claude_sessions WHERE session_id = ? LIMIT 1',
+  ).get(sessionId) as { claude_id: string; workspace: string } | undefined
+  if (!row) return null
+  return { claudeId: row.claude_id, workspace: row.workspace }
+}
+
+export function getCodexSessionRecord(
+  db: Database.Database,
+  sessionId: string,
+): { threadId: string; workspace: string } | null {
+  const row = db.prepare(
+    'SELECT thread_id, workspace FROM codex_sessions WHERE session_id = ? LIMIT 1',
+  ).get(sessionId) as { thread_id: string; workspace: string } | undefined
+  if (!row) return null
+  return { threadId: row.thread_id, workspace: row.workspace }
+}
+
 /**
  * Returns session IDs that already have a session_start event with a non-empty workspacePath.
  * Used at daemon startup to pre-populate initStartedSessions so restarts don't re-emit.
@@ -479,8 +756,8 @@ export function backfillSessionStarts(db: Database.Database): void {
   `).all();
 
   const insert = db.prepare(`
-    INSERT INTO events (session_id, type, schema_version, payload, timestamp)
-    VALUES (?, 'session_start', 1, ?, ?)
+    INSERT INTO events (session_id, type, schema_version, payload, timestamp, project_id)
+    VALUES (?, 'session_start', 1, ?, ?, ?)
   `);
 
   for (const row of missing) {
@@ -492,7 +769,8 @@ export function backfillSessionStarts(db: Database.Database): void {
       workspacePath: row.workspace,
       timestamp: row.created_at,
     });
-    insert.run(row.session_id, payload, row.created_at);
+    const result = insert.run(row.session_id, payload, row.created_at, deriveProjectId(row.workspace));
+    persistRawPayload(db, result.lastInsertRowid as number, row.session_id, 'claude', payload);
   }
 }
 
@@ -613,6 +891,92 @@ export function setClaudeSessionId(
   ).run(sessionId, claudeId, workspace, new Date().toISOString());
 }
 
+export function getResumeContext(db: Database.Database, sessionId: string): ResumeContext | null {
+  const row = db.prepare(`
+    SELECT
+      session_id,
+      provider,
+      workspace,
+      branch,
+      last_prompt,
+      provider_thread_id,
+      resume_source,
+      created_at,
+      updated_at
+    FROM resume_contexts
+    WHERE session_id = ?
+  `).get(sessionId) as {
+    session_id: string
+    provider: 'claude' | 'codex'
+    workspace: string
+    branch: string | null
+    last_prompt: string | null
+    provider_thread_id: string | null
+    resume_source: ResumeSource
+    created_at: string
+    updated_at: string
+  } | undefined
+  if (!row) return null
+  return {
+    sessionId: row.session_id,
+    provider: row.provider,
+    workspace: row.workspace,
+    branch: row.branch,
+    lastPrompt: row.last_prompt,
+    providerThreadId: row.provider_thread_id,
+    resumeSource: row.resume_source,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  }
+}
+
+export function upsertResumeContext(
+  db: Database.Database,
+  input: {
+    sessionId: string
+    provider: 'claude' | 'codex'
+    workspace: string
+    branch?: string | null
+    lastPrompt?: string | null
+    providerThreadId?: string | null
+    resumeSource?: ResumeSource
+  },
+): ResumeContext {
+  const now = new Date().toISOString()
+  db.prepare(`
+    INSERT INTO resume_contexts (
+      session_id,
+      provider,
+      workspace,
+      branch,
+      last_prompt,
+      provider_thread_id,
+      resume_source,
+      created_at,
+      updated_at
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+    ON CONFLICT(session_id) DO UPDATE SET
+      provider = excluded.provider,
+      workspace = excluded.workspace,
+      branch = COALESCE(excluded.branch, resume_contexts.branch),
+      last_prompt = COALESCE(excluded.last_prompt, resume_contexts.last_prompt),
+      provider_thread_id = COALESCE(excluded.provider_thread_id, resume_contexts.provider_thread_id),
+      resume_source = excluded.resume_source,
+      updated_at = excluded.updated_at
+  `).run(
+    input.sessionId,
+    input.provider,
+    input.workspace,
+    input.branch ?? null,
+    input.lastPrompt ?? null,
+    input.providerThreadId ?? null,
+    input.resumeSource ?? 'unknown',
+    now,
+    now,
+  )
+  return getResumeContext(db, input.sessionId)!
+}
+
 export interface SessionStats {
   tokens: {
     input: number
@@ -663,7 +1027,7 @@ export function getSessionStats(db: Database.Database, sessionId: string): Sessi
   const toolRows = db.prepare<[string], { toolName: string; count: number }>(`
     SELECT JSON_EXTRACT(payload, '$.toolName') AS toolName, COUNT(*) AS count
     FROM events
-    WHERE session_id = ? AND type = 'tool_call'
+    WHERE session_id = ? AND type IN ('tool_call', 'tool_called')
       AND JSON_EXTRACT(payload, '$.toolName') IS NOT NULL
     GROUP BY toolName
     ORDER BY count DESC
@@ -671,7 +1035,7 @@ export function getSessionStats(db: Database.Database, sessionId: string): Sessi
   `).all(sessionId)
 
   const totalToolCalls = db.prepare<[string], { count: number }>(
-    `SELECT COUNT(*) AS count FROM events WHERE session_id = ? AND type = 'tool_call'`
+    `SELECT COUNT(*) AS count FROM events WHERE session_id = ? AND type IN ('tool_call', 'tool_called')`
   ).get(sessionId)?.count ?? 0
 
   // File changes
@@ -823,7 +1187,7 @@ export function getUsageStats(db: Database.Database): UsageStats {
   // Activity
   const actRow = db.prepare<[], { toolCalls: number; fileChanges: number; subagents: number }>(`
     SELECT
-      SUM(CASE WHEN type = 'tool_call'       THEN 1 ELSE 0 END) AS toolCalls,
+      SUM(CASE WHEN type IN ('tool_call', 'tool_called') THEN 1 ELSE 0 END) AS toolCalls,
       SUM(CASE WHEN type = 'file_change'     THEN 1 ELSE 0 END) AS fileChanges,
       SUM(CASE WHEN type = 'subagent_spawn'  THEN 1 ELSE 0 END) AS subagents
     FROM events
@@ -840,7 +1204,7 @@ export function getUsageStats(db: Database.Database): UsageStats {
   const toolRows = db.prepare<[], { toolName: string; count: number }>(`
     SELECT JSON_EXTRACT(payload, '$.toolName') AS toolName, COUNT(*) AS count
     FROM events
-    WHERE type = 'tool_call'
+    WHERE type IN ('tool_call', 'tool_called')
       AND JSON_EXTRACT(payload, '$.toolName') IS NOT NULL
     GROUP BY toolName
     ORDER BY count DESC
@@ -889,9 +1253,13 @@ export function deleteSessionRecords(db: Database.Database, sessionId: string): 
     db.prepare('DELETE FROM search_fts WHERE session_id = ?').run(id);
     db.prepare('DELETE FROM always_allow_rules WHERE session_id = ?').run(id);
     db.prepare('DELETE FROM approvals WHERE session_id = ?').run(id);
+    db.prepare('DELETE FROM raw_payloads WHERE session_id = ?').run(id);
+    db.prepare('DELETE FROM session_relations WHERE child_session_id = ? OR parent_session_id = ?').run(id, id);
     db.prepare('DELETE FROM events WHERE session_id = ?').run(id);
+    db.prepare('DELETE FROM session_metadata WHERE session_id = ?').run(id);
     db.prepare('DELETE FROM codex_sessions WHERE session_id = ?').run(id);
     db.prepare('DELETE FROM claude_sessions WHERE session_id = ?').run(id);
+    db.prepare('DELETE FROM resume_contexts WHERE session_id = ?').run(id);
   });
 
   remove(sessionId);

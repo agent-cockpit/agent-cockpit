@@ -8,6 +8,11 @@ export function resolveClaudeMdPath(workspacePath: string): string {
   return fs.existsSync(primary) ? primary : path.join(workspacePath, '.claude', 'CLAUDE.md');
 }
 
+export function resolveAgentsMdPath(workspacePath: string): string {
+  const primary = path.join(workspacePath, 'AGENTS.md');
+  return fs.existsSync(primary) ? primary : path.join(workspacePath, '.codex', 'AGENTS.md');
+}
+
 export function resolveAutoMemoryPath(workspacePath: string): string {
   const encoded = workspacePath
     .trim()

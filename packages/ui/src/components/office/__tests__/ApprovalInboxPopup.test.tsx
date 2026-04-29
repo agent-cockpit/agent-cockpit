@@ -40,6 +40,9 @@ const mockStore = {
       }
     ]
   },
+  events: {} as Record<string, unknown[]>,
+  replayCursorBySession: {} as Record<string, unknown>,
+  hydratePendingApprovals: () => {},
 }
 
 vi.mock('../../../store/index.js', () => ({

@@ -7,6 +7,9 @@ export const BaseEvent = z.object({
   sequenceNumber: z.number().int().positive().optional(), // assigned by SQLite rowid on insert
   sessionId: z.string().uuid(),
   timestamp: z.string().datetime(),
+  parentEventId: z.number().int().positive().optional(),
+  correlationId: z.string().optional(),
+  projectId: z.string().optional(),
 });
 
 // ─── Session lifecycle ────────────────────────────────────────────────────────
@@ -19,18 +22,77 @@ export const SessionStartEvent = BaseEvent.extend({
   canSendMessage: z.boolean().optional(),
   canTerminateSession: z.boolean().optional(),
   reason: z.string().optional(),
+  branch: z.string().optional(),
+  taskTitle: z.string().optional(),
 });
 
 export const SessionEndEvent = BaseEvent.extend({
   type: z.literal('session_end'),
   provider: z.enum(['claude', 'codex']),
   exitCode: z.number().int().optional(),
+  failureReason: z.string().optional(),
+});
+
+export const SessionResumedEvent = BaseEvent.extend({
+  type: z.literal('session_resumed'),
+  provider: z.enum(['claude', 'codex']),
+  resumedFromSessionId: z.string().uuid().optional(),
+  resumeSource: z.enum(['codex_thread', 'codex_fresh_thread', 'claude_continue', 'launch', 'unknown']).optional(),
+  workspacePath: z.string().optional(),
+  branch: z.string().optional(),
+  lastPrompt: z.string().optional(),
+  providerThreadId: z.string().optional(),
+});
+
+export const TaskCreatedEvent = BaseEvent.extend({
+  type: z.literal('task_created'),
+  taskTitle: z.string().optional(),
+  prompt: z.string().optional(),
+  branch: z.string().optional(),
+  workspacePath: z.string().optional(),
+});
+
+export const TaskUpdatedEvent = BaseEvent.extend({
+  type: z.literal('task_updated'),
+  taskTitle: z.string().optional(),
+  status: z.string().optional(),
+  summary: z.string().optional(),
+  prompt: z.string().optional(),
+});
+
+export const CommandStartedEvent = BaseEvent.extend({
+  type: z.literal('command_started'),
+  command: z.string(),
+  cwd: z.string().optional(),
+});
+
+export const CommandCompletedEvent = BaseEvent.extend({
+  type: z.literal('command_completed'),
+  command: z.string(),
+  exitCode: z.number().int().optional(),
+  durationMs: z.number().int().nonnegative().optional(),
+  stdoutExcerpt: z.string().optional(),
+  stderrExcerpt: z.string().optional(),
+});
+
+export const ToolCompletedEvent = BaseEvent.extend({
+  type: z.literal('tool_completed'),
+  toolName: z.string(),
+  output: z.unknown().optional(),
+  success: z.boolean().optional(),
+  durationMs: z.number().int().nonnegative().optional(),
 });
 
 // ─── Tool use ─────────────────────────────────────────────────────────────────
 
 export const ToolCallEvent = BaseEvent.extend({
   type: z.literal('tool_call'),
+  toolName: z.string(),
+  input: z.unknown(),
+});
+
+export const ToolCalledEvent = BaseEvent.extend({
+  type: z.literal('tool_called'),
   toolName: z.string(),
   input: z.unknown(),
 });
@@ -131,6 +193,7 @@ export const SessionChatErrorEvent = BaseEvent.extend({
     'CHAT_SEND_BLOCKED',
     'CHAT_RUNTIME_UNAVAILABLE',
     'CHAT_SEND_FAILED',
+    'RESUME_ROLLOUT_MISSING',
   ]),
   reason: z.string(),
 });
@@ -140,7 +203,14 @@ export const SessionChatErrorEvent = BaseEvent.extend({
 export const NormalizedEventSchema = z.discriminatedUnion('type', [
   SessionStartEvent,
   SessionEndEvent,
+  SessionResumedEvent,
+  TaskCreatedEvent,
+  TaskUpdatedEvent,
+  CommandStartedEvent,
+  CommandCompletedEvent,
   ToolCallEvent,
+  ToolCalledEvent,
+  ToolCompletedEvent,
   FileChangeEvent,
   ApprovalRequestEvent,
   ApprovalResolvedEvent,

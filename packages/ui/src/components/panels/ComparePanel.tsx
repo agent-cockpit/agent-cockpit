@@ -1,6 +1,12 @@
 import { useEffect, useState } from 'react'
 import { DAEMON_URL } from '../../lib/daemonUrl.js'
 import { getSessionTitle } from '../../lib/sessionTitle.js'
+import {
+  deriveTestSignal,
+  extractChangedFiles,
+  valueText,
+  type SessionInsightEvent,
+} from '../../lib/sessionInsights.js'
 import type { SessionSummary } from '../../store/index.js'
 
 interface SessionStats {
@@ -11,6 +17,8 @@ interface SessionStats {
   subagentSpawns: number
   duration: number | null
 }
+
+type CompareEvent = SessionInsightEvent
 
 function fmt(n: number): string {
   if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`
@@ -39,6 +47,17 @@ function useSessionStats(sessionId: string): SessionStats | null {
   return stats
 }
 
+function useSessionEvents(sessionId: string): CompareEvent[] | null {
+  const [events, setEvents] = useState<CompareEvent[] | null>(null)
+  useEffect(() => {
+    fetch(`${DAEMON_URL}/api/sessions/${sessionId}/events`)
+      .then((r) => r.json() as Promise<CompareEvent[]>)
+      .then((rows) => setEvents(Array.isArray(rows) ? rows : []))
+      .catch(() => setEvents([]))
+  }, [sessionId])
+  return events
+}
+
 function providerColor(provider: string) {
   return provider === 'claude' ? 'var(--color-provider-claude)' : 'var(--color-provider-codex)'
 }
@@ -47,6 +66,47 @@ function statusColor(status: string) {
   if (status === 'active') return 'var(--color-cockpit-green)'
   if (status === 'error') return 'var(--color-cockpit-red)'
   return 'var(--color-cockpit-dim)'
+}
+
+function fileOverlap(leftFiles: string[], rightFiles: string[]) {
+  const leftSet = new Set(leftFiles)
+  const rightSet = new Set(rightFiles)
+  return {
+    shared: leftFiles.filter((file) => rightSet.has(file)),
+    leftOnly: leftFiles.filter((file) => !rightSet.has(file)),
+    rightOnly: rightFiles.filter((file) => !leftSet.has(file)),
+  }
+}
+
+function excerpt(text: string, max = 180): string {
+  const normalized = text.replace(/\s+/g, ' ').trim()
+  if (!normalized) return ''
+  return normalized.length > max ? `${normalized.slice(0, max - 1)}…` : normalized
+}
+
+function deriveSummaryExcerpt(events: CompareEvent[]): string {
+  const candidates = [...events].reverse()
+  const sessionEnd = candidates.find((event) => event.type === 'session_end')
+  const summarySource = sessionEnd ?? candidates.find((event) => event.content || event.message || event.output || event.reason || event.errorMessage)
+  if (!summarySource) return 'No summary captured'
+
+  const text = excerpt([
+    valueText(summarySource.reason),
+    valueText(summarySource.errorMessage),
+    valueText(summarySource.message),
+    valueText(summarySource.content),
+    valueText(summarySource.output),
+  ].filter(Boolean).join(' '))
+
+  return text || 'No summary captured'
+}
+
+function relationLabel(summary: SessionSummary): string {
+  const parts: string[] = []
+  if (summary.parentSessionId) parts.push(`parent ${summary.parentSessionId.slice(0, 8)}`)
+  const childCount = summary.childSessionIds?.length ?? 0
+  if (childCount > 0) parts.push(`${childCount} child${childCount === 1 ? '' : 'ren'}`)
+  return parts.length > 0 ? parts.join(' / ') : 'none'
 }
 
 // ── Section divider ────────────────────────────────────────────
@@ -111,6 +171,58 @@ function MetricRow({
       >
         {rightVal}
       </span>
+    </div>
+  )
+}
+
+function TextCompareRow({
+  label,
+  left,
+  right,
+  leftColor,
+  rightColor,
+}: {
+  label: string
+  left: string
+  right: string
+  leftColor?: string
+  rightColor?: string
+}) {
+  return (
+    <div className="grid items-start font-mono text-[11px]" style={{ gridTemplateColumns: '1fr auto 1fr' }}>
+      <span className="text-right pr-4 py-1 leading-snug" style={{ color: leftColor ?? 'var(--color-foreground)' }}>
+        {left}
+      </span>
+      <span className="text-center text-[9px] uppercase tracking-[0.15em] text-muted-foreground w-24 shrink-0 py-1">
+        {label}
+      </span>
+      <span className="text-left pl-4 py-1 leading-snug" style={{ color: rightColor ?? 'var(--color-foreground)' }}>
+        {right}
+      </span>
+    </div>
+  )
+}
+
+function FileList({ title, files, empty }: { title: string; files: string[]; empty: string }) {
+  return (
+    <div className="min-w-0">
+      <p className="mb-1 text-[9px] uppercase tracking-[0.15em]" style={{ color: 'var(--color-cockpit-dim)' }}>
+        {title}
+      </p>
+      {files.length === 0 ? (
+        <p className="text-[10px]" style={{ color: 'var(--color-cockpit-dim)' }}>{empty}</p>
+      ) : (
+        <ul className="space-y-1">
+          {files.slice(0, 6).map((file) => (
+            <li key={file} className="truncate text-[10px]" title={file} style={{ color: 'var(--color-foreground)' }}>
+              {file}
+            </li>
+          ))}
+          {files.length > 6 && (
+            <li className="text-[10px]" style={{ color: 'var(--color-cockpit-dim)' }}>+{files.length - 6} more</li>
+          )}
+        </ul>
+      )}
     </div>
   )
 }
@@ -195,7 +307,12 @@ function MirroredToolBars({
 function SessionHeader({ summary, align }: { summary: SessionSummary; align: 'left' | 'right' }) {
   const pColor = providerColor(summary.provider)
   const sColor = statusColor(summary.finalStatus)
-  const title = getSessionTitle(summary.workspacePath, summary.sessionId)
+  const title =
+    summary.title?.trim() ||
+    summary.taskTitle?.trim() ||
+    getSessionTitle(summary.workspacePath, summary.sessionId)
+  const branch = summary.branch?.trim() || null
+  const projectId = summary.projectId?.trim() || null
   const isLeft = align === 'left'
 
   return (
@@ -214,10 +331,38 @@ function SessionHeader({ summary, align }: { summary: SessionSummary; align: 'le
       <p
         className="font-mono text-sm font-semibold leading-tight truncate max-w-[220px]"
         style={{ color: 'var(--color-foreground)' }}
-        title={summary.workspacePath}
+        title={summary.title?.trim() ? summary.workspacePath : undefined}
       >
         {title}
       </p>
+      {(summary.tags ?? []).length > 0 && (
+        <div className={`flex max-w-[220px] flex-wrap gap-1 ${isLeft ? '' : 'justify-end'}`}>
+          {(summary.tags ?? []).map((tag) => (
+            <span
+              key={tag}
+              className="border border-[var(--color-cockpit-cyan)]/35 px-1 py-0.5 text-[8px] uppercase tracking-wide text-[var(--color-cockpit-cyan)]"
+            >
+              {tag}
+            </span>
+          ))}
+        </div>
+      )}
+      {branch && (
+        <span
+          className="border border-[var(--color-cockpit-cyan)]/35 px-1 py-0.5 text-[8px] uppercase tracking-wide text-[var(--color-cockpit-cyan)]"
+          title={`Branch: ${branch}`}
+        >
+          {branch}
+        </span>
+      )}
+      {projectId && (
+        <span
+          className="border border-[var(--color-cockpit-cyan)]/35 px-1 py-0.5 text-[8px] uppercase tracking-wide text-[var(--color-cockpit-cyan)]"
+          title={`Project ID: ${projectId}`}
+        >
+          {projectId}
+        </span>
+      )}
       <p className="font-mono text-[10px]" style={{ color: 'var(--color-cockpit-dim)' }}>
         {summary.sessionId.slice(0, 8)}
       </p>
@@ -229,8 +374,21 @@ function SessionHeader({ summary, align }: { summary: SessionSummary; align: 'le
 export function ComparePanel({ left, right }: { left: SessionSummary; right: SessionSummary }) {
   const leftStats  = useSessionStats(left.sessionId)
   const rightStats = useSessionStats(right.sessionId)
+  const leftEvents = useSessionEvents(left.sessionId)
+  const rightEvents = useSessionEvents(right.sessionId)
+  const [preferred, setPreferred] = useState<'left' | 'right' | null>(null)
 
-  const loading = !leftStats || !rightStats
+  const loading = !leftStats || !rightStats || !leftEvents || !rightEvents
+
+  const leftTitle =
+    left.title?.trim() || left.taskTitle?.trim() || getSessionTitle(left.workspacePath, left.sessionId)
+  const rightTitle =
+    right.title?.trim() || right.taskTitle?.trim() || getSessionTitle(right.workspacePath, right.sessionId)
+  const overlap = loading ? { shared: [], leftOnly: [], rightOnly: [] } : fileOverlap(extractChangedFiles(leftEvents), extractChangedFiles(rightEvents))
+  const leftTest = loading ? null : deriveTestSignal(leftEvents)
+  const rightTest = loading ? null : deriveTestSignal(rightEvents)
+  const leftSummary = loading ? '' : deriveSummaryExcerpt(leftEvents)
+  const rightSummary = loading ? '' : deriveSummaryExcerpt(rightEvents)
 
   return (
     <div className="h-full overflow-y-auto font-mono" data-testid="compare-panel">
@@ -261,7 +419,13 @@ export function ComparePanel({ left, right }: { left: SessionSummary; right: Ses
           loading…
         </div>
       ) : (
-        <div className="px-4 py-3 space-y-1">
+          <div className="px-4 py-3 space-y-1">
+
+          {/* ── Task ── */}
+          <SectionDivider label="Task" />
+          <div className="py-1 space-y-0.5">
+            <TextCompareRow label="Title" left={leftTitle} right={rightTitle} />
+          </div>
 
           {/* ── Tokens ── */}
           <SectionDivider label="Tokens" />
@@ -333,6 +497,30 @@ export function ComparePanel({ left, right }: { left: SessionSummary; right: Ses
             />
           </div>
 
+          {/* ── Diff Overlap ── */}
+          <SectionDivider label="Diff Overlap" />
+          <div className="grid gap-3 py-2" style={{ gridTemplateColumns: '1fr 1fr 1fr' }}>
+            <FileList title="Shared" files={overlap.shared} empty="No overlap" />
+            <FileList title="Left only" files={overlap.leftOnly} empty="No unique files" />
+            <FileList title="Right only" files={overlap.rightOnly} empty="No unique files" />
+          </div>
+
+          {/* ── Tests ── */}
+          <SectionDivider label="Tests" />
+          {leftTest && rightTest && (
+            <TextCompareRow
+              label="Result"
+              left={leftTest.label}
+              right={rightTest.label}
+              leftColor={leftTest.color}
+              rightColor={rightTest.color}
+            />
+          )}
+
+          {/* ── Summary ── */}
+          <SectionDivider label="Summary" />
+          <TextCompareRow label="Output" left={leftSummary} right={rightSummary} />
+
           {/* ── Approvals ── */}
           <SectionDivider label="Approvals" />
           <div className="py-1 space-y-0.5">
@@ -388,6 +576,43 @@ export function ComparePanel({ left, right }: { left: SessionSummary; right: Ses
               leftColor="var(--color-cockpit-cyan)"
               rightColor="var(--color-cockpit-cyan)"
             />
+            <TextCompareRow
+              label="Relations"
+              left={relationLabel(left)}
+              right={relationLabel(right)}
+              leftColor="var(--color-cockpit-amber)"
+              rightColor="var(--color-cockpit-amber)"
+            />
+          </div>
+
+          {/* ── Decision ── */}
+          <SectionDivider label="Decision" />
+          <div className="grid items-center gap-3 py-2 pb-5" style={{ gridTemplateColumns: '1fr auto 1fr' }}>
+            <button
+              type="button"
+              onClick={() => setPreferred(preferred === 'left' ? null : 'left')}
+              className="justify-self-end border px-3 py-1 text-[10px] uppercase tracking-[0.15em]"
+              style={{
+                color: preferred === 'left' ? 'var(--color-cockpit-green)' : 'var(--color-cockpit-dim)',
+                borderColor: preferred === 'left' ? 'var(--color-cockpit-green)' : 'var(--color-border)',
+              }}
+            >
+              Prefer left
+            </button>
+            <span className="w-24 text-center text-[9px] uppercase tracking-[0.15em]" style={{ color: 'var(--color-cockpit-dim)' }}>
+              {preferred ? `Preferred ${preferred}` : 'No pick'}
+            </span>
+            <button
+              type="button"
+              onClick={() => setPreferred(preferred === 'right' ? null : 'right')}
+              className="justify-self-start border px-3 py-1 text-[10px] uppercase tracking-[0.15em]"
+              style={{
+                color: preferred === 'right' ? 'var(--color-cockpit-green)' : 'var(--color-cockpit-dim)',
+                borderColor: preferred === 'right' ? 'var(--color-cockpit-green)' : 'var(--color-border)',
+              }}
+            >
+              Prefer right
+            </button>
           </div>
         </div>
       )}

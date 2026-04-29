@@ -1,5 +1,6 @@
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { NavLink, Outlet, useParams } from 'react-router'
+import { DAEMON_URL } from '../../lib/daemonUrl.js'
 import { getSessionTitle } from '../../lib/sessionTitle.js'
 import type { PanelId } from '../../store/index.js'
 import { useStore } from '../../store/index.js'
@@ -27,6 +28,9 @@ const PROVIDER_BADGE: Record<string, string> = {
 export function SessionDetailPanel() {
   const { sessionId } = useParams<{ sessionId: string }>()
   const session = useStore((s) => (sessionId ? s.sessions[sessionId] : undefined))
+  const historySummary = useStore((s) => (sessionId ? s.historySessions[sessionId] : undefined))
+  const [resumeStatus, setResumeStatus] = useState<'idle' | 'pending' | 'error'>('idle')
+  const [resumeError, setResumeError] = useState<string | null>(null)
 
   // Sync active panel with the URL so the store stays in sync (OPS-03)
   useEffect(() => {
@@ -48,7 +52,46 @@ export function SessionDetailPanel() {
     )
   }
 
-  const projectName = getSessionTitle(session.workspacePath, session.sessionId)
+  const taskTitle = historySummary?.taskTitle?.trim() ?? ''
+  const projectName =
+    historySummary?.title?.trim() ||
+    taskTitle ||
+    getSessionTitle(session.workspacePath, session.sessionId)
+  const tags = historySummary?.tags ?? []
+  const branch = historySummary?.branch?.trim() || null
+  const projectId = historySummary?.projectId ?? session.projectId ?? null
+  const parentSessionId = historySummary?.parentSessionId ?? session.parentSessionId ?? null
+  const childCount = (historySummary?.childSessionIds ?? session.childSessionIds ?? []).length
+  const managedByDaemon = session.managedByDaemon === true || historySummary?.capabilities?.managedByDaemon === true
+  const providerSupportsResume = session.provider === 'codex' || session.provider === 'claude'
+  const showResumeControl = session.status !== 'active'
+  const canResume = showResumeControl && providerSupportsResume && managedByDaemon
+  const resumeTitle = canResume
+    ? session.provider === 'claude'
+      ? 'Continue Claude session with --continue'
+      : 'Resume Codex session from saved thread'
+    : !managedByDaemon
+      ? 'External sessions can be inspected, but cannot be resumed from Agent Cockpit.'
+      : 'Resume is only supported for daemon-managed Claude and Codex sessions.'
+
+  async function handleResume(): Promise<void> {
+    if (!sessionId) return
+    setResumeStatus('pending')
+    setResumeError(null)
+    try {
+      const response = await fetch(`${DAEMON_URL}/api/sessions/${encodeURIComponent(sessionId)}/resume`, {
+        method: 'POST',
+      })
+      if (!response.ok) {
+        const payload = await response.json().catch(() => null) as { error?: string } | null
+        throw new Error(payload?.error ?? 'Resume failed.')
+      }
+      setResumeStatus('idle')
+    } catch (error) {
+      setResumeStatus('error')
+      setResumeError(error instanceof Error ? error.message : 'Resume failed.')
+    }
+  }
 
   return (
     <div className="flex flex-col h-full" style={getProviderAccentStyle(session.provider)}>
@@ -64,6 +107,50 @@ export function SessionDetailPanel() {
         <span className="[font-family:var(--font-mono-data)] text-xs font-semibold truncate uppercase tracking-wide">
           {projectName}
         </span>
+        {branch && (
+          <span
+            data-testid="session-branch-badge"
+            className="border border-[var(--color-cockpit-cyan)]/35 px-1 py-0.5 text-[8px] uppercase tracking-wide text-[var(--color-cockpit-cyan)]"
+            title={`Branch: ${branch}`}
+          >
+            {branch}
+          </span>
+        )}
+        {projectId && (
+          <span
+            data-testid="session-project-badge"
+            className="border border-[var(--color-cockpit-cyan)]/35 px-1 py-0.5 text-[8px] uppercase tracking-wide text-[var(--color-cockpit-cyan)]"
+            title={`Project ID: ${projectId}`}
+          >
+            {projectId}
+          </span>
+        )}
+        {tags.map((tag) => (
+          <span
+            key={tag}
+            className="border border-[var(--color-cockpit-cyan)]/35 px-1 py-0.5 text-[8px] uppercase tracking-wide text-[var(--color-cockpit-cyan)]"
+          >
+            {tag}
+          </span>
+        ))}
+        {parentSessionId && (
+          <span
+            data-testid="session-parent-badge"
+            className="border border-[var(--color-cockpit-amber)]/45 px-1 py-0.5 text-[8px] uppercase tracking-wide text-[var(--color-cockpit-amber)]"
+            title={`Parent session: ${parentSessionId}`}
+          >
+            parent {parentSessionId.slice(0, 8)}
+          </span>
+        )}
+        {childCount > 0 && (
+          <span
+            data-testid="session-children-badge"
+            className="border border-[var(--color-cockpit-amber)]/45 px-1 py-0.5 text-[8px] uppercase tracking-wide text-[var(--color-cockpit-amber)]"
+            title={`${childCount} child session${childCount === 1 ? '' : 's'}`}
+          >
+            {childCount} child{childCount === 1 ? '' : 'ren'}
+          </span>
+        )}
         <span
           className={`shrink-0 ${STATUS_DOT[session.status] ?? 'status-ping status-ping-ended'}`}
           title={session.status}
@@ -79,7 +166,27 @@ export function SessionDetailPanel() {
         <span className="ml-auto data-readout text-[10px] tabular-nums">
           {new Date(session.startedAt).toLocaleString()}
         </span>
+        {showResumeControl && (
+          <button
+            type="button"
+            onClick={() => void handleResume()}
+            disabled={!canResume || resumeStatus === 'pending'}
+            className="cockpit-btn py-0.5 text-[9px] disabled:cursor-not-allowed disabled:opacity-45"
+            data-testid="session-resume-button"
+            title={resumeTitle}
+          >
+            {resumeStatus === 'pending' ? 'Resuming…' : 'Resume'}
+          </button>
+        )}
       </div>
+      {resumeError && (
+        <div
+          className="border-b border-red-500/40 bg-red-500/10 px-4 py-1 text-[10px] [font-family:var(--font-mono-data)] text-red-300"
+          data-testid="session-resume-error"
+        >
+          {resumeError}
+        </div>
+      )}
 
       {/* Tab strip */}
       <div className="flex border-b border-border shrink-0 px-4">

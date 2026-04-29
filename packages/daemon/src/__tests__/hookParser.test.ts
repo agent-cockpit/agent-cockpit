@@ -367,7 +367,7 @@ describe('parseHookPayload subagent integrity under approval flows', () => {
     expect(result.requiresApproval).toBe(true);
   });
 
-  it('PreToolUse for allowed tool (Read) → tool_call, auto-approved', () => {
+  it('PreToolUse for allowed tool (Read) → tool_called, auto-approved', () => {
     const payload: HookPayload = {
       session_id: 'provider-driven-read',
       hook_event_name: 'PreToolUse',
@@ -377,7 +377,7 @@ describe('parseHookPayload subagent integrity under approval flows', () => {
     };
 
     const result = parseHookPayload(payload);
-    expect(result.event.type).toBe('tool_call');
+    expect(result.event.type).toBe('tool_called');
     expect(result.requiresApproval).toBe(false);
   });
 });

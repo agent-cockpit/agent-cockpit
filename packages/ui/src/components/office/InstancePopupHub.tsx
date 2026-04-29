@@ -3,7 +3,9 @@ import * as Dialog from '@radix-ui/react-dialog'
 import * as Tabs from '@radix-ui/react-tabs'
 import { useStore } from '../../store/index.js'
 import type { PopupTabId } from '../../store/index.js'
+import { EMPTY_EVENTS } from '../../store/eventsSlice.js'
 import { sendWsMessage } from '../../hooks/useSessionEvents.js'
+import { DAEMON_URL } from '../../lib/daemonUrl.js'
 import { ApprovalInbox } from '../panels/ApprovalInbox.js'
 import { ChatPanel } from '../panels/ChatPanel.js'
 import { TimelinePanel } from '../panels/TimelinePanel.js'
@@ -279,7 +281,7 @@ export function InstancePopupHub({
     effectiveSessionId ? s.historySessions?.[effectiveSessionId] : undefined
   )
   const sessionEvents = useStore((s) =>
-    effectiveSessionId ? (s.events[effectiveSessionId] ?? []) : []
+    effectiveSessionId ? (s.events[effectiveSessionId] ?? EMPTY_EVENTS) : EMPTY_EVENTS
   )
 
   const [activeTab, setActiveTab] = useState<TabId>('approvals')
@@ -288,6 +290,8 @@ export function InstancePopupHub({
   const [confirmTerminateOpen, setConfirmTerminateOpen] = useState(false)
   const [nowMs, setNowMs] = useState(() => Date.now())
   const [avatarLoadFailed, setAvatarLoadFailed] = useState(false)
+  const [resumeStatus, setResumeStatus] = useState<'idle' | 'pending' | 'error'>('idle')
+  const [resumeError, setResumeError] = useState<string | null>(null)
   const wasOpenRef = useRef(false)
 
   const provider = (liveSession?.provider ?? historySession?.provider) as
@@ -297,12 +301,33 @@ export function InstancePopupHub({
   const character: CharacterType = liveSession?.character ?? 'astronaut'
   const workspacePath = liveSession?.workspacePath ?? historySession?.workspacePath
   const projectName = workspacePath?.split('/').at(-1) ?? 'Session'
+  const branch = (liveSession?.branch ?? historySession?.branch ?? null) || null
+  const taskTitle =
+    (historySession?.title?.trim() ||
+      historySession?.taskTitle?.trim() ||
+      liveSession?.taskTitle?.trim() ||
+      '') || null
   const pendingApprovals = liveSession?.pendingApprovals ?? 0
   const statusKey = (liveSession?.status ?? historySession?.finalStatus ?? 'ended') as
     | 'active'
     | 'ended'
     | 'error'
   const statusStyle = STATUS_STYLES[statusKey]
+  const managedByDaemon = Boolean(
+    liveSession?.managedByDaemon ??
+      historySession?.capabilities?.managedByDaemon ??
+      false,
+  )
+  const providerSupportsResume = provider === 'codex' || provider === 'claude'
+  const showResumeControl = statusKey !== 'active'
+  const canResume = showResumeControl && providerSupportsResume && managedByDaemon
+  const resumeTitle = canResume
+    ? provider === 'claude'
+      ? 'Continue Claude session with --continue'
+      : 'Resume Codex session from saved thread'
+    : !managedByDaemon
+      ? 'External sessions can be inspected, but cannot be resumed from Agent Cockpit.'
+      : 'Resume is only supported for daemon-managed Claude and Codex sessions.'
   const startedAtRaw = liveSession?.startedAt ?? historySession?.startedAt
   const endedAtRaw =
     liveSession?.status === 'active'
@@ -362,12 +387,36 @@ export function InstancePopupHub({
       setIsTerminating(false)
       setTerminateError(null)
       setConfirmTerminateOpen(false)
+      setResumeStatus('idle')
+      setResumeError(null)
       return
     }
     setIsTerminating(false)
     setTerminateError(null)
     setConfirmTerminateOpen(false)
+    setResumeStatus('idle')
+    setResumeError(null)
   }, [open, effectiveSessionId])
+
+  async function handleResume(): Promise<void> {
+    if (!effectiveSessionId) return
+    setResumeStatus('pending')
+    setResumeError(null)
+    try {
+      const response = await fetch(
+        `${DAEMON_URL}/api/sessions/${encodeURIComponent(effectiveSessionId)}/resume`,
+        { method: 'POST' },
+      )
+      if (!response.ok) {
+        const payload = (await response.json().catch(() => null)) as { error?: string } | null
+        throw new Error(payload?.error ?? 'Resume failed.')
+      }
+      setResumeStatus('idle')
+    } catch (error) {
+      setResumeStatus('error')
+      setResumeError(error instanceof Error ? error.message : 'Resume failed.')
+    }
+  }
 
   useEffect(() => {
     if (!isTerminating || !liveSession) return
@@ -472,8 +521,10 @@ export function InstancePopupHub({
                 )}
                 <span
                   className={`inline-flex items-center gap-1 border px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-[0.14em] [font-family:var(--font-mono-data)] ${statusStyle.textClass} ${statusStyle.borderClass} ${statusStyle.bgClass}`}
+                  role="status"
+                  aria-label={`Session status: ${statusKey}. Display: ${statusStyle.label}`}
                 >
-                  <span className={`h-1.5 w-1.5 rounded-full ${statusStyle.dotClass}`} />
+                  <span className={`h-1.5 w-1.5 rounded-full ${statusStyle.dotClass}`} aria-hidden />
                   {statusStyle.label}
                 </span>
                 {elapsedLabel && (
@@ -489,18 +540,48 @@ export function InstancePopupHub({
                     {pendingApprovals} Pending
                   </span>
                 )}
+                {branch && (
+                  <span
+                    data-testid="popup-branch-badge"
+                    className="border border-[var(--color-cockpit-cyan)]/35 px-1.5 py-0.5 text-[9px] uppercase tracking-[0.12em] text-[var(--color-cockpit-cyan)] [font-family:var(--font-mono-data)]"
+                    title={`Branch: ${branch}`}
+                  >
+                    {branch}
+                  </span>
+                )}
               </div>
+              {taskTitle && taskTitle !== projectName && (
+                <p
+                  data-testid="popup-task-title"
+                  className="mt-1 truncate [font-family:var(--font-mono-data)] text-[10px] text-foreground"
+                  title={taskTitle}
+                >
+                  {taskTitle}
+                </p>
+              )}
               <p className="mt-1 truncate [font-family:var(--font-mono-data)] text-[10px] text-[var(--color-cockpit-dim)]">
                 {workspacePath ?? '/unknown/workspace'}
               </p>
             </div>
 
             <div className="ml-auto flex shrink-0 items-start gap-1.5">
+              {showResumeControl && (
+                <button
+                  type="button"
+                  onClick={() => void handleResume()}
+                  disabled={!canResume || resumeStatus === 'pending'}
+                  data-testid="popup-resume-button"
+                  title={resumeTitle}
+                  className="h-7 px-2 border border-[var(--color-cockpit-cyan)]/55 bg-[var(--color-cockpit-cyan)]/5 text-[10px] [font-family:var(--font-mono-data)] uppercase tracking-[0.12em] text-[var(--color-cockpit-cyan)] hover:bg-[var(--color-cockpit-cyan)]/15 disabled:cursor-not-allowed disabled:opacity-45"
+                >
+                  {resumeStatus === 'pending' ? 'Resuming…' : 'Resume'}
+                </button>
+              )}
               <button
                 type="button"
                 onClick={onMinimize}
                 disabled={!onMinimize}
-                aria-label="Minimize"
+                aria-label={`Minimize ${projectName} popup`}
                 className="h-7 w-7 border border-border/70 bg-background/50 text-[10px] [font-family:var(--font-mono-data)] text-muted-foreground disabled:cursor-not-allowed disabled:opacity-55"
               >
                 -
@@ -518,14 +599,14 @@ export function InstancePopupHub({
                   type="button"
                   onClick={onClose}
                   className="h-7 w-7 border border-red-500/60 bg-red-500/10 text-[10px] [font-family:var(--font-mono-data)] text-red-300 hover:bg-red-500/20 transition-colors"
-                  aria-label="Close"
+                  aria-label={`Close ${projectName} popup`}
                 >
                   ×
                 </button>
               ) : (
                 <Dialog.Close
                   className="h-7 w-7 border border-red-500/60 bg-red-500/10 text-[10px] [font-family:var(--font-mono-data)] text-red-300 hover:bg-red-500/20 transition-colors"
-                  aria-label="Close"
+                  aria-label={`Close ${projectName} popup`}
                 >
                   ×
                 </Dialog.Close>
@@ -538,6 +619,7 @@ export function InstancePopupHub({
                 type="button"
                 onClick={handleTerminate}
                 disabled={isTerminating}
+                aria-label={`${isTerminating ? 'Terminating' : 'Terminate'} ${projectName} session`}
                 className="border border-red-500/60 bg-red-500/10 px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.14em] [font-family:var(--font-mono-data)] text-red-300 hover:bg-red-500/20 disabled:cursor-not-allowed disabled:opacity-50"
               >
                 {isTerminating ? 'Terminating...' : 'Terminate'}
@@ -553,6 +635,14 @@ export function InstancePopupHub({
         {terminateError && (
           <div className="border-b border-red-500/45 bg-red-500/10 px-4 py-2 text-xs [font-family:var(--font-mono-data)] text-red-300">
             {terminateError}
+          </div>
+        )}
+        {resumeError && (
+          <div
+            className="border-b border-red-500/45 bg-red-500/10 px-4 py-2 text-xs [font-family:var(--font-mono-data)] text-red-300"
+            data-testid="popup-resume-error"
+          >
+            {resumeError}
           </div>
         )}
         <Tabs.Root

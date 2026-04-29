@@ -1,9 +1,15 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo, useRef } from 'react'
 import type { NormalizedEvent } from '@agentcockpit/shared'
+import { useSearchParams } from 'react-router'
 import { useStore } from '../../store/index.js'
 import { getSessionEvents, EMPTY_EVENTS } from '../../store/eventsSlice.js'
 import { DAEMON_URL as DAEMON } from '../../lib/daemonUrl.js'
 import { usePanelSessionId } from './sessionScope.js'
+
+type MemoryNoteCategory = 'commands' | 'architecture' | 'gotchas' | 'conventions' | 'other'
+type MemoryNoteScope = 'shared' | 'local'
+
+const NOTE_CATEGORIES: MemoryNoteCategory[] = ['commands', 'architecture', 'gotchas', 'conventions', 'other']
 
 interface MemoryNote {
   note_id: string
@@ -11,10 +17,24 @@ interface MemoryNote {
   content: string
   pinned: number
   created_at: string
+  category: MemoryNoteCategory
+  scope: MemoryNoteScope
+}
+
+interface SearchResult {
+  sourceType: 'event' | 'approval' | 'memory_note' | 'session_metadata'
+  sourceId: string
+  sessionId: string
+  snippet: string
+  eventType?: string
+  filePath?: string
+  title?: string
+  timestamp?: string
 }
 
 export function MemoryPanel() {
   const sessionId = usePanelSessionId()
+  const [searchParams, setSearchParams] = useSearchParams()
   const liveSession = useStore((s) => s.sessions[sessionId ?? ''])
   const historySession = useStore((s) => s.historySessions[sessionId ?? ''])
   const events = useStore((s) => getSessionEvents(s, sessionId ?? ''))
@@ -30,11 +50,18 @@ export function MemoryPanel() {
 
   // Auto memory state
   const [autoMemory, setAutoMemory] = useState<string | null>(null)
+  const [agentsMd, setAgentsMd] = useState<string | null>(null)
+  const [memorySearchQuery, setMemorySearchQuery] = useState('')
+  const [memorySearchResults, setMemorySearchResults] = useState<SearchResult[]>([])
+  const [memorySearchStatus, setMemorySearchStatus] = useState<'idle' | 'loading' | 'loaded' | 'error'>('idle')
 
   // Notes state
   const [notes, setNotes] = useState<MemoryNote[]>([])
   const [showNewNoteForm, setShowNewNoteForm] = useState(false)
   const [newNoteText, setNewNoteText] = useState('')
+  const [newNoteCategory, setNewNoteCategory] = useState<MemoryNoteCategory>('other')
+  const [newNoteScope, setNewNoteScope] = useState<MemoryNoteScope>('local')
+  const [categoryFilter, setCategoryFilter] = useState<MemoryNoteCategory | 'all'>('all')
 
   // Dismissed suggestion IDs
   const [dismissedIds, setDismissedIds] = useState<Set<string>>(new Set())
@@ -42,6 +69,8 @@ export function MemoryPanel() {
   const sessionStatus = liveSession?.status ?? historySession?.finalStatus
   const showActiveWarning = !historyMode && sessionStatus === 'active'
   const workspace = liveSession?.workspacePath ?? historySession?.workspacePath ?? ''
+  const noteRefs = useRef<Record<string, HTMLDivElement | null>>({})
+  const notesById = useMemo(() => new Map(notes.map((note) => [note.note_id, note])), [notes])
 
   // Hydrate session events for pending suggestions if local cache is empty.
   useEffect(() => {
@@ -57,6 +86,52 @@ export function MemoryPanel() {
       })
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sessionId])
+
+  useEffect(() => {
+    const nextQuery = searchParams.get('q') ?? ''
+    setMemorySearchQuery((current) => (current === nextQuery ? current : nextQuery))
+  }, [searchParams])
+
+  useEffect(() => {
+    const query = memorySearchQuery.trim()
+    if (!query) {
+      setMemorySearchResults([])
+      setMemorySearchStatus('idle')
+      return
+    }
+
+    let cancelled = false
+    setMemorySearchStatus('loading')
+    const timer = window.setTimeout(() => {
+      fetch(`${DAEMON}/api/search?q=${encodeURIComponent(query)}`)
+        .then((r) => (r.ok ? r.json() : Promise.reject(new Error('search failed'))))
+        .then((data: SearchResult[]) => {
+          if (cancelled) return
+          setMemorySearchResults(data.filter((result) => result.sourceType === 'memory_note'))
+          setMemorySearchStatus('loaded')
+        })
+        .catch(() => {
+          if (cancelled) return
+          setMemorySearchResults([])
+          setMemorySearchStatus('error')
+        })
+    }, 250)
+
+    return () => {
+      cancelled = true
+      window.clearTimeout(timer)
+    }
+  }, [memorySearchQuery])
+
+  useEffect(() => {
+    if (memorySearchStatus !== 'loaded') return
+    const first = memorySearchResults[0]
+    if (!first) return
+    const target = noteRefs.current[first.sourceId]
+    if (target && typeof target.scrollIntoView === 'function') {
+      target.scrollIntoView({ block: 'center', behavior: 'smooth' })
+    }
+  }, [memorySearchResults, memorySearchStatus])
 
   // Fetch CLAUDE.md + auto memory on mount
   useEffect(() => {
@@ -82,6 +157,15 @@ export function MemoryPanel() {
       })
       .catch(() => {
         setAutoMemory(null)
+      })
+
+    fetch(`${DAEMON}/api/memory/${sessionId}/agents-md`)
+      .then((r) => (r.ok ? r.json() : { content: null }))
+      .then((data: { content: string | null }) => {
+        setAgentsMd(data.content)
+      })
+      .catch(() => {
+        setAgentsMd(null)
       })
   }, [sessionId])
 
@@ -144,9 +228,17 @@ export function MemoryPanel() {
     await fetch(`${DAEMON}/api/memory/notes`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ workspace, content: newNoteText, pinned: true }),
+      body: JSON.stringify({
+        workspace,
+        content: newNoteText,
+        pinned: true,
+        category: newNoteCategory,
+        scope: newNoteScope,
+      }),
     })
     setNewNoteText('')
+    setNewNoteCategory('other')
+    setNewNoteScope('local')
     setShowNewNoteForm(false)
     fetchNotes()
   }
@@ -251,15 +343,127 @@ export function MemoryPanel() {
         )}
       </section>
 
+      {/* Section 2b: Memory search */}
+      <section className="mt-6">
+        <h2 className="cockpit-label mb-2">Search Memory</h2>
+        <div className="flex gap-2">
+          <input
+            type="search"
+            value={memorySearchQuery}
+            onChange={(e) => {
+              const next = e.target.value
+              setMemorySearchQuery(next)
+              setSearchParams(next.trim() ? { q: next } : {})
+            }}
+            placeholder="Search notes and memory entries…"
+            aria-label="Search memory"
+            className="w-full border border-border/80 bg-background/50 px-3 py-2 text-sm [font-family:var(--font-mono-data)] text-foreground focus:border-[color-mix(in_srgb,var(--color-cockpit-accent)_60%,transparent)] focus:outline-none"
+          />
+        </div>
+        {memorySearchQuery.trim() && (
+          <p className="mt-1 text-[10px] [font-family:var(--font-mono-data)] text-muted-foreground">
+            {memorySearchStatus === 'loading'
+              ? 'Searching memory notes…'
+              : memorySearchStatus === 'error'
+                ? 'Search failed.'
+                : `${memorySearchResults.length} result${memorySearchResults.length === 1 ? '' : 's'} in memory notes`}
+          </p>
+        )}
+        {memorySearchResults.length > 0 && (
+          <div className="mt-2 space-y-2" data-testid="memory-search-results">
+            {memorySearchResults.map((result) => {
+              const note = notesById.get(result.sourceId)
+              return (
+                <div
+                  key={result.sourceId}
+                  className="border border-border/60 bg-[var(--color-panel-surface)] p-2 text-xs"
+                  data-testid={`memory-search-result-${result.sourceId}`}
+                >
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="min-w-0">
+                      <p className="[font-family:var(--font-mono-data)] text-[10px] uppercase tracking-wide text-[var(--color-cockpit-accent)]">
+                        {note?.category ?? 'other'} · {note?.scope ?? 'local'}
+                      </p>
+                      <p className="mt-1 whitespace-pre-wrap text-foreground">{note?.content ?? result.snippet}</p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const target = noteRefs.current[result.sourceId]
+                        if (target && typeof target.scrollIntoView === 'function') {
+                          target.scrollIntoView({ block: 'center', behavior: 'smooth' })
+                        }
+                      }}
+                      className="shrink-0 border border-[var(--color-cockpit-accent)]/40 px-2 py-1 text-[10px] uppercase tracking-wide [font-family:var(--font-mono-data)] text-[var(--color-cockpit-accent)]"
+                    >
+                      Open
+                    </button>
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        )}
+      </section>
+
+      {agentsMd !== null && (
+        <section className="mt-6" data-testid="agents-md-section">
+          <h2 className="cockpit-label mb-2">AGENTS.md (Codex)</h2>
+          <pre className="text-xs [font-family:var(--font-mono-data)] whitespace-pre-wrap bg-[var(--color-panel-surface)] border border-border/60 p-3 text-muted-foreground">
+            {agentsMd}
+          </pre>
+        </section>
+      )}
+
       {/* Section 3: Pinned Notes */}
       <section className="mt-6">
         <h2 className="cockpit-label mb-2">Pinned Notes</h2>
-        {notes.map((note) => (
+        <div className="mb-2 flex flex-wrap gap-1" data-testid="memory-category-filter">
+          {(['all', ...NOTE_CATEGORIES] as const).map((cat) => (
+            <button
+              key={cat}
+              type="button"
+              onClick={() => setCategoryFilter(cat)}
+              className={`border px-1.5 py-0.5 text-[9px] uppercase tracking-wide [font-family:var(--font-mono-data)] ${
+                categoryFilter === cat
+                  ? 'border-[var(--color-cockpit-accent)] text-[var(--color-cockpit-accent)]'
+                  : 'border-border/60 text-muted-foreground hover:text-foreground'
+              }`}
+              data-testid={`memory-filter-${cat}`}
+            >
+              {cat}
+            </button>
+          ))}
+        </div>
+        {notes
+          .filter((note) => categoryFilter === 'all' || note.category === categoryFilter)
+          .map((note) => (
           <div
             key={note.note_id}
+            ref={(el) => {
+              noteRefs.current[note.note_id] = el
+            }}
+            id={`memory-note-${note.note_id}`}
             className="flex items-start gap-2 mb-2 p-2 border border-border/60 bg-[var(--color-panel-surface)]"
+            data-testid={`memory-note-card-${note.note_id}`}
           >
-            <p className="flex-1 text-xs [font-family:var(--font-mono-data)] whitespace-pre-wrap text-foreground">{note.content}</p>
+            <div className="flex-1 min-w-0">
+              <div className="mb-1 flex flex-wrap gap-1">
+                <span
+                  data-testid={`memory-note-category-${note.note_id}`}
+                  className="border border-[var(--color-cockpit-cyan)]/35 px-1 py-0.5 text-[8px] uppercase tracking-wide text-[var(--color-cockpit-cyan)]"
+                >
+                  {note.category}
+                </span>
+                <span
+                  data-testid={`memory-note-scope-${note.note_id}`}
+                  className="border border-border/60 px-1 py-0.5 text-[8px] uppercase tracking-wide text-muted-foreground"
+                >
+                  {note.scope}
+                </span>
+              </div>
+              <p className="text-xs [font-family:var(--font-mono-data)] whitespace-pre-wrap text-foreground">{note.content}</p>
+            </div>
             {!historyMode && (
               <button
                 onClick={() => handleDeleteNote(note.note_id)}
@@ -280,13 +484,36 @@ export function MemoryPanel() {
                 className="w-full h-24 text-xs [font-family:var(--font-mono-data)] border border-border/80 bg-background/50 text-foreground rounded-none p-2 focus:border-[color-mix(in_srgb,var(--color-cockpit-accent)_60%,transparent)] focus:outline-none"
                 aria-label="New note content"
               />
-              <button
-                onClick={handleCreateNote}
-                className="mt-1 cockpit-btn"
-                style={{ color: 'var(--color-cockpit-green)', borderColor: 'var(--color-cockpit-green)/50' }}
-              >
-                Save Note
-              </button>
+              <div className="mt-1 flex flex-wrap items-center gap-2">
+                <select
+                  value={newNoteCategory}
+                  onChange={(e) => setNewNoteCategory(e.target.value as MemoryNoteCategory)}
+                  aria-label="Note category"
+                  className="rounded-none border border-border/80 bg-background/50 px-1 py-0.5 text-[10px] [font-family:var(--font-mono-data)]"
+                  data-testid="new-note-category"
+                >
+                  {NOTE_CATEGORIES.map((cat) => (
+                    <option key={cat} value={cat}>{cat}</option>
+                  ))}
+                </select>
+                <select
+                  value={newNoteScope}
+                  onChange={(e) => setNewNoteScope(e.target.value as MemoryNoteScope)}
+                  aria-label="Note scope"
+                  className="rounded-none border border-border/80 bg-background/50 px-1 py-0.5 text-[10px] [font-family:var(--font-mono-data)]"
+                  data-testid="new-note-scope"
+                >
+                  <option value="local">local</option>
+                  <option value="shared">shared</option>
+                </select>
+                <button
+                  onClick={handleCreateNote}
+                  className="cockpit-btn"
+                  style={{ color: 'var(--color-cockpit-green)', borderColor: 'var(--color-cockpit-green)/50' }}
+                >
+                  Save Note
+                </button>
+              </div>
             </div>
           ) : (
             <button

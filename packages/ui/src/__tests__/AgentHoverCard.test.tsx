@@ -62,6 +62,26 @@ describe('AgentHoverCard', () => {
     expect(screen.getByTestId('pending-approvals').textContent).toBe('0')
   })
 
+  it('renders parent and child session relation badges', () => {
+    render(
+      <AgentHoverCard
+        session={{
+          ...claudeSession,
+          parentSessionId: '00000000-0000-0000-0000-000000000001',
+          childSessionIds: ['00000000-0000-0000-0000-000000000002'],
+        }}
+        elapsedMs={0}
+      />,
+    )
+    expect(screen.getByTestId('agent-parent').textContent).toBe('parent 00000000')
+    expect(screen.getByTestId('agent-children').textContent).toBe('1 child')
+  })
+
+  it('renders project id when available', () => {
+    render(<AgentHoverCard session={{ ...claudeSession, projectId: 'my-project-12345678' }} elapsedMs={0} />)
+    expect(screen.getByTestId('agent-project').textContent).toBe('my-project-12345678')
+  })
+
   it('renders last tool used when provided', () => {
     render(<AgentHoverCard session={claudeSession} lastToolUsed="read_file" elapsedMs={0} />)
     expect(screen.getByTestId('last-tool').textContent).toBe('read_file')

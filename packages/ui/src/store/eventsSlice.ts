@@ -24,7 +24,7 @@ export function applyEventToEvents(
       (e) => (e as NormalizedEvent & { sequenceNumber?: number }).sequenceNumber === seq,
     )
   ) {
-    return { events: state.events } // dedup: already present
+    return state // dedup: already present
   }
   return {
     events: {

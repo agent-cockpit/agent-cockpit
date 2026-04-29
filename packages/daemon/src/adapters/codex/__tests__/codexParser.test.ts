@@ -25,6 +25,19 @@ const itemStartedCommandFixture = JSON.stringify({
   },
 });
 
+const itemCompletedCommandFixture = JSON.stringify({
+  method: 'item/completed',
+  params: {
+    item: {
+      type: 'commandExecution',
+      id: 'item_1',
+      command: 'bash -c echo hello',
+      exitCode: 0,
+      stdout: 'hello',
+    },
+  },
+});
+
 const itemStartedFileChangeFixture = JSON.stringify({
   method: 'item/started',
   params: {
@@ -32,6 +45,42 @@ const itemStartedFileChangeFixture = JSON.stringify({
       type: 'fileChange',
       id: 'item_2',
       changes: [{ path: '/workspace/src/index.ts' }],
+    },
+  },
+});
+
+const itemStartedToolFixture = JSON.stringify({
+  method: 'item/started',
+  params: {
+    item: {
+      type: 'toolCall',
+      id: 'tool_item_1',
+      toolName: 'Read',
+      input: { file_path: '/workspace/src/index.ts' },
+    },
+  },
+});
+
+const itemCompletedToolFixture = JSON.stringify({
+  method: 'item/completed',
+  params: {
+    item: {
+      type: 'toolCall',
+      id: 'tool_item_1',
+      toolName: 'Read',
+      output: 'file contents',
+      success: true,
+    },
+  },
+});
+
+const taskUpdatedFixture = JSON.stringify({
+  method: 'task/updated',
+  params: {
+    task: {
+      title: 'Implement lifecycle events',
+      status: 'in_progress',
+      summary: 'Added tool lifecycle parsing',
     },
   },
 });
@@ -188,11 +237,21 @@ describe('parseCodexLine', () => {
     expect(event).toBeNull();
   });
 
-  it('item/started with type commandExecution → returns tool_call event with toolName set to joined command', () => {
+  it('item/started with type commandExecution → returns command_started event with correlation id', () => {
     const event = parseCodexLine(itemStartedCommandFixture, ctx);
     expect(event).not.toBeNull();
-    expect(event!.type).toBe('tool_call');
-    expect((event as { type: string; toolName: string }).toolName).toBe('bash -c echo hello');
+    expect(event!.type).toBe('command_started');
+    expect((event as { type: string; command: string }).command).toBe('bash -c echo hello');
+    expect((event as { type: string; correlationId: string }).correlationId).toBe('item_1');
+  });
+
+  it('item/completed with type commandExecution → returns command_completed output', () => {
+    const event = parseCodexLine(itemCompletedCommandFixture, ctx);
+    expect(event).not.toBeNull();
+    expect(event!.type).toBe('command_completed');
+    expect((event as { type: string; command: string }).command).toBe('bash -c echo hello');
+    expect((event as { type: string; exitCode: number }).exitCode).toBe(0);
+    expect((event as { type: string; stdoutExcerpt: string }).stdoutExcerpt).toBe('hello');
   });
 
   it('item/started with type fileChange → returns file_change event with correct filePath', () => {
@@ -200,6 +259,33 @@ describe('parseCodexLine', () => {
     expect(event).not.toBeNull();
     expect(event!.type).toBe('file_change');
     expect((event as { type: string; filePath: string }).filePath).toBe('/workspace/src/index.ts');
+    expect((event as { type: string; correlationId: string }).correlationId).toBe('item_2');
+  });
+
+  it('item/started with generic tool fields → returns tool_called', () => {
+    const event = parseCodexLine(itemStartedToolFixture, ctx);
+    expect(event).not.toBeNull();
+    expect(event!.type).toBe('tool_called');
+    expect((event as { type: string; toolName: string }).toolName).toBe('Read');
+    expect((event as { type: string; correlationId: string }).correlationId).toBe('tool_item_1');
+  });
+
+  it('item/completed with generic tool fields → returns tool_completed', () => {
+    const event = parseCodexLine(itemCompletedToolFixture, ctx);
+    expect(event).not.toBeNull();
+    expect(event!.type).toBe('tool_completed');
+    expect((event as { type: string; toolName: string }).toolName).toBe('Read');
+    expect((event as { type: string; output: string }).output).toBe('file contents');
+    expect((event as { type: string; success: boolean }).success).toBe(true);
+  });
+
+  it('task/updated → returns task_updated', () => {
+    const event = parseCodexLine(taskUpdatedFixture, ctx);
+    expect(event).not.toBeNull();
+    expect(event!.type).toBe('task_updated');
+    expect((event as { type: string; taskTitle: string }).taskTitle).toBe('Implement lifecycle events');
+    expect((event as { type: string; status: string }).status).toBe('in_progress');
+    expect((event as { type: string; summary: string }).summary).toBe('Added tool lifecycle parsing');
   });
 
   it('item/commandExecution/requestApproval → returns approval_request event with actionType shell_command', () => {
@@ -208,6 +294,7 @@ describe('parseCodexLine', () => {
     expect(event!.type).toBe('approval_request');
     expect((event as { type: string; actionType: string }).actionType).toBe('shell_command');
     expect((event as { type: string; riskLevel: string }).riskLevel).toBe('high');
+    expect((event as { type: string; correlationId: string }).correlationId).toBe('req_1');
     expect((event as { type: string; _codexServerId: unknown })._codexServerId).toBe('req_1');
   });
 
@@ -216,6 +303,7 @@ describe('parseCodexLine', () => {
     expect(event).not.toBeNull();
     expect(event!.type).toBe('approval_request');
     expect((event as { type: string; actionType: string }).actionType).toBe('file_change');
+    expect((event as { type: string; correlationId: string }).correlationId).toBe('item_3');
     expect((event as { type: string; _codexServerId: unknown })._codexServerId).toBe('req_2');
   });
 

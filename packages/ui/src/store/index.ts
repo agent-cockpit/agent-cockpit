@@ -112,6 +112,13 @@ export interface SessionSummary {
   sessionId: string
   provider: string
   workspacePath: string
+  title?: string
+  tags?: string[]
+  branch?: string | null
+  taskTitle?: string
+  projectId?: string
+  parentSessionId?: string | null
+  childSessionIds?: string[]
   startedAt: string
   endedAt: string | null
   approvalCount: number
@@ -138,6 +145,11 @@ export interface SessionRecord {
   canSendMessage?: boolean
   canTerminateSession?: boolean
   reason?: string
+  branch?: string
+  taskTitle?: string
+  projectId?: string
+  parentSessionId?: string
+  childSessionIds?: string[]
 }
 
 export type PanelId = 'approvals' | 'timeline' | 'diff' | 'memory' | 'artifacts'
@@ -188,12 +200,16 @@ interface UiSlice {
   popupPreferredTab: PopupTabId | null
   popupWindows: Record<string, SessionPopupWindow>
   popupWindowOrder: string[]
+  replayCursorBySession: Record<string, number | null>
+  focusedFileBySession: Record<string, string | null>
   filters: { provider: string | null; status: string | null; search: string }
   sessionDetailOpen: boolean
   selectSession: (id: string) => void
   setSelectedPlayerCharacter: (character: CharacterType) => void
   setActivePanel: (panel: PanelId) => void
   setPopupPreferredTab: (tab: PopupTabId | null) => void
+  setReplayCursor: (sessionId: string, cursor: number | null) => void
+  setFocusedFile: (sessionId: string, path: string | null) => void
   openSessionPopup: (sessionId: string, options?: { preferredTab?: PopupTabId | null }) => void
   closeSessionPopup: (sessionId: string) => void
   minimizeSessionPopup: (sessionId: string) => void
@@ -222,6 +238,7 @@ interface HistorySlice {
   historyMode: boolean
   compareSelectionIds: string[]
   bulkApplySessions: (sessions: SessionSummary[]) => void
+  updateHistorySessionLabels: (sessionId: string, labels: { title: string; tags: string[] }) => void
   removeHistorySessions: (sessionIds: string[]) => void
   setHistoryMode: (on: boolean) => void
   toggleCompareSelection: (id: string) => void
@@ -283,9 +300,9 @@ function defaultPopupWindow(
 }
 
 function reduceStoreWithEvent(
-  state: Pick<AppStore, 'sessions' | 'events' | 'pendingApprovalsBySession' | 'characterBag' | 'subagentSessionIds' | 'activeSubagentParents'>,
+  state: Pick<AppStore, 'sessions' | 'events' | 'pendingApprovalsBySession' | 'characterBag' | 'subagentSessionIds' | 'activeSubagentParents' | 'historySessions'>,
   event: NormalizedEvent,
-): Pick<AppStore, 'sessions' | 'events' | 'pendingApprovalsBySession' | 'characterBag' | 'subagentSessionIds' | 'activeSubagentParents'> {
+): Pick<AppStore, 'sessions' | 'events' | 'pendingApprovalsBySession' | 'characterBag' | 'subagentSessionIds' | 'activeSubagentParents' | 'historySessions'> {
   let characterBag = state.characterBag
   let character: CharacterType | undefined
   if (event.type === 'session_start') {
@@ -308,6 +325,21 @@ function reduceStoreWithEvent(
     removeStoredSessionCharacter(event.sessionId)
   }
   const sessionsPatch = applyEventToSessions(state, event, character)
+  if (event.type === 'session_start') {
+    for (const sessionEvents of Object.values(state.events)) {
+      const parentSpawn = sessionEvents.find((candidate) => (
+        candidate.type === 'subagent_spawn' &&
+        candidate.subagentSessionId === event.sessionId
+      ))
+      if (parentSpawn && sessionsPatch.sessions[event.sessionId]) {
+        sessionsPatch.sessions[event.sessionId] = {
+          ...sessionsPatch.sessions[event.sessionId]!,
+          parentSessionId: parentSpawn.sessionId,
+        }
+        break
+      }
+    }
+  }
   const eventsPatch = applyEventToEvents(state, event)
   const { pendingApprovalsBySession } = applyEventToApprovals(state, event)
   let subagentSessionIds = state.subagentSessionIds
@@ -329,6 +361,38 @@ function reduceStoreWithEvent(
       activeSubagentParents[event.sessionId] = next
     }
   }
+  let historySessions = state.historySessions
+  const existingHistory = historySessions[event.sessionId]
+  if (existingHistory) {
+    if (event.type === 'subagent_spawn') {
+      const childSessionIds = new Set(existingHistory.childSessionIds ?? [])
+      childSessionIds.add(event.subagentSessionId)
+      historySessions = {
+        ...historySessions,
+        [event.sessionId]: { ...existingHistory, childSessionIds: Array.from(childSessionIds) },
+      }
+    } else if (event.type === 'session_resumed') {
+      historySessions = {
+        ...historySessions,
+        [event.sessionId]: { ...existingHistory, finalStatus: 'active', endedAt: null },
+      }
+    } else if (event.type === 'session_end') {
+      historySessions = {
+        ...historySessions,
+        [event.sessionId]: { ...existingHistory, finalStatus: 'ended', endedAt: event.timestamp },
+      }
+    }
+  }
+  if (event.type === 'subagent_spawn' && historySessions[event.subagentSessionId]) {
+    historySessions = {
+      ...historySessions,
+      [event.subagentSessionId]: {
+        ...historySessions[event.subagentSessionId]!,
+        parentSessionId: event.sessionId,
+      },
+    }
+  }
+
   return {
     sessions: sessionsPatch.sessions,
     events: eventsPatch.events,
@@ -336,6 +400,7 @@ function reduceStoreWithEvent(
     characterBag,
     subagentSessionIds,
     activeSubagentParents,
+    historySessions,
   }
 }
 
@@ -352,13 +417,14 @@ export const useStore = create<AppStore>()(
       set((state) => {
         if (events.length === 0) return {}
 
-        let nextState: Pick<AppStore, 'sessions' | 'events' | 'pendingApprovalsBySession' | 'characterBag' | 'subagentSessionIds' | 'activeSubagentParents'> = {
+        let nextState: Pick<AppStore, 'sessions' | 'events' | 'pendingApprovalsBySession' | 'characterBag' | 'subagentSessionIds' | 'activeSubagentParents' | 'historySessions'> = {
           sessions: state.sessions,
           events: state.events,
           pendingApprovalsBySession: state.pendingApprovalsBySession,
           characterBag: state.characterBag,
           subagentSessionIds: state.subagentSessionIds,
           activeSubagentParents: state.activeSubagentParents,
+          historySessions: state.historySessions,
         }
 
         for (const event of events) {
@@ -370,8 +436,9 @@ export const useStore = create<AppStore>()(
 
     // eventsSlice
     events: {},
-    bulkApplyEvents: (sessionId, evs) =>
-      set((s) => ({ events: { ...s.events, [sessionId]: evs } })),
+    bulkApplyEvents: (sessionId, evs) => {
+      set((s) => ({ events: { ...s.events, [sessionId]: evs } }))
+    },
 
     // approvalsSlice
     pendingApprovalsBySession: {},
@@ -396,6 +463,8 @@ export const useStore = create<AppStore>()(
     popupPreferredTab: null,
     popupWindows: {},
     popupWindowOrder: [],
+    replayCursorBySession: {},
+    focusedFileBySession: {},
     filters: { provider: null, status: 'active', search: '' },
     sessionDetailOpen: false,
     selectSession: (id) => set({ selectedSessionId: id }),
@@ -410,6 +479,18 @@ export const useStore = create<AppStore>()(
     },
     setActivePanel: (panel) => set({ activePanel: panel }),
     setPopupPreferredTab: (tab) => set({ popupPreferredTab: tab }),
+    setReplayCursor: (sessionId, cursor) =>
+      set((s) => ({
+        replayCursorBySession: {
+          ...s.replayCursorBySession,
+          [sessionId]: cursor,
+        },
+      })),
+    setFocusedFile: (sessionId, path) =>
+      set((s) => ({
+        focusedFileBySession: { ...s.focusedFileBySession, [sessionId]: path },
+        activePanel: path !== null ? 'diff' : s.activePanel,
+      })),
     openSessionPopup: (sessionId, options) =>
       set((s) => {
         const preferredTab =
@@ -606,6 +687,21 @@ export const useStore = create<AppStore>()(
           ...Object.fromEntries(sessions.map((sess) => [sess.sessionId, sess])),
         },
       })),
+    updateHistorySessionLabels: (sessionId, labels) =>
+      set((s) => {
+        const existing = s.historySessions[sessionId]
+        if (!existing) return {}
+        return {
+          historySessions: {
+            ...s.historySessions,
+            [sessionId]: {
+              ...existing,
+              title: labels.title,
+              tags: labels.tags,
+            },
+          },
+        }
+      }),
     removeHistorySessions: (sessionIds) =>
       set((s) => {
         if (sessionIds.length === 0) return {}

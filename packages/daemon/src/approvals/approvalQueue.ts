@@ -97,6 +97,9 @@ export class ApprovalQueue {
       type: 'approval_resolved',
       approvalId,
       decision: status,
+      ...((event as { correlationId?: string } | undefined)?.correlationId
+        ? { correlationId: (event as { correlationId: string }).correlationId }
+        : {}),
     } as NormalizedEvent;
     eventBus.emit('event', resolvedEvent);
 
@@ -131,6 +134,9 @@ export class ApprovalQueue {
       type: 'approval_resolved',
       approvalId,
       decision: 'timeout',
+      ...((event as { correlationId?: string } | undefined)?.correlationId
+        ? { correlationId: (event as { correlationId: string }).correlationId }
+        : {}),
     } as NormalizedEvent;
     eventBus.emit('event', expiredEvent);
 

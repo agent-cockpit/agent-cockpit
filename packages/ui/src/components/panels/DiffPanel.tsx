@@ -1,8 +1,14 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import type { NormalizedEvent } from '@agentcockpit/shared'
 import { useStore } from '../../store/index.js'
 import { EMPTY_EVENTS } from '../../store/eventsSlice.js'
 import { DAEMON_URL } from '../../lib/daemonUrl.js'
+import { formatReplayCursor, sliceEventsForReplay } from '../../lib/replay.js'
+import {
+  deriveChangedFileSummary,
+  deriveTestSignal,
+  type SessionInsightEvent,
+} from '../../lib/sessionInsights.js'
 import { usePanelSessionId } from './sessionScope.js'
 
 interface FileEntry {
@@ -44,7 +50,7 @@ function buildSyntheticDiff(
 }
 
 function deriveEntryFromToolCall(event: NormalizedEvent): Omit<FileEntry, 'lastSeenIndex'> | null {
-  if (event.type !== 'tool_call') return null
+  if (event.type !== 'tool_call' && event.type !== 'tool_called') return null
 
   const input = event.input
   if (!input || typeof input !== 'object') return null
@@ -120,6 +126,52 @@ function formatElapsed(ms: number): string {
   return `${minutes}m ${seconds}s`
 }
 
+function groupFileEntries(fileTree: FileEntry[]): Record<FileEntry['changeType'], FileEntry[]> {
+  return {
+    created: fileTree.filter((entry) => entry.changeType === 'created'),
+    modified: fileTree.filter((entry) => entry.changeType === 'modified'),
+    deleted: fileTree.filter((entry) => entry.changeType === 'deleted'),
+  }
+}
+
+function buildCopySummary({
+  sessionId,
+  finalStatus,
+  elapsedMs,
+  fileTree,
+}: {
+  sessionId: string
+  finalStatus: string
+  elapsedMs: number | null
+  fileTree: FileEntry[]
+}): string {
+  const groups = groupFileEntries(fileTree)
+  const lines = [
+    'Agent Cockpit diff summary',
+    `Session: ${sessionId}`,
+    `Status: ${finalStatus}`,
+    `Elapsed: ${elapsedMs === null ? 'n/a' : formatElapsed(elapsedMs)}`,
+    `Files touched: ${fileTree.length}`,
+    '',
+  ]
+
+  for (const [label, entries] of [
+    ['Created', groups.created],
+    ['Modified', groups.modified],
+    ['Deleted', groups.deleted],
+  ] as const) {
+    lines.push(`${label} (${entries.length}):`)
+    if (entries.length === 0) {
+      lines.push('- none')
+    } else {
+      entries.forEach((entry) => lines.push(`- ${entry.filePath}`))
+    }
+    lines.push('')
+  }
+
+  return lines.join('\n').trimEnd()
+}
+
 function DiffView({ diff }: { diff: string }) {
   const lines = diff.split('\n')
   return (
@@ -167,23 +219,42 @@ export function DiffPanel() {
   const events = useStore((s) => s.events[sessionId!] ?? EMPTY_EVENTS)
   const bulkApplyEvents = useStore((s) => s.bulkApplyEvents)
   const session = useStore((s) => (sessionId ? s.sessions[sessionId] : undefined))
+  const replayCursor = useStore((s) => (sessionId ? s.replayCursorBySession[sessionId] ?? null : null))
+  const focusedFile = useStore((s) => (sessionId ? s.focusedFileBySession[sessionId] ?? null : null))
+  const setFocusedFile = useStore((s) => s.setFocusedFile)
   const [selectedFilePath, setSelectedFilePath] = useState<string | null>(null)
+  const [highlightedFilePath, setHighlightedFilePath] = useState<string | null>(null)
+  const [copyStatus, setCopyStatus] = useState<'idle' | 'copied' | 'error'>('idle')
 
   // Derived values
-  const fileTree = deriveFileTree(events)
+  const replayEvents = useMemo(() => sliceEventsForReplay(events, replayCursor), [events, replayCursor])
+  const fileTree = deriveFileTree(replayEvents)
   const filesTouched = fileTree.length
   const finalStatus = session?.status ?? 'unknown'
-  const startEvent = events.find((e) => e.type === 'session_start')
-  const endEvent = [...events].reverse().find((e) => e.type === 'session_end')
+  const startEvent = replayEvents.find((e) => e.type === 'session_start')
+  const endEvent = [...replayEvents].reverse().find((e) => e.type === 'session_end')
   const startTime = startEvent ? new Date(startEvent.timestamp).getTime() : null
   const endTime =
-    endEvent
+      endEvent
       ? new Date(endEvent.timestamp).getTime()
-      : session?.lastEventAt
-        ? new Date(session.lastEventAt).getTime()
-        : null
+        : replayEvents.at(-1)?.timestamp
+          ? new Date(replayEvents.at(-1)!.timestamp).getTime()
+          : null
   const elapsedMs = startTime !== null && endTime !== null ? endTime - startTime : null
   const selectedEntry = fileTree.find((f) => f.filePath === selectedFilePath) ?? null
+  const changeGroups = groupFileEntries(fileTree)
+  const testSignal = useMemo(
+    () => deriveTestSignal(replayEvents as unknown as SessionInsightEvent[]),
+    [replayEvents],
+  )
+  const changeSummary = useMemo(
+    () => deriveChangedFileSummary(replayEvents as unknown as SessionInsightEvent[]),
+    [replayEvents],
+  )
+  const canCopySummary =
+    filesTouched > 0 &&
+    typeof navigator !== 'undefined' &&
+    typeof navigator.clipboard?.writeText === 'function'
 
   useEffect(() => {
     if (!sessionId) return
@@ -212,6 +283,39 @@ export function DiffPanel() {
     }
   }, [fileTree, selectedFilePath])
 
+  useEffect(() => {
+    setCopyStatus('idle')
+  }, [filesTouched, finalStatus, elapsedMs])
+
+  // Jump to focused file from Timeline cross-panel link
+  useEffect(() => {
+    if (!focusedFile || !sessionId) return
+    if (fileTree.some((e) => e.filePath === focusedFile)) {
+      setSelectedFilePath(focusedFile)
+      setHighlightedFilePath(focusedFile)
+      window.setTimeout(() => setHighlightedFilePath(null), 1500)
+    }
+    setFocusedFile(sessionId, null)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [focusedFile])
+
+  async function copySummary(): Promise<void> {
+    if (!sessionId || !canCopySummary) return
+    try {
+      await navigator.clipboard.writeText(
+        buildCopySummary({
+          sessionId,
+          finalStatus,
+          elapsedMs,
+          fileTree,
+        }),
+      )
+      setCopyStatus('copied')
+    } catch {
+      setCopyStatus('error')
+    }
+  }
+
   return (
     <div className="flex flex-col h-full">
       {/* Summary banner */}
@@ -220,6 +324,9 @@ export function DiffPanel() {
           <span className="data-readout-dim">FILES:&nbsp;</span>
           <span className="tabular-nums">{String(filesTouched).padStart(2, '0')}</span>
         </span>
+        <span className="data-readout-dim text-[10px]">
+          +{changeGroups.created.length} ~{changeGroups.modified.length} -{changeGroups.deleted.length}
+        </span>
         <span className="[font-family:var(--font-mono-data)] text-[10px] uppercase tracking-wide"
               style={{ color: finalStatus === 'active' ? 'var(--color-cockpit-green)' : finalStatus === 'error' ? 'var(--color-cockpit-red)' : 'var(--color-cockpit-dim)' }}>
           {finalStatus}
@@ -227,7 +334,63 @@ export function DiffPanel() {
         {elapsedMs !== null && (
           <span className="data-readout-dim text-[10px] tabular-nums">{formatElapsed(elapsedMs)}</span>
         )}
+        <span
+          data-testid="diff-test-signal"
+          className="border px-1.5 py-0.5 [font-family:var(--font-mono-data)] text-[9px] uppercase tracking-wide"
+          style={{ color: testSignal.color, borderColor: testSignal.color }}
+          title={testSignal.label}
+        >
+          {testSignal.label}
+        </span>
+        <button
+          type="button"
+          onClick={() => void copySummary()}
+          disabled={!canCopySummary}
+          className="ml-auto cockpit-btn py-0.5 text-[9px] disabled:cursor-not-allowed disabled:opacity-40"
+          data-testid="copy-diff-summary"
+        >
+          {copyStatus === 'copied' ? 'Copied' : copyStatus === 'error' ? 'Copy Failed' : 'Copy Summary'}
+        </button>
       </div>
+      {replayCursor !== null && (
+        <div data-testid="diff-replay-banner" className="border-b border-border bg-[var(--color-panel-surface)]/70 px-4 py-1.5 text-[10px] [font-family:var(--font-mono-data)] uppercase tracking-wide text-[var(--color-cockpit-amber)]">
+          Replay view · {formatReplayCursor(replayCursor, events.length)}
+        </div>
+      )}
+
+      {/* Per-session change summary */}
+      {changeSummary.total > 0 && (
+        <div
+          data-testid="diff-change-summary"
+          className="border-b border-border bg-[var(--color-panel-surface)]/60 px-4 py-2 [font-family:var(--font-mono-data)] text-[10px]"
+        >
+          <span className="cockpit-label mr-2">Change summary:</span>
+          <span className="text-foreground">{changeSummary.total} file{changeSummary.total === 1 ? '' : 's'}</span>
+          <span className="text-muted-foreground"> · +{changeSummary.created} ~{changeSummary.modified} -{changeSummary.deleted}</span>
+          {!changeSummary.fromEvents && (
+            <span
+              data-testid="diff-fallback-note"
+              className="ml-2 italic text-[var(--color-cockpit-amber)]"
+              title="No file_change events present — paths inferred from Write/Edit tool calls."
+            >
+              (inferred from tool calls)
+            </span>
+          )}
+          {changeSummary.files.length > 0 && (
+            <ul className="mt-1 space-y-0 text-muted-foreground">
+              {changeSummary.files.slice(0, 5).map((f) => (
+                <li key={f.path} className="truncate" title={f.path}>
+                  <span className="text-foreground">{f.changeType === 'unknown' ? '?' : f.changeType === 'created' ? '+' : f.changeType === 'deleted' ? '-' : '~'}</span>{' '}
+                  {f.path}
+                </li>
+              ))}
+              {changeSummary.files.length > 5 && (
+                <li className="data-readout-dim">…and {changeSummary.files.length - 5} more</li>
+              )}
+            </ul>
+          )}
+        </div>
+      )}
 
       {/* Body: file tree + diff view */}
       <div className="flex flex-1 overflow-hidden">
@@ -249,7 +412,9 @@ export function DiffPanel() {
                   className={`px-3 py-2 cursor-pointer transition-colors ${
                     entry.filePath === selectedFilePath
                       ? 'bg-[color-mix(in_srgb,var(--color-cockpit-accent)_10%,transparent)] border-l-2 border-l-[var(--color-cockpit-accent)]'
-                      : 'hover:bg-muted/30 border-l-2 border-l-transparent'
+                      : entry.filePath === highlightedFilePath
+                        ? 'bg-[color-mix(in_srgb,var(--color-cockpit-green)_15%,transparent)] border-l-2 border-l-[var(--color-cockpit-green)] animate-pulse'
+                        : 'hover:bg-muted/30 border-l-2 border-l-transparent'
                   }`}
                 >
                   <div className="[font-family:var(--font-mono-data)] text-[10px] text-foreground">{entry.filePath.split('/').pop()}</div>

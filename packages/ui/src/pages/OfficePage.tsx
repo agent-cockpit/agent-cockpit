@@ -724,6 +724,12 @@ function PopupDockAvatar({ character, label }: { character: CharacterType; label
   )
 }
 
+const POPUP_DOCK_STATUS_DOT: Record<'active' | 'ended' | 'error', string> = {
+  active: 'bg-green-400',
+  ended: 'bg-gray-400',
+  error: 'bg-red-400',
+}
+
 export function OfficePage() {
   const sessions = useActiveSessions()
   const liveSessionsById = useStore((s) => s.sessions)
@@ -1814,18 +1820,32 @@ export function OfficePage() {
     return source?.character ?? 'astronaut'
   }
 
+  function popupStatus(sessionId: string): 'active' | 'ended' | 'error' {
+    const status = liveSessionsById[sessionId]?.status ?? historySessionsById[sessionId]?.finalStatus
+    if (status === 'active' || status === 'error') return status
+    return 'ended'
+  }
+
   return (
     <>
       <div
         ref={containerRef}
         className="relative w-full h-full overflow-hidden"
         data-testid="office-canvas"
+        role="region"
+        aria-label="Office workspace"
+        aria-describedby="office-canvas-description"
         style={{}}
       >
+        <p id="office-canvas-description" className="sr-only">
+          Spatial office view for active agents. Use the visible controls for agent popups, approvals, closet, audio settings, and emergency eject.
+        </p>
         <canvas
           ref={canvasRef}
           style={{ position: 'absolute', inset: 0, zIndex: 0, imageRendering: 'pixelated' }}
           data-testid="game-canvas"
+          role="img"
+          aria-label="Pixel office map with agent positions"
         />
         <div style={{ position: 'relative', zIndex: 1, width: '100%', height: '100%' }}>
           <ApprovalBalloonOverlay balloonRefsMap={balloonRefsMap} />
@@ -1949,11 +1969,9 @@ export function OfficePage() {
                   if (!popup) return null
                   const minimized = popup.minimized
                   const focused = selectedSessionId === sessionId && !minimized
+                  const status = popupStatus(sessionId)
                   return (
-                    <div
-                      key={sessionId}
-                      className="flex shrink-0 items-center gap-1"
-                    >
+                    <div key={sessionId} className="flex shrink-0 items-center">
                       <button
                         type="button"
                         className={`flex items-center gap-1.5 border px-2 py-1 [font-family:var(--font-mono-data)] text-[10px] uppercase tracking-[0.12em] transition-colors ${
@@ -1971,24 +1989,19 @@ export function OfficePage() {
                           bringSessionPopupToFront(sessionId)
                         }}
                         data-testid={`popup-dock-${sessionId}`}
+                        aria-label={`${minimized ? 'Restore' : 'Focus'} ${popupLabel(sessionId)} popup. Status: ${status}.`}
                       >
-                        <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-green-400" aria-hidden />
+                        <span
+                          className={`h-1.5 w-1.5 shrink-0 rounded-full ${POPUP_DOCK_STATUS_DOT[status]}`}
+                          aria-hidden
+                          data-testid={`popup-dock-status-${sessionId}`}
+                          data-status={status}
+                        />
                         <PopupDockAvatar
                           character={popupCharacter(sessionId)}
                           label={popupLabel(sessionId)}
                         />
                         <span className="truncate max-w-40">{popupLabel(sessionId)}</span>
-                      </button>
-                      <button
-                        type="button"
-                        aria-label={`Close popup ${popupLabel(sessionId)}`}
-                        className="inline-flex h-4 w-4 items-center justify-center border border-red-500/40 text-[9px] text-red-300 hover:bg-red-500/20"
-                        onClick={(event) => {
-                          event.stopPropagation()
-                          closeSessionPopup(sessionId)
-                        }}
-                      >
-                        ×
                       </button>
                     </div>
                   )
