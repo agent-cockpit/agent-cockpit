@@ -7,7 +7,8 @@ import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { WebSocket, WebSocketServer } from 'ws';
-import { ClaudeLauncher, type ClaudePermissionMode, LaunchError } from '../adapters/claude/claudeLauncher.js';
+import { LaunchError } from '../adapters/claude/claudeLauncher.js';
+import { PtyLauncher, type PtyRuntime } from '../adapters/claude/ptyLauncher.js';
 import { markSessionStarted } from '../adapters/claude/hookServer.js';
 import { CodexAdapter } from '../adapters/codex/codexAdapter.js';
 import { getApprovalsBySession } from '../approvals/approvalStore.js';
@@ -105,6 +106,7 @@ function handleLaunchSession(
   res: http.ServerResponse,
   db: Database.Database,
   runtimeRegistry: ManagedSessionRegistry,
+  extras: { broadcastRaw: (payload: string) => void; ptyRegistry: Map<string, PtyRuntime> },
 ): void {
   let body = '';
   req.on('data', (chunk) => {
@@ -123,11 +125,17 @@ function handleLaunchSession(
           workspacePath,
           skipPermissions,
           permissionMode: requestedPermissionMode,
+          model,
+          cols,
+          rows,
         } = JSON.parse(body) as {
           provider?: string;
           workspacePath?: string;
           skipPermissions?: boolean;
           permissionMode?: string;
+          model?: string;
+          cols?: number;
+          rows?: number;
         };
         if (!provider || !workspacePath) {
           res.writeHead(400, { 'Content-Type': 'application/json' });
@@ -146,83 +154,34 @@ function handleLaunchSession(
         const hookPort = Number(process.env['COCKPIT_HOOK_PORT'] ?? '3002');
 
         if (provider === 'claude') {
-          if (
-            requestedPermissionMode !== undefined &&
-            requestedPermissionMode !== 'default' &&
-            requestedPermissionMode !== 'dangerously_skip'
-          ) {
-            res.writeHead(400, { 'Content-Type': 'application/json' });
-            res.end(JSON.stringify({
-              error: "permissionMode must be 'default' or 'dangerously_skip'",
-            }));
-            return;
-          }
-
-          const permissionMode: ClaudePermissionMode =
-            (requestedPermissionMode as ClaudePermissionMode | undefined)
-            ?? (skipPermissions === true ? 'dangerously_skip' : 'default');
-
-          const launcher = new ClaudeLauncher(hookPort, db);
-          await launcher.preflight(workspacePath);
-          logger.info('launch', 'Launching claude session', {
+          const { broadcastRaw, ptyRegistry } = extras;
+          const ptyLaunch = new PtyLauncher(hookPort, db);
+          logger.info('launch', 'Launching claude PTY session', { sessionId, workspacePath, model });
+          const ptyRuntime = await ptyLaunch.launch(
             sessionId,
             workspacePath,
-            permissionMode,
-            // Backward compatibility with older UI payloads.
-            skipPermissions: skipPermissions ?? false,
-          });
-          const runtime = await launcher.launch(sessionId, workspacePath, () => {
-            runtimeRegistry.unregister(sessionId);
-            eventBus.emit('event', {
-              schemaVersion: 1,
-              sessionId,
-              type: 'session_end',
-              provider: 'claude',
-              timestamp: new Date().toISOString(),
-            } as NormalizedEvent);
-          }, (assistantText) => {
-            const content = assistantText;
-            if (!content) return;
-            logger.info('launch', 'Claude assistant output captured', { sessionId, chars: content.length });
-            eventBus.emit('event', {
-              schemaVersion: 1,
-              sessionId,
-              type: 'session_chat_message',
-              provider: 'claude',
-              role: 'assistant',
-              content,
-              timestamp: new Date().toISOString(),
-            } as NormalizedEvent);
-          }, permissionMode, (usageSnapshot) => {
-            eventBus.emit('event', {
-              schemaVersion: 1,
-              sessionId,
-              type: 'session_usage',
-              provider: 'claude',
-              timestamp: new Date().toISOString(),
-              inputTokens: usageSnapshot.inputTokens,
-              outputTokens: usageSnapshot.outputTokens,
-              totalTokens: usageSnapshot.totalTokens,
-              cachedInputTokens: usageSnapshot.cachedInputTokens,
-              ...(usageSnapshot.contextUsedTokens !== undefined
-                ? { contextUsedTokens: usageSnapshot.contextUsedTokens }
-                : {}),
-              ...(usageSnapshot.contextWindowTokens !== undefined
-                ? { contextWindowTokens: usageSnapshot.contextWindowTokens }
-                : {}),
-              ...(usageSnapshot.contextPercent !== undefined
-                ? { contextPercent: usageSnapshot.contextPercent }
-                : {}),
-              ...(usageSnapshot.model ? { model: usageSnapshot.model } : {}),
-            } as NormalizedEvent);
-          });
+            (data) => broadcastRaw(JSON.stringify({ type: 'pty_output', sessionId, data })),
+            () => {
+              ptyRegistry.delete(sessionId);
+              runtimeRegistry.unregister(sessionId);
+              eventBus.emit('event', {
+                schemaVersion: 1,
+                sessionId,
+                type: 'session_end',
+                provider: 'claude',
+                timestamp: new Date().toISOString(),
+              } as NormalizedEvent);
+            },
+            model,
+            typeof cols === 'number' && cols > 0 ? cols : undefined,
+            typeof rows === 'number' && rows > 0 ? rows : undefined,
+          );
+          ptyRegistry.set(sessionId, ptyRuntime);
           runtimeRegistry.register(sessionId, {
             provider: 'claude',
-            sendMessage: (message) => runtime.sendMessage(message),
-            terminateSession: () => runtime.terminateSession(),
+            sendMessage: (msg) => { ptyRuntime.write(msg + '\n'); return Promise.resolve(); },
+            terminateSession: () => ptyRuntime.kill(),
           });
-          // Emit session_start immediately for daemon-launched Claude sessions so
-          // the UI does not depend on a later hook that may never arrive while idle.
           markSessionStarted(sessionId);
           eventBus.emit('event', {
             schemaVersion: 1,
@@ -232,12 +191,13 @@ function handleLaunchSession(
             timestamp: new Date().toISOString(),
             workspacePath,
             managedByDaemon: true,
-            canSendMessage: true,
+            canSendMessage: false,
             canTerminateSession: true,
+            mode: 'pty',
           } as NormalizedEvent);
-          logger.info('launch', 'Claude session spawned', { sessionId });
+          logger.info('launch', 'Claude PTY session spawned', { sessionId });
           res.writeHead(200, { 'Content-Type': 'application/json' });
-          res.end(JSON.stringify({ sessionId, mode: 'initiated' }));
+          res.end(JSON.stringify({ sessionId, mode: 'pty' }));
         } else {
           // Codex: spawn codex app-server as a child process
           const adapter = new CodexAdapter(
@@ -271,13 +231,14 @@ function handleLaunchSession(
           res.end(JSON.stringify({ sessionId, mode: 'initiated' }));
         }
       } catch (err: unknown) {
+        logger.error('launch', 'Session launch failed', { error: String(err) });
         if (err instanceof LaunchError) {
           res.writeHead(422, { 'Content-Type': 'application/json' });
           res.end(JSON.stringify({ error: err.message, error_code: err.code }));
           return;
         }
-        res.writeHead(400, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ error: 'invalid JSON body' }));
+        res.writeHead(500, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: String(err) }));
       }
     })();
   });
@@ -342,6 +303,7 @@ export function createWsServer(
   const httpServer = createServer();
   const wss = new WebSocketServer({ noServer: true });
   const runtimeRegistry = createManagedSessionRegistry();
+  const ptyRegistry = new Map<string, PtyRuntime>();
 
   // Handle standard HTTP requests (REST API)
   httpServer.on('request', (req, res) => {
@@ -567,7 +529,10 @@ export function createWsServer(
     }
 
     if (req.method === 'POST' && req.url === '/api/sessions') {
-      handleLaunchSession(req, res, db, runtimeRegistry);
+      handleLaunchSession(req, res, db, runtimeRegistry, {
+        broadcastRaw: (payload) => broadcast(wss, payload),
+        ptyRegistry,
+      });
       return;
     }
 
@@ -707,6 +672,9 @@ export function createWsServer(
       emitEvent: (event: NormalizedEvent) => {
         const saved = persistEvent(db, event);
         broadcast(wss, JSON.stringify(saved), db);
+      },
+      ptyRegistry: {
+        get: (sessionId) => ptyRegistry.get(sessionId),
       },
     });
   });

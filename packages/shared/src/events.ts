@@ -19,6 +19,7 @@ export const SessionStartEvent = BaseEvent.extend({
   canSendMessage: z.boolean().optional(),
   canTerminateSession: z.boolean().optional(),
   reason: z.string().optional(),
+  mode: z.enum(['stream-json', 'pty']).optional(),
 });
 
 export const SessionEndEvent = BaseEvent.extend({
