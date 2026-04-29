@@ -126,17 +126,29 @@ export class PtyLauncher {
       ...(model ? ['--model', model] : []),
     ];
 
-    // Shell-quote a single argument safely for sh -c usage
-    const shQuote = (s: string) => `'${s.replace(/'/g, "'\\''")}'`;
-    const cmd = [claudePath, ...claudeArgs].map(shQuote).join(' ');
-    const shell = process.env['SHELL'] ?? '/bin/zsh';
+    const isWindows = process.platform === 'win32';
 
     const env: Record<string, string> = {};
     for (const [k, v] of Object.entries(process.env)) {
       if (v !== undefined) env[k] = v;
     }
-    env['TERM'] = 'xterm-256color';
-    env['COLORTERM'] = 'truecolor';
+
+    let spawnFile: string;
+    let spawnArgs: string[];
+
+    if (isWindows) {
+      const winQuote = (s: string) => `"${s.replace(/"/g, '\\"')}"`;
+      const cmd = [claudePath, ...claudeArgs].map(winQuote).join(' ');
+      spawnFile = 'cmd.exe';
+      spawnArgs = ['/c', cmd];
+    } else {
+      const shQuote = (s: string) => `'${s.replace(/'/g, "'\\''")}'`;
+      const cmd = [claudePath, ...claudeArgs].map(shQuote).join(' ');
+      spawnFile = process.env['SHELL'] ?? '/bin/zsh';
+      spawnArgs = ['-l', '-c', cmd];
+      env['TERM'] = 'xterm-256color';
+      env['COLORTERM'] = 'truecolor';
+    }
 
     let active = true;
     const cleanup = () => {
@@ -144,9 +156,7 @@ export class PtyLauncher {
       try { fs.unlinkSync(hookRelayPath); } catch {}
     };
 
-    // Spawn through the login shell so PATH/env is fully initialised and
-    // shell-script wrappers (npm-installed CLIs) execute correctly.
-    const ptyProcess = pty.spawn(shell, ['-l', '-c', cmd], {
+    const ptyProcess = pty.spawn(spawnFile, spawnArgs, {
       name: 'xterm-256color',
       cols,
       rows,
