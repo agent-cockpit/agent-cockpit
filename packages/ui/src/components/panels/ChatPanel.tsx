@@ -5,6 +5,15 @@ import type { NormalizedEvent } from '@agentcockpit/shared'
 import { EMPTY_EVENTS } from '../../store/eventsSlice.js'
 import { usePanelSessionId } from './sessionScope.js'
 
+// ─── Slash commands ───────────────────────────────────────────────────────────
+
+const SLASH_COMMANDS = [
+  { cmd: 'clear', label: '/clear', description: 'Clear chat display' },
+  { cmd: 'model', label: '/model', description: 'Show active model' },
+] as const
+
+type SlashCmd = typeof SLASH_COMMANDS[number]['cmd']
+
 // ─── Type guards ──────────────────────────────────────────────────────────────
 
 function isChatMessage(e: NormalizedEvent): e is NormalizedEvent & {
@@ -149,9 +158,28 @@ export function ChatPanel() {
   const [awaitingReply, setAwaitingReply] = useState(false)
   const [lastSendAt, setLastSendAt] = useState<string | null>(null)
   const [localDecisions, setLocalDecisions] = useState<Record<string, 'approve' | 'deny'>>({})
+  const [clearedAt, setClearedAt] = useState<string | null>(null)
+  const [modelBanner, setModelBanner] = useState<string | null>(null)
+  const [slashMenuIdx, setSlashMenuIdx] = useState(0)
   const replyTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const modelBannerTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const composerRef = useRef<HTMLTextAreaElement | null>(null)
   const historyRef = useRef<HTMLDivElement | null>(null)
+
+  const activeModel = useMemo(() => {
+    for (let i = events.length - 1; i >= 0; i--) {
+      const e = events[i]
+      if (e?.type === 'session_usage' && 'model' in e && typeof (e as Record<string, unknown>)['model'] === 'string') {
+        return (e as Record<string, unknown>)['model'] as string
+      }
+    }
+    return null
+  }, [events])
+
+  const slashQuery = message.startsWith('/') ? message.slice(1).toLowerCase() : null
+  const slashMatches = slashQuery !== null
+    ? SLASH_COMMANDS.filter((c) => c.cmd.startsWith(slashQuery))
+    : []
 
   // All renderable events in chronological order
   const timelineItems = useMemo(() => {
@@ -183,6 +211,8 @@ export function ChatPanel() {
     return merged
   }, [events])
 
+  const visibleItems = clearedAt ? timelineItems.filter((i) => i.timestamp > clearedAt) : timelineItems
+
   // Map approvalId → resolved decision from server events
   const resolvedDecisions = useMemo(() => {
     const map: Record<string, string> = {}
@@ -206,6 +236,7 @@ export function ChatPanel() {
 
   useEffect(() => () => {
     if (replyTimeoutRef.current) { clearTimeout(replyTimeoutRef.current); replyTimeoutRef.current = null }
+    if (modelBannerTimerRef.current) { clearTimeout(modelBannerTimerRef.current); modelBannerTimerRef.current = null }
   }, [])
 
   useEffect(() => {
@@ -238,6 +269,19 @@ export function ChatPanel() {
     if (!el) return
     el.scrollTop = el.scrollHeight
   }, [timelineItems.length])
+
+  function executeSlashCommand(cmd: SlashCmd): void {
+    if (cmd === 'clear') {
+      setClearedAt(new Date().toISOString())
+    } else if (cmd === 'model') {
+      const label = activeModel ?? 'unknown'
+      setModelBanner(label)
+      if (modelBannerTimerRef.current) clearTimeout(modelBannerTimerRef.current)
+      modelBannerTimerRef.current = setTimeout(() => { setModelBanner(null); modelBannerTimerRef.current = null }, 4000)
+    }
+    setMessage('')
+    setSlashMenuIdx(0)
+  }
 
   function onSend(): void {
     const content = message.trim()
@@ -279,10 +323,10 @@ export function ChatPanel() {
       </div>
 
       <div ref={historyRef} className="flex-1 overflow-y-auto p-3 space-y-1" data-testid="chat-history">
-        {timelineItems.length === 0 ? (
+        {visibleItems.length === 0 ? (
           <p className="cockpit-label" style={{ color: 'var(--color-cockpit-dim)' }}>-- NO CHAT MESSAGES --</p>
         ) : (
-          timelineItems.map((item, index) => {
+          visibleItems.map((item, index) => {
             const key = `${item.timestamp}-${index}`
 
             if (isApprovalRequest(item)) {
@@ -379,7 +423,33 @@ export function ChatPanel() {
 
       {sendEnabledForSession ? (
         <div className="border-t border-border p-3">
-          <div className="relative border border-border bg-[oklch(0.23_0.02_250)] flex items-start">
+          {modelBanner && (
+          <div className="mb-2 px-3 py-1.5 border border-[var(--color-cockpit-accent)] [font-family:var(--font-mono-data)] text-xs flex items-center gap-2"
+            style={{ color: 'var(--color-cockpit-accent)' }}>
+            <span style={{ color: 'var(--color-cockpit-dim)' }}>model:</span>
+            {modelBanner}
+          </div>
+        )}
+        <div className="relative border border-border bg-[oklch(0.23_0.02_250)] flex items-start">
+          {slashMatches.length > 0 && (
+            <div className="absolute bottom-full left-0 right-0 mb-px border border-[color-mix(in_srgb,var(--color-cockpit-accent)_40%,transparent)] bg-[var(--color-panel-surface)] z-10">
+              {slashMatches.map((c, i) => (
+                <button
+                  key={c.cmd}
+                  type="button"
+                  onMouseDown={(e) => { e.preventDefault(); executeSlashCommand(c.cmd) }}
+                  className={`w-full text-left px-3 py-1.5 flex items-center gap-3 [font-family:var(--font-mono-data)] text-xs transition-colors ${
+                    i === slashMenuIdx
+                      ? 'bg-[color-mix(in_srgb,var(--color-cockpit-accent)_15%,transparent)]'
+                      : 'hover:bg-[color-mix(in_srgb,var(--color-cockpit-accent)_8%,transparent)]'
+                  }`}
+                >
+                  <span style={{ color: 'var(--color-cockpit-accent)' }}>{c.label}</span>
+                  <span style={{ color: 'var(--color-cockpit-dim)' }}>{c.description}</span>
+                </button>
+              ))}
+            </div>
+          )}
             <span className="pointer-events-none shrink-0 pt-[0.6rem] pl-3 text-sm text-[var(--color-cockpit-accent)] [font-family:var(--font-mono-data)]" aria-hidden>
               &gt;
             </span>
@@ -388,8 +458,21 @@ export function ChatPanel() {
               rows={1}
               aria-label="Chat message"
               value={message}
-              onChange={(e) => setMessage(e.target.value)}
-              onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); onSend() } }}
+              onChange={(e) => { setMessage(e.target.value); setSlashMenuIdx(0) }}
+              onKeyDown={(e) => {
+                if (slashMatches.length > 0) {
+                  if (e.key === 'ArrowDown') { e.preventDefault(); setSlashMenuIdx((i) => Math.min(i + 1, slashMatches.length - 1)); return }
+                  if (e.key === 'ArrowUp') { e.preventDefault(); setSlashMenuIdx((i) => Math.max(i - 1, 0)); return }
+                  if (e.key === 'Escape') { e.preventDefault(); setMessage(''); return }
+                  if (e.key === 'Tab' || (e.key === 'Enter' && !e.shiftKey)) {
+                    e.preventDefault()
+                    const sel = slashMatches[slashMenuIdx]
+                    if (sel) executeSlashCommand(sel.cmd)
+                    return
+                  }
+                }
+                if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); onSend() }
+              }}
               placeholder={promptPlaceholder}
               className="block w-full min-h-11 resize-none overflow-hidden border-0 bg-transparent py-2 pr-3 pl-2 text-sm text-[var(--color-foreground)] outline-none placeholder:text-[var(--color-cockpit-dim)] [font-family:var(--font-mono-data)] caret-[var(--color-cockpit-accent)] disabled:cursor-not-allowed"
               disabled={wsStatus !== 'connected' || awaitingReply}
@@ -397,7 +480,7 @@ export function ChatPanel() {
             />
           </div>
           <p className="mt-1 text-[10px] text-[var(--color-cockpit-dim)] [font-family:var(--font-mono-data)]">
-            Enter to send · Shift+Enter for newline
+            Enter to send · Shift+Enter for newline · / for commands
           </p>
         </div>
       ) : (
