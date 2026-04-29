@@ -5,6 +5,7 @@ import { router } from './router.js'
 import { useSessionEvents } from './hooks/useSessionEvents.js'
 import { useAudioBootstrap } from './audio/useAudioBootstrap.js'
 import './index.css'
+import '@xterm/xterm/css/xterm.css'
 
 function App() {
   useAudioBootstrap()
