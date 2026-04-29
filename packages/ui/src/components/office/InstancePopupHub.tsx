@@ -6,6 +6,7 @@ import type { PopupTabId } from '../../store/index.js'
 import { sendWsMessage } from '../../hooks/useSessionEvents.js'
 import { ApprovalInbox } from '../panels/ApprovalInbox.js'
 import { ChatPanel } from '../panels/ChatPanel.js'
+import { TerminalPanel } from '../panels/TerminalPanel.js'
 import { TimelinePanel } from '../panels/TimelinePanel.js'
 import { DiffPanel } from '../panels/DiffPanel.js'
 import { MemoryPanel } from '../panels/MemoryPanel.js'
@@ -345,7 +346,7 @@ export function InstancePopupHub({
         setPopupPreferredTab(null)
       }
     } else {
-      setActiveTab('approvals')
+      setActiveTab(liveSession?.mode === 'pty' ? 'chat' : 'approvals')
     }
 
     wasOpenRef.current = true
@@ -576,13 +577,13 @@ export function InstancePopupHub({
               </Tabs.Trigger>
             ))}
           </Tabs.List>
-          <div className="flex-1 overflow-auto">
+          <div className={`flex-1 ${liveSession?.mode === 'pty' && activeTab === 'chat' ? 'overflow-hidden' : 'overflow-auto'}`}>
             <SessionScopeProvider sessionId={effectiveSessionId ?? ''}>
               <Tabs.Content value="approvals" className="h-full">
                 <ApprovalInbox />
               </Tabs.Content>
               <Tabs.Content value="chat" className="h-full">
-                <ChatPanel />
+                {liveSession?.mode === 'pty' ? <TerminalPanel /> : <ChatPanel />}
               </Tabs.Content>
               <Tabs.Content value="timeline" className="h-full">
                 <TimelinePanel />
