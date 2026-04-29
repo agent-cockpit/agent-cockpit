@@ -137,10 +137,12 @@ export class PtyLauncher {
     let spawnArgs: string[];
 
     if (isWindows) {
-      const winQuote = (s: string) => `"${s.replace(/"/g, '\\"')}"`;
-      const cmd = [claudePath, ...claudeArgs].map(winQuote).join(' ');
-      spawnFile = 'cmd.exe';
-      spawnArgs = ['/c', cmd];
+      // PowerShell's & operator correctly invokes .cmd/.exe wrappers and
+      // handles paths with spaces better than cmd.exe /c.
+      const psQuote = (s: string) => `'${s.replace(/'/g, "''")}'`;
+      const psCmd = `& ${psQuote(claudePath)} ${claudeArgs.map(psQuote).join(' ')}`;
+      spawnFile = 'powershell.exe';
+      spawnArgs = ['-NoLogo', '-NoProfile', '-Command', psCmd];
     } else {
       const shQuote = (s: string) => `'${s.replace(/'/g, "'\\''")}'`;
       const cmd = [claudePath, ...claudeArgs].map(shQuote).join(' ');
