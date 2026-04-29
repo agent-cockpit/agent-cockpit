@@ -124,6 +124,7 @@ export interface SessionRecord {
   canSendMessage?: boolean
   canTerminateSession?: boolean
   reason?: string
+  mode?: 'stream-json' | 'pty'
 }
 
 export type PanelId = 'approvals' | 'timeline' | 'diff' | 'memory' | 'artifacts'
