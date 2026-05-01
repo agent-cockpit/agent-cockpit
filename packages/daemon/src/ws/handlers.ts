@@ -12,12 +12,20 @@ interface ManagedRuntimeHandle {
   terminateSession?: () => Promise<void> | void
 }
 
+interface PtyHandle {
+  write: (data: string) => void
+  resize: (cols: number, rows: number) => void
+}
+
 interface ConnectionDeps {
   runtimeRegistry?: {
     get: (sessionId: string) => ManagedRuntimeHandle | undefined
     unregister?: (sessionId: string) => void
   }
   emitEvent?: (event: NormalizedEvent) => void
+  ptyRegistry?: {
+    get: (sessionId: string) => PtyHandle | undefined
+  }
 }
 
 export function handleConnection(
@@ -120,6 +128,25 @@ export function handleConnection(
     }
     if (!msg || typeof msg !== 'object') return;
     const m = msg as Record<string, unknown>;
+    if (m['type'] === 'pty_input') {
+      const sessionId = m['sessionId'];
+      const data = m['data'];
+      if (typeof sessionId === 'string' && typeof data === 'string') {
+        deps?.ptyRegistry?.get(sessionId)?.write(data);
+      }
+      return;
+    }
+
+    if (m['type'] === 'pty_resize') {
+      const sessionId = m['sessionId'];
+      const cols = m['cols'];
+      const rows = m['rows'];
+      if (typeof sessionId === 'string' && typeof cols === 'number' && typeof rows === 'number') {
+        deps?.ptyRegistry?.get(sessionId)?.resize(cols, rows);
+      }
+      return;
+    }
+
     if (m['type'] === 'approval_decision') {
       const approvalId = m['approvalId'];
       const decision = m['decision'];

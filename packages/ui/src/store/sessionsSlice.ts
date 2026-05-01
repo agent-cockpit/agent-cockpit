@@ -38,6 +38,7 @@ export function applyEventToSessions(
         taskTitle: event.taskTitle,
         projectId: event.projectId,
         childSessionIds: [],
+        mode: event.mode,
       }
       break
 
@@ -54,13 +55,15 @@ export function applyEventToSessions(
 
     case 'session_resumed':
       if (sessions[event.sessionId]) {
+        const isPty = event.mode === 'pty'
         sessions[event.sessionId] = {
           ...sessions[event.sessionId]!,
           status: 'active',
           lastEventAt: now,
           managedByDaemon: true,
-          canSendMessage: true,
+          canSendMessage: isPty ? false : true,
           canTerminateSession: true,
+          ...(event.mode ? { mode: event.mode } : {}),
         }
       }
       break

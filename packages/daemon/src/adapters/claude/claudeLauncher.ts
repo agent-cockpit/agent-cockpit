@@ -207,6 +207,7 @@ export class ClaudeLauncher {
     permissionMode: ClaudePermissionMode | boolean = 'default',
     onUsageSnapshot?: (usage: ClaudeSessionUsageSnapshot) => void,
     options: ClaudeLaunchOptions = {},
+    model?: string,
   ): Promise<ManagedClaudeRuntime> {
     const HOOK_TIMEOUT_S = 60;
     const HOOK_TIMEOUT_MS = (HOOK_TIMEOUT_S - 5) * 1000;
@@ -309,6 +310,7 @@ export class ClaudeLauncher {
       ...(options.continueSession ? ['--continue'] : []),
       '--settings',
       settingsPath,
+      ...(model ? ['--model', model] : []),
       ...(effectivePermissionMode === 'dangerously_skip'
         ? ['--dangerously-skip-permissions']
         : ['--permission-mode', 'default', '--allowedTools', [...COCKPIT_ALLOWED_TOOLS].join(' ')]),

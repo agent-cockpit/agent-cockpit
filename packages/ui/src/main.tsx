@@ -6,6 +6,7 @@ import { useSessionEvents } from './hooks/useSessionEvents.js'
 import { useAudioBootstrap } from './audio/useAudioBootstrap.js'
 import { useStore } from './store/index.js'
 import './index.css'
+import '@xterm/xterm/css/xterm.css'
 
 function DaemonStatusBanner() {
   const wsStatus = useStore((s) => s.wsStatus)

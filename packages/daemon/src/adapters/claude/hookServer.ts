@@ -1,8 +1,198 @@
+import fs from 'node:fs';
 import http from 'node:http';
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import type { NormalizedEvent } from '@agentcockpit/shared';
 import { parseHookPayload, type HookPayload } from './hookParser.js';
 import { logger } from '../../logger.js';
+
+const CLAUDE_CONTEXT_WINDOW = 200_000;
+
+function toNonNegInt(v: unknown): number {
+  return typeof v === 'number' && Number.isFinite(v) && v >= 0 ? Math.round(v) : 0;
+}
+
+interface TranscriptUsageState {
+  resultCount: number;
+  inputTokens: number;
+  outputTokens: number;
+  cachedInputTokens: number;
+  model: string | null;
+}
+
+// Per-session transcript state: tracks how many result entries we've seen so we only
+// emit session_usage when a new turn completes (new result appended to transcript).
+const sessionTranscriptState = new Map<string, TranscriptUsageState>();
+
+// Per-session chat turn tracking: how many result entries we've already emitted as
+// session_chat_message(assistant) events. PTY mode doesn't return assistant text via
+// sendMessage(), so we read it from the transcript after each completed turn.
+const sessionChatTurnEmitted = new Map<string, number>();
+
+async function readTranscriptState(transcriptPath: string): Promise<TranscriptUsageState | null> {
+  try {
+    const content = await fs.promises.readFile(transcriptPath, 'utf8');
+    let inputTokens = 0;
+    let outputTokens = 0;
+    let cachedInputTokens = 0;
+    let model: string | null = null;
+    let resultCount = 0;
+
+    for (const raw of content.split('\n')) {
+      const line = raw.trim();
+      if (!line) continue;
+      let entry: Record<string, unknown>;
+      try { entry = JSON.parse(line) as Record<string, unknown>; } catch { continue; }
+
+      if (entry['type'] === 'system' && entry['subtype'] === 'init' && typeof entry['model'] === 'string') {
+        model = entry['model'];
+      }
+
+      if (entry['type'] === 'result') {
+        const usage = entry['usage'];
+        if (usage && typeof usage === 'object' && !Array.isArray(usage)) {
+          const u = usage as Record<string, unknown>;
+          inputTokens += toNonNegInt(u['input_tokens']);
+          outputTokens += toNonNegInt(u['output_tokens']);
+          cachedInputTokens += toNonNegInt(u['cache_read_input_tokens']) + toNonNegInt(u['cache_creation_input_tokens']);
+          resultCount++;
+        }
+      }
+    }
+
+    return resultCount > 0 ? { resultCount, inputTokens, outputTokens, cachedInputTokens, model } : null;
+  } catch {
+    return null;
+  }
+}
+
+function maybeEmitTranscriptUsage(
+  sessionId: string,
+  transcriptPath: string,
+  onEvent: (event: NormalizedEvent) => void,
+  cleanup: boolean,
+): void {
+  void readTranscriptState(transcriptPath).then((state) => {
+    if (cleanup) sessionTranscriptState.delete(sessionId);
+    if (!state) return;
+
+    const existing = sessionTranscriptState.get(sessionId);
+    if (!cleanup && existing && existing.resultCount >= state.resultCount) return;
+
+    if (!cleanup) sessionTranscriptState.set(sessionId, state);
+
+    const contextPercent = Math.max(0, Math.min(100, Math.round((state.inputTokens / CLAUDE_CONTEXT_WINDOW) * 100)));
+    onEvent({
+      schemaVersion: 1,
+      sessionId,
+      type: 'session_usage',
+      provider: 'claude',
+      timestamp: new Date().toISOString(),
+      inputTokens: state.inputTokens,
+      outputTokens: state.outputTokens,
+      totalTokens: state.inputTokens + state.outputTokens,
+      cachedInputTokens: state.cachedInputTokens,
+      contextUsedTokens: state.inputTokens,
+      contextWindowTokens: CLAUDE_CONTEXT_WINDOW,
+      contextPercent,
+      ...(state.model ? { model: state.model } : {}),
+    } as NormalizedEvent);
+    logger.debug('hook', 'session_usage emitted from transcript', {
+      sessionId, inputTokens: state.inputTokens, outputTokens: state.outputTokens, resultCount: state.resultCount,
+    });
+  }).catch((err) => {
+    logger.warn('hook', 'transcript usage read failed', { sessionId, error: String(err) });
+  });
+}
+
+// In Claude Code's PTY/interactive mode, result.result is null — the response text is in
+// the 'assistant' transcript entries. We accumulate assistant text blocks and flush them
+// when a 'result' entry appears (turn-completion signal).
+async function readTranscriptResults(transcriptPath: string): Promise<string[]> {
+  try {
+    const content = await fs.promises.readFile(transcriptPath, 'utf8');
+    const turns: string[] = [];
+    const currentTexts: string[] = [];
+
+    for (const raw of content.split('\n')) {
+      const line = raw.trim();
+      if (!line) continue;
+      let entry: Record<string, unknown>;
+      try { entry = JSON.parse(line) as Record<string, unknown>; } catch { continue; }
+
+      if (entry['type'] === 'user') {
+        // New user turn — reset accumulator so previous incomplete turns don't bleed over.
+        currentTexts.length = 0;
+      } else if (entry['type'] === 'assistant') {
+        // Extract all text blocks from the assistant message.
+        const message = entry['message'];
+        if (message && typeof message === 'object') {
+          const msgContent = (message as Record<string, unknown>)['content'];
+          if (Array.isArray(msgContent)) {
+            for (const block of msgContent) {
+              if (block && typeof block === 'object') {
+                const b = block as Record<string, unknown>;
+                if (b['type'] === 'text' && typeof b['text'] === 'string') {
+                  const text = (b['text'] as string).trim();
+                  if (text) currentTexts.push(text);
+                }
+              }
+            }
+          } else if (typeof msgContent === 'string' && msgContent.trim()) {
+            currentTexts.push(msgContent.trim());
+          }
+        }
+      } else if (entry['type'] === 'result') {
+        // Turn completed — flush accumulated assistant text.
+        const text = currentTexts.join('\n\n').trim();
+        if (text) turns.push(text);
+        currentTexts.length = 0;
+      }
+    }
+
+    return turns;
+  } catch {
+    return [];
+  }
+}
+
+function maybeEmitChatMessages(
+  sessionId: string,
+  transcriptPath: string,
+  onEvent: (event: NormalizedEvent) => void,
+  cleanup: boolean,
+  suppressEmit: boolean,
+): void {
+  void readTranscriptResults(transcriptPath).then((results) => {
+    if (cleanup) {
+      sessionChatTurnEmitted.delete(sessionId);
+      return;
+    }
+    const lastEmitted = sessionChatTurnEmitted.get(sessionId) ?? 0;
+    if (results.length <= lastEmitted) return;
+    // Always update the tracking counter, even when suppressed, so we don't
+    // double-emit on the next hook event for the same turn.
+    sessionChatTurnEmitted.set(sessionId, results.length);
+    if (suppressEmit) return;
+    for (let i = lastEmitted; i < results.length; i++) {
+      const content = results[i];
+      if (!content) continue;
+      onEvent({
+        schemaVersion: 1,
+        sessionId,
+        type: 'session_chat_message',
+        provider: 'claude',
+        role: 'assistant',
+        content,
+        timestamp: new Date().toISOString(),
+      } as NormalizedEvent);
+      logger.debug('hook', 'session_chat_message(assistant) emitted from transcript', {
+        sessionId, chars: content.length, turn: i + 1,
+      });
+    }
+  }).catch((err) => {
+    logger.warn('hook', 'transcript chat read failed', { sessionId, error: String(err) });
+  });
+}
 
 const APPROVAL_TIMEOUT_MS = parseInt(
   process.env['COCKPIT_APPROVAL_TIMEOUT_MS'] ?? '60000',
@@ -350,6 +540,20 @@ function handleRequest(
       }
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({}));
+
+      // Check transcript for new usage and chat messages on any hook that carries transcript_path.
+      // Claude appends a result entry after each turn, so this fires live updates
+      // as the session progresses, not just at the end.
+      if (typeof payload.transcript_path === 'string') {
+        const isEnd = event.type === 'session_end';
+        maybeEmitTranscriptUsage(event.sessionId, payload.transcript_path, onEvent, isEnd);
+        // In PTY mode sendMessage() returns void so assistant text is never captured via the
+        // handlers.ts path. Read it from the transcript instead. Suppress emission when
+        // hookParser already created a session_chat_message (Notification with text content)
+        // to avoid duplicate messages in the ChatPanel.
+        const suppressEmit = event.type === 'session_chat_message';
+        maybeEmitChatMessages(event.sessionId, payload.transcript_path, onEvent, isEnd, suppressEmit);
+      }
     }
   });
 }

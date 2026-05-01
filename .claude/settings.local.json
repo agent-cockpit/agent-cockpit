@@ -14,7 +14,18 @@
       "mcp__code-review-graph__semantic_search_nodes_tool",
       "Bash(grep -E \"\\\\.ts$\")",
       "Bash(rtk wc *)",
-      "Bash(rtk tsc *)"
+      "Bash(rtk tsc *)",
+      "Bash(rtk git *)",
+      "Bash(pnpm -r typecheck)",
+      "Bash(pnpm --filter @agentcockpit/agent-cockpit typecheck)",
+      "Bash(git stash *)",
+      "Bash(pnpm --filter @agentcockpit/agent-cockpit test -- --run)",
+      "Bash(pnpm --filter @cockpit/ui test -- --run src/__tests__/ComparePanel.test.tsx src/__tests__/DiffPanel.test.tsx)",
+      "Bash(pnpm exec *)",
+      "Bash(npm test *)",
+      "Bash(pnpm test *)",
+      "Bash(pnpm -w test)",
+      "mcp__code-review-graph__detect_changes_tool"
     ]
   },
   "enableAllProjectMcpServers": true,

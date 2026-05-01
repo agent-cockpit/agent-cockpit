@@ -150,6 +150,7 @@ export interface SessionRecord {
   projectId?: string
   parentSessionId?: string
   childSessionIds?: string[]
+  mode?: 'stream-json' | 'pty'
 }
 
 export type PanelId = 'approvals' | 'timeline' | 'diff' | 'memory' | 'artifacts'

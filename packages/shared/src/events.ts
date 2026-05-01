@@ -24,6 +24,7 @@ export const SessionStartEvent = BaseEvent.extend({
   reason: z.string().optional(),
   branch: z.string().optional(),
   taskTitle: z.string().optional(),
+  mode: z.enum(['stream-json', 'pty']).optional(),
 });
 
 export const SessionEndEvent = BaseEvent.extend({
@@ -42,6 +43,7 @@ export const SessionResumedEvent = BaseEvent.extend({
   branch: z.string().optional(),
   lastPrompt: z.string().optional(),
   providerThreadId: z.string().optional(),
+  mode: z.enum(['stream-json', 'pty']).optional(),
 });
 
 export const TaskCreatedEvent = BaseEvent.extend({

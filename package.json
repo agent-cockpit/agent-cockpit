@@ -3,6 +3,7 @@
   "private": true,
   "version": "0.0.0",
   "scripts": {
+    "postinstall": "node-gyp rebuild --directory node_modules/.pnpm/node-pty@1.1.0/node_modules/node-pty 2>/dev/null || true",
     "dev": "pnpm --parallel -r dev",
     "test": "vitest",
     "test:watch": "vitest",

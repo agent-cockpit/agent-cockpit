@@ -18,6 +18,7 @@ interface BrowseResult { path: string; parent: string | null; entries: BrowseEnt
 export function LaunchSessionModal({ open, onClose }: LaunchSessionModalProps) {
   const [provider, setProvider] = useState<'claude' | 'codex'>('claude')
   const [permissionMode, setPermissionMode] = useState<'default' | 'dangerously_skip'>('default')
+  const [model, setModel] = useState('claude-sonnet-4-6')
   const [workspacePath, setWorkspacePath] = useState('')
   const [state, setState] = useState<SubmitState>({ type: 'idle' })
   const [browseOpen, setBrowseOpen] = useState(false)
@@ -48,13 +49,22 @@ export function LaunchSessionModal({ open, onClose }: LaunchSessionModalProps) {
 
   if (!open) return null
 
+  function estimateTerminalSize(): { cols: number; rows: number } {
+    const popupW = Math.min(window.innerWidth * 0.9, 1120)
+    const popupH = window.innerHeight * 0.84
+    const cols = Math.max(80, Math.floor((popupW - 12) / 7.8))
+    const rows = Math.max(24, Math.floor((popupH - 182) / 20))
+    return { cols, rows }
+  }
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     setState({ type: 'loading' })
     try {
+      const { cols, rows } = estimateTerminalSize()
       const launchPayload =
         provider === 'claude'
-          ? { provider, workspacePath, permissionMode }
+          ? { provider, workspacePath, permissionMode, model, cols, rows }
           : { provider, workspacePath }
       const res = await fetch(`${DAEMON_URL}/api/sessions`, {
         method: 'POST',
@@ -91,6 +101,7 @@ export function LaunchSessionModal({ open, onClose }: LaunchSessionModalProps) {
     setWorkspacePath('')
     setProvider('claude')
     setPermissionMode('default')
+    setModel('claude-sonnet-4-6')
     onClose()
   }
 
@@ -207,6 +218,24 @@ export function LaunchSessionModal({ open, onClose }: LaunchSessionModalProps) {
                 </div>
               )}
             </div>
+
+            {provider === 'claude' && (
+              <div>
+                <label htmlFor="launch-model" className="cockpit-label block mb-1.5">
+                  Model
+                </label>
+                <select
+                  id="launch-model"
+                  value={model}
+                  onChange={(e) => setModel(e.target.value)}
+                  className="block w-full rounded-none border border-border/80 bg-[var(--color-panel-surface)] px-3 py-2 [font-family:var(--font-mono-data)] text-xs text-foreground focus:outline-none focus:border-[color-mix(in_srgb,var(--color-cockpit-accent)_60%,transparent)]"
+                >
+                  <option value="claude-opus-4-7">claude-opus-4-7</option>
+                  <option value="claude-sonnet-4-6">claude-sonnet-4-6</option>
+                  <option value="claude-haiku-4-5-20251001">claude-haiku-4-5</option>
+                </select>
+              </div>
+            )}
 
             {provider === 'claude' && (
               <div>

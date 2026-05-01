@@ -3,6 +3,7 @@ import type { NormalizedEvent } from '@agentcockpit/shared'
 import { useStore } from '../store/index.js'
 import { WS_URL } from '../lib/daemonUrl.js'
 import { buildNotificationPayload, shouldNotifyOS } from '../lib/notifications.js'
+import { ptyBus } from '../lib/ptyBus.js'
 const MAX_RETRIES = 12
 
 // Module-level singleton — one connection per app instance, survives navigation
@@ -140,6 +141,11 @@ export function connectDaemon(): void {
   socket.onmessage = (e) => {
     try {
       const payload = JSON.parse(e.data as string)
+
+      if (payload.type === 'pty_output' && typeof payload.sessionId === 'string' && typeof payload.data === 'string') {
+        ptyBus.emit(payload.sessionId as string, payload.data as string)
+        return
+      }
 
       if (isCatchupCompleteMessage(payload)) {
         console.log('[WS] catchup complete:', payload.latestSequenceNumber)
