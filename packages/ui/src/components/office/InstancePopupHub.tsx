@@ -559,7 +559,7 @@ export function InstancePopupHub({
         <Tabs.Root
           value={activeTab}
           onValueChange={(value) => setActiveTab(value as TabId)}
-          className="flex flex-col flex-1 overflow-hidden"
+          className="flex flex-col flex-1 min-h-0 overflow-hidden"
         >
           <Tabs.List className="flex shrink-0 items-center gap-1 border-b border-[color-mix(in_srgb,var(--color-cockpit-accent)_28%,var(--color-border))] bg-[color-mix(in_srgb,var(--color-cockpit-accent)_6%,transparent)] px-4">
             {TAB_IDS.map((id) => (
@@ -577,24 +577,24 @@ export function InstancePopupHub({
               </Tabs.Trigger>
             ))}
           </Tabs.List>
-          <div className={`flex-1 ${liveSession?.mode === 'pty' && activeTab === 'chat' ? 'overflow-hidden' : 'overflow-auto'}`}>
+          <div className="flex flex-col flex-1 min-h-0 overflow-hidden">
             <SessionScopeProvider sessionId={effectiveSessionId ?? ''}>
-              <Tabs.Content value="approvals" className="h-full">
+              <Tabs.Content value="approvals" className="flex-1 min-h-0 overflow-hidden">
                 <ApprovalInbox />
               </Tabs.Content>
-              <Tabs.Content value="chat" className="h-full">
+              <Tabs.Content value="chat" forceMount className="flex-1 min-h-0 overflow-hidden data-[state=inactive]:hidden">
                 {liveSession?.mode === 'pty' ? <TerminalPanel /> : <ChatPanel />}
               </Tabs.Content>
-              <Tabs.Content value="timeline" className="h-full">
+              <Tabs.Content value="timeline" className="flex-1 min-h-0 overflow-hidden">
                 <TimelinePanel />
               </Tabs.Content>
-              <Tabs.Content value="diff" className="h-full">
+              <Tabs.Content value="diff" className="flex-1 min-h-0 overflow-hidden">
                 <DiffPanel />
               </Tabs.Content>
-              <Tabs.Content value="memory" className="h-full">
+              <Tabs.Content value="memory" className="flex-1 min-h-0 overflow-hidden">
                 <MemoryPanel />
               </Tabs.Content>
-              <Tabs.Content value="artifacts" className="h-full">
+              <Tabs.Content value="artifacts" className="flex-1 min-h-0 overflow-hidden">
                 <ArtifactsPanel />
               </Tabs.Content>
             </SessionScopeProvider>
