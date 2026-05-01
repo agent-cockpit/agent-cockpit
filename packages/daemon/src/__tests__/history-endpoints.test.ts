@@ -9,6 +9,7 @@ import {
     indexForSearch,
     persistEvent,
     searchAll,
+    upsertSessionLabels,
 } from '../db/queries.js';
 import { createWsServer } from '../ws/server.js';
 
@@ -36,7 +37,7 @@ function httpGetJson(
 
 function httpJson(
   port: number,
-  method: 'GET' | 'DELETE',
+  method: 'GET' | 'DELETE' | 'PUT',
   urlPath: string,
   body?: unknown,
 ): Promise<{ status: number; body: unknown; headers: http.IncomingHttpHeaders }> {
@@ -123,6 +124,53 @@ describe('searchAll', () => {
     db.close();
   });
 
+  it('returns event metadata for persisted file-change results', () => {
+    const db = openDatabase(':memory:');
+    const event = persistEvent(db, makeEvent({
+      sessionId: SESSION_A,
+      type: 'file_change',
+      filePath: '/workspace/a/src/search-target.ts',
+      changeType: 'modified',
+      diff: 'diff content',
+    } as Partial<NormalizedEvent>));
+
+    const results = searchAll(db, 'search-target');
+    expect(results[0]).toMatchObject({
+      sourceType: 'event',
+      sourceId: String(event.sequenceNumber),
+      sessionId: SESSION_A,
+      eventType: 'file_change',
+      filePath: '/workspace/a/src/search-target.ts',
+      title: '/workspace/a/src/search-target.ts',
+    });
+    expect(typeof results[0]!.timestamp).toBe('string');
+    db.close();
+  });
+
+  it('resolves memory note search results to a session for the note workspace', () => {
+    const db = openDatabase(':memory:');
+    persistEvent(db, makeEvent({
+      sessionId: SESSION_A,
+      type: 'session_start',
+      provider: 'claude',
+      workspacePath: '/workspace/a',
+    }));
+    db.prepare(
+      `INSERT INTO memory_notes (note_id, workspace, content, pinned, created_at)
+       VALUES (?, ?, ?, ?, ?)`
+    ).run('note-search-1', '/workspace/a', 'remember unique_memory_lookup', 1, new Date().toISOString());
+    indexForSearch(db, 'remember unique_memory_lookup', 'memory_note', 'note-search-1', '/workspace/a');
+
+    const results = searchAll(db, 'unique_memory_lookup');
+    expect(results[0]).toMatchObject({
+      sourceType: 'memory_note',
+      sourceId: 'note-search-1',
+      sessionId: SESSION_A,
+      eventType: 'memory_note',
+    });
+    db.close();
+  });
+
   it('Test 2: returns empty array when query does not match', () => {
     const db = openDatabase(':memory:');
     indexForSearch(db, 'some generic content', 'event', '1', SESSION_A);
@@ -177,7 +225,85 @@ describe('getAllSessions', () => {
     expect(typeof session.startedAt).toBe('string');
     expect(session.approvalCount).toBe(1);
     expect(session.filesChanged).toBe(1);
+    expect(session.title).toBe('');
+    expect(session.tags).toEqual([]);
     expect(['active', 'ended', 'error']).toContain(session.finalStatus);
+    db.close();
+  });
+
+  it('includes persisted title and tags in session summaries', () => {
+    const db = openDatabase(':memory:');
+    persistEvent(db, makeEvent({
+      sessionId: SESSION_A,
+      type: 'session_start',
+      provider: 'claude',
+      workspacePath: '/workspace/a',
+    }));
+
+    upsertSessionLabels(db, SESSION_A, {
+      title: 'Fix checkout flow',
+      tags: ['Bug', 'frontend', 'bug'],
+    });
+
+    const session = getAllSessions(db)[0]!;
+    expect(session.title).toBe('Fix checkout flow');
+    expect(session.tags).toEqual(['bug', 'frontend']);
+    db.close();
+  });
+
+  it('includes first-class subagent parent and child session ids in summaries', () => {
+    const db = openDatabase(':memory:');
+    persistEvent(db, makeEvent({
+      sessionId: SESSION_A,
+      type: 'session_start',
+      provider: 'claude',
+      workspacePath: '/workspace/parent',
+    }));
+    persistEvent(db, makeEvent({
+      sessionId: SESSION_B,
+      type: 'session_start',
+      provider: 'claude',
+      workspacePath: '/workspace/child',
+    }));
+    persistEvent(db, makeEvent({
+      sessionId: SESSION_A,
+      type: 'subagent_spawn',
+      subagentSessionId: SESSION_B,
+    } as Partial<NormalizedEvent>));
+
+    const sessions = getAllSessions(db);
+    const parent = sessions.find((s) => s.sessionId === SESSION_A)!;
+    const child = sessions.find((s) => s.sessionId === SESSION_B)!;
+
+    expect(parent.childSessionIds).toEqual([SESSION_B]);
+    expect(parent.parentSessionId).toBeNull();
+    expect(child.parentSessionId).toBe(SESSION_A);
+    expect(child.childSessionIds).toEqual([]);
+    db.close();
+  });
+
+  it('includes project id from session_start and derives one for older sessions', () => {
+    const db = openDatabase(':memory:');
+    persistEvent(db, makeEvent({
+      sessionId: SESSION_A,
+      type: 'session_start',
+      provider: 'claude',
+      workspacePath: '/workspace/with-project-id',
+      projectId: 'custom-project-123',
+    }));
+    persistEvent(db, makeEvent({
+      sessionId: SESSION_B,
+      type: 'session_start',
+      provider: 'claude',
+      workspacePath: '/workspace/legacy-project',
+    }));
+
+    const sessions = getAllSessions(db);
+    const explicit = sessions.find((s) => s.sessionId === SESSION_A)!;
+    const derived = sessions.find((s) => s.sessionId === SESSION_B)!;
+
+    expect(explicit.projectId).toBe('custom-project-123');
+    expect(derived.projectId).toMatch(/^legacy-project-[a-f0-9]{8}$/);
     db.close();
   });
 
@@ -233,6 +359,31 @@ describe('indexForSearch integration', () => {
     expect(afterResults[0]!.sourceType).toBe('memory_note');
     expect(afterResults[0]!.sourceId).toBe('note-42');
     expect(afterResults[0]!.sessionId).toBe(SESSION_A);
+    db.close();
+  });
+
+  it('indexes session labels and returns session metadata search results', () => {
+    const db = openDatabase(':memory:');
+    persistEvent(db, makeEvent({
+      sessionId: SESSION_A,
+      type: 'session_start',
+      provider: 'claude',
+      workspacePath: '/workspace/a',
+    }));
+
+    upsertSessionLabels(db, SESSION_A, {
+      title: 'Investigate flaky checkout',
+      tags: ['release'],
+    });
+
+    const results = searchAll(db, 'flaky');
+    expect(results[0]).toMatchObject({
+      sourceType: 'session_metadata',
+      sourceId: SESSION_A,
+      sessionId: SESSION_A,
+      eventType: 'session_metadata',
+      title: 'Investigate flaky checkout',
+    });
     db.close();
   });
 });
@@ -310,6 +461,30 @@ describe('GET /api/sessions/:id/summary', () => {
     const { status, headers } = await httpGetJson(port, '/api/sessions/no-such-session-xyz/summary');
     expect(status).toBe(404);
     expect(headers['access-control-allow-origin']).toBe('*');
+  });
+});
+
+describe('PUT /api/sessions/:id/labels', () => {
+  it('updates labels and returns them in history and search', async () => {
+    const sessionId = 'http-labels-known-001';
+    persistEvent(db, makeSessionStartEventHttp(sessionId, '/workspace/labeled'));
+
+    const put = await httpJson(port, 'PUT', `/api/sessions/${sessionId}/labels`, {
+      title: 'Review billing bug',
+      tags: ['Billing', 'Review'],
+    });
+    expect(put.status).toBe(200);
+    expect(put.body).toEqual({ title: 'Review billing bug', tags: ['billing', 'review'] });
+
+    const { body } = await httpGetJson(port, '/api/sessions');
+    const sessions = body as Array<{ sessionId: string; title: string; tags: string[] }>;
+    const session = sessions.find((s) => s.sessionId === sessionId)!;
+    expect(session.title).toBe('Review billing bug');
+    expect(session.tags).toEqual(['billing', 'review']);
+
+    const search = await httpGetJson(port, '/api/search?q=billing');
+    const results = search.body as Array<{ sourceType: string; sessionId: string }>;
+    expect(results.some((result) => result.sourceType === 'session_metadata' && result.sessionId === sessionId)).toBe(true);
   });
 });
 

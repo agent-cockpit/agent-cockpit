@@ -45,6 +45,7 @@ function seedStore(overrides: Record<string, unknown> = {}) {
         },
       ],
     },
+    replayCursorBySession: {},
     ...overrides,
   })
 }
@@ -94,7 +95,7 @@ describe('ChatPanel', () => {
     render(<ChatPanel />)
 
     expect(screen.getByText('This session is approval-only and does not support chat sends.')).toBeInTheDocument()
-    expect(screen.getByText('External session is approval-only; chat send is disabled.')).toBeInTheDocument()
+    expect(screen.getByText('External session is approval-only; chat send and terminate are disabled.')).toBeInTheDocument()
     expect(screen.queryByRole('textbox', { name: /chat message/i })).not.toBeInTheDocument()
   })
 
@@ -189,5 +190,40 @@ describe('ChatPanel', () => {
     expect(screen.getByText('Reply here')).toBeInTheDocument()
     expect(screen.getAllByText((_, node) => node?.textContent === '>').length).toBeGreaterThan(0)
     expect(screen.getAllByText((_, node) => node?.textContent === '•').length).toBeGreaterThan(0)
+  })
+
+  it('shows replay mode as read-only and truncates chat history', () => {
+    seedStore({
+      events: {
+        [SESSION_ID]: [
+          {
+            schemaVersion: 1,
+            sessionId: SESSION_ID,
+            timestamp: '2026-04-14T00:00:00.000Z',
+            type: 'session_chat_message',
+            provider: 'codex',
+            role: 'assistant',
+            content: 'First message',
+          },
+          {
+            schemaVersion: 1,
+            sessionId: SESSION_ID,
+            timestamp: '2026-04-14T00:00:01.000Z',
+            type: 'session_chat_message',
+            provider: 'codex',
+            role: 'assistant',
+            content: 'Second message',
+          },
+        ],
+      },
+      replayCursorBySession: { [SESSION_ID]: 0 },
+    })
+
+    render(<ChatPanel />)
+
+    expect(screen.getByText('First message')).toBeInTheDocument()
+    expect(screen.queryByText('Second message')).not.toBeInTheDocument()
+    expect(screen.getByText('Replay mode is read-only.')).toBeInTheDocument()
+    expect(screen.queryByRole('textbox', { name: /chat message/i })).not.toBeInTheDocument()
   })
 })

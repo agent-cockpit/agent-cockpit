@@ -44,7 +44,7 @@ export function AgentHoverCard({ session, lastToolUsed, elapsedMs }: AgentHoverC
 
       {/* Task title */}
       <div data-testid="task-title" className="mt-1 [font-family:var(--font-mono-data)] text-xs font-semibold truncate uppercase tracking-wide text-foreground">
-        {basename}
+        {session.taskTitle?.trim() || basename}
       </div>
 
       {/* Status */}
@@ -52,17 +52,57 @@ export function AgentHoverCard({ session, lastToolUsed, elapsedMs }: AgentHoverC
         {session.status}
       </div>
 
+      {/* Branch */}
+      {session.branch && (
+        <div
+          data-testid="agent-branch"
+          className="mt-0.5 inline-block border border-[var(--color-cockpit-cyan)]/35 px-1 py-0.5 text-[8px] uppercase tracking-wide text-[var(--color-cockpit-cyan)] [font-family:var(--font-mono-data)]"
+          title={`Branch: ${session.branch}`}
+        >
+          {session.branch}
+        </div>
+      )}
+      {session.projectId && (
+        <div
+          data-testid="agent-project"
+          className="mt-0.5 inline-block border border-[var(--color-cockpit-cyan)]/35 px-1 py-0.5 text-[8px] uppercase tracking-wide text-[var(--color-cockpit-cyan)] [font-family:var(--font-mono-data)]"
+          title={`Project ID: ${session.projectId}`}
+        >
+          {session.projectId}
+        </div>
+      )}
+      {(session.parentSessionId || (session.childSessionIds?.length ?? 0) > 0) && (
+        <div className="mt-1 flex flex-wrap gap-1">
+          {session.parentSessionId && (
+            <span
+              data-testid="agent-parent"
+              className="border border-[var(--color-cockpit-amber)]/45 px-1 py-0.5 text-[8px] uppercase tracking-wide text-[var(--color-cockpit-amber)] [font-family:var(--font-mono-data)]"
+              title={`Parent session: ${session.parentSessionId}`}
+            >
+              parent {session.parentSessionId.slice(0, 8)}
+            </span>
+          )}
+          {(session.childSessionIds?.length ?? 0) > 0 && (
+            <span
+              data-testid="agent-children"
+              className="border border-[var(--color-cockpit-amber)]/45 px-1 py-0.5 text-[8px] uppercase tracking-wide text-[var(--color-cockpit-amber)] [font-family:var(--font-mono-data)]"
+              title={`${session.childSessionIds!.length} child session${session.childSessionIds!.length === 1 ? '' : 's'}`}
+            >
+              {session.childSessionIds!.length} child{session.childSessionIds!.length === 1 ? '' : 'ren'}
+            </span>
+          )}
+        </div>
+      )}
+
       {/* Repo name */}
       <div data-testid="repo-name" className="data-readout-dim text-[10px] truncate mt-0.5">
         {basename}
       </div>
 
       {/* Pending approvals */}
-      {session.pendingApprovals > 0 && (
-        <div data-testid="pending-approvals" className="[font-family:var(--font-mono-data)] text-[10px] text-amber-300 mt-0.5">
-          {session.pendingApprovals} pending
-        </div>
-      )}
+      <div data-testid="pending-approvals" className="[font-family:var(--font-mono-data)] text-[10px] text-amber-300 mt-0.5">
+        {session.pendingApprovals}
+      </div>
 
       {/* Last tool used */}
       <div data-testid="last-tool" className="data-readout-dim text-[10px] mt-0.5">
@@ -73,6 +113,7 @@ export function AgentHoverCard({ session, lastToolUsed, elapsedMs }: AgentHoverC
       <div data-testid="elapsed-time" className="data-readout text-[10px] tabular-nums mt-0.5">
         {formatElapsed(elapsedMs)}
       </div>
+
     </div>
   )
 }

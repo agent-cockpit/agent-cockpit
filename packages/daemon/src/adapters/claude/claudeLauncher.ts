@@ -31,6 +31,10 @@ export interface ManagedClaudeRuntime {
 
 export type ClaudePermissionMode = 'default' | 'dangerously_skip'
 
+export interface ClaudeLaunchOptions {
+  continueSession?: boolean
+}
+
 export interface ClaudeSessionUsageSnapshot {
   model?: string
   inputTokens: number
@@ -198,10 +202,11 @@ export class ClaudeLauncher {
   async launch(
     sessionId: string,
     workspacePath: string,
-    onExit?: () => void,
+    onExit?: (info?: { exitCode: number | null; failureReason?: string }) => void,
     onAssistantOutput?: (text: string) => void,
     permissionMode: ClaudePermissionMode | boolean = 'default',
     onUsageSnapshot?: (usage: ClaudeSessionUsageSnapshot) => void,
+    options: ClaudeLaunchOptions = {},
     model?: string,
   ): Promise<ManagedClaudeRuntime> {
     const HOOK_TIMEOUT_S = 60;
@@ -302,6 +307,7 @@ export class ClaudeLauncher {
       '--include-partial-messages',
       '--session-id',
       sessionId,
+      ...(options.continueSession ? ['--continue'] : []),
       '--settings',
       settingsPath,
       ...(model ? ['--model', model] : []),
@@ -557,13 +563,21 @@ export class ClaudeLauncher {
           return;
         }
 
-        if (exitCode !== 0 && exitCode !== null) {
+        const failed = exitCode !== 0 && exitCode !== null;
+        if (failed) {
           console.warn(`[ClaudeLauncher] session ${sessionId} exited unexpectedly (${reason}). Output:\n${startupOutput.slice(-2000).trim()}`);
         } else {
           console.log(`[ClaudeLauncher] session ${sessionId} exited (${reason})`);
         }
         cleanupSettings();
-        onExit?.();
+        const failureReason = failed
+          ? startupOutput.split('\n').filter((l) => l.startsWith('[stderr]')).slice(-5).join('\n').trim() ||
+            startupOutput.slice(-500).trim()
+          : undefined;
+        onExit?.({
+          exitCode: exitCode ?? null,
+          ...(failureReason ? { failureReason } : {}),
+        });
       });
 
       // Settle on first {type:"system",subtype:"init"} envelope — that's Claude's ready signal.

@@ -308,6 +308,13 @@ describe('OfficePage canvas mount', () => {
     expect(container).toContainElement(canvas)
   })
 
+  it('labels the office canvas region and map image for assistive technology', () => {
+    render(<OfficePage />)
+    expect(screen.getByRole('region', { name: /office workspace/i })).toBeInTheDocument()
+    expect(screen.getByRole('img', { name: /pixel office map with agent positions/i })).toBeInTheDocument()
+    expect(screen.getByText(/spatial office view for active agents/i)).toHaveClass('sr-only')
+  })
+
   it('GameEngine.start() is called on mount', () => {
     render(<OfficePage />)
     expect(startMock).toHaveBeenCalledTimes(1)
@@ -332,6 +339,41 @@ describe('OfficePage canvas mount', () => {
     // Old pattern was agent-sprite-{id}, canvas approach renders nothing to DOM
     const sprites = queryAllByTestId(/^agent-sprite-/)
     expect(sprites).toHaveLength(0)
+  })
+
+  it('shows ended popup dock sessions with an ended status dot', () => {
+    storeState.sessions = {
+      'ended-session': {
+        sessionId: 'ended-session',
+        provider: 'claude',
+        workspacePath: '/workspace/ended',
+        status: 'ended',
+        startedAt: '2026-01-01T00:00:00.000Z',
+        lastEventAt: '2026-01-01T00:10:00.000Z',
+        pendingApprovals: 0,
+        character: 'astronaut',
+      },
+    }
+    storeState.popupWindows = {
+      'ended-session': {
+        sessionId: 'ended-session',
+        x: 10,
+        y: 10,
+        width: 900,
+        height: 600,
+        minimized: true,
+        preferredTab: 'timeline',
+      },
+    }
+    storeState.popupWindowOrder = ['ended-session']
+
+    render(<OfficePage />)
+
+    const dot = screen.getByTestId('popup-dock-status-ended-session')
+    expect(dot).toHaveAttribute('data-status', 'ended')
+    expect(dot).toHaveClass('bg-gray-400')
+    expect(dot).not.toHaveClass('bg-green-400')
+    expect(screen.getByRole('button', { name: /restore ended popup\. status: ended/i })).toBeInTheDocument()
   })
 
   it('canvas click at NPC position calls selectSession with correct id', async () => {

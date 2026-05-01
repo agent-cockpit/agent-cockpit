@@ -211,6 +211,23 @@ describe('ClaudeLauncher.launch()', () => {
     expect(allowedValue).not.toContain('WebSearch');
   });
 
+  it('adds --continue when launching in continue mode', async () => {
+    const { ClaudeLauncher } = await import('../adapters/claude/claudeLauncher.js');
+    const mockProc = makeMockProc();
+    const procFactory = vi.fn(() => mockProc);
+    const launcher = new ClaudeLauncher(3333, db, procFactory as never);
+
+    const sessionId = 'aaaaaaaa-0000-0000-0000-000000000103';
+    await launchReady(
+      launcher.launch(sessionId, '/tmp', undefined, undefined, 'default', undefined, { continueSession: true }),
+      mockProc,
+    );
+
+    const [, args] = (procFactory.mock.calls[0] as unknown) as [string, string[], unknown];
+    expect(args).toContain('--continue');
+    expect(args.indexOf('--continue')).toBeGreaterThan(args.indexOf('--session-id'));
+  });
+
   it('pre-registers sessionId mapping in DB so hookParser finds it on Tier 2', async () => {
     const { ClaudeLauncher } = await import('../adapters/claude/claudeLauncher.js');
     const mockProc = makeMockProc();

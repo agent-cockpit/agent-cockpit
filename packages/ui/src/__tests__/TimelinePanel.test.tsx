@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
-import { render, screen, fireEvent, within } from '@testing-library/react'
+import { render, screen, fireEvent, within, waitFor } from '@testing-library/react'
 import { MemoryRouter, Route, Routes } from 'react-router'
 import { useStore } from '../store/index.js'
 import { TimelinePanel } from '../components/panels/TimelinePanel.js'
@@ -26,6 +26,42 @@ function makeToolCall(seq: number, timestamp = T0): NormalizedEvent & { sequence
     type: 'tool_call',
     toolName: 'bash',
     input: { command: 'ls -la' },
+  }
+}
+
+function makeToolCalled(seq: number, timestamp = T0): NormalizedEvent & { sequenceNumber: number } {
+  return {
+    schemaVersion: 1,
+    sessionId: SESSION_ID,
+    timestamp,
+    sequenceNumber: seq,
+    type: 'tool_called',
+    toolName: 'Read',
+    input: { file_path: '/home/user/project/src/index.ts' },
+  }
+}
+
+function makeTaskUpdated(seq: number, timestamp = T1): NormalizedEvent & { sequenceNumber: number } {
+  return {
+    schemaVersion: 1,
+    sessionId: SESSION_ID,
+    timestamp,
+    sequenceNumber: seq,
+    type: 'task_updated',
+    taskTitle: 'Implement lifecycle events',
+    status: 'in_progress',
+    summary: 'Added tool lifecycle parsing',
+  }
+}
+
+function makeMemoryRead(seq: number, timestamp = T1): NormalizedEvent & { sequenceNumber: number } {
+  return {
+    schemaVersion: 1,
+    sessionId: SESSION_ID,
+    timestamp,
+    sequenceNumber: seq,
+    type: 'memory_read',
+    memoryKey: 'project-guidelines',
   }
 }
 
@@ -57,6 +93,32 @@ function makeApprovalRequest(seq: number, timestamp = T2): NormalizedEvent & { s
   }
 }
 
+function makeSessionEnd(seq: number, timestamp = T2): NormalizedEvent & { sequenceNumber: number } {
+  return {
+    schemaVersion: 1,
+    sessionId: SESSION_ID,
+    timestamp,
+    sequenceNumber: seq,
+    type: 'session_end',
+    provider: 'claude',
+    exitCode: 0,
+  }
+}
+
+function makeCommandCompleted(seq: number, parentEventId: number): NormalizedEvent & { sequenceNumber: number } {
+  return {
+    schemaVersion: 1,
+    sessionId: SESSION_ID,
+    timestamp: T2,
+    sequenceNumber: seq,
+    type: 'command_completed',
+    command: 'pnpm test',
+    exitCode: 0,
+    correlationId: 'toolu_123',
+    parentEventId,
+  }
+}
+
 // Helper: render TimelinePanel with a given sessionId in router context
 function renderPanel(sessionId: string) {
   return render(
@@ -71,7 +133,7 @@ function renderPanel(sessionId: string) {
 beforeEach(() => {
   mockFetch.mockReset()
   vi.mocked(Element.prototype.scrollIntoView).mockReset()
-  useStore.setState({ events: {} })
+  useStore.setState({ events: {}, replayCursorBySession: {} })
 })
 
 // ─── TIMELINE-01: Ordered event list ──────────────────────────────────────────
@@ -280,6 +342,48 @@ describe('TIMELINE-04: Inline detail', () => {
     expect(screen.getByText(/ls -la/)).toBeInTheDocument()
   })
 
+  it('tool_called inline detail shows toolName and JSON-stringified input', () => {
+    const events = [makeToolCalled(1)]
+    useStore.setState({ events: { [SESSION_ID]: events } })
+
+    renderPanel(SESSION_ID)
+
+    const list = screen.getByTestId('timeline-list')
+    fireEvent.click(within(list).getByText('Tool Called'))
+
+    expect(screen.getByText('Read')).toBeInTheDocument()
+    expect(screen.getByText(/index\.ts/)).toBeInTheDocument()
+  })
+
+  it('task_updated inline detail shows status and summary', () => {
+    const events = [makeTaskUpdated(1)]
+    useStore.setState({ events: { [SESSION_ID]: events } })
+
+    renderPanel(SESSION_ID)
+
+    const list = screen.getByTestId('timeline-list')
+    fireEvent.click(within(list).getByText('Task Updated'))
+
+    expect(screen.getByText(/in_progress/)).toBeInTheDocument()
+    expect(screen.getByText(/Added tool lifecycle parsing/)).toBeInTheDocument()
+  })
+
+  it('memory_read inline detail links to memory search for the key', () => {
+    const events = [makeMemoryRead(1)]
+    useStore.setState({ events: { [SESSION_ID]: events } })
+
+    renderPanel(SESSION_ID)
+
+    const list = screen.getByTestId('timeline-list')
+    fireEvent.click(within(list).getByText('Memory Read'))
+
+    const link = screen.getByTestId('memory-search-link')
+    expect(link).toHaveAttribute(
+      'href',
+      expect.stringContaining(`/session/${SESSION_ID}/memory?q=project-guidelines`),
+    )
+  })
+
   it('file_change inline detail shows filePath and changeType', () => {
     const events = [makeFileChange(1)]
     useStore.setState({ events: { [SESSION_ID]: events } })
@@ -309,6 +413,25 @@ describe('TIMELINE-04: Inline detail', () => {
     expect(screen.getByText(/Deletes files permanently/)).toBeInTheDocument()
   })
 
+  it('correlated inline details can jump to related events', async () => {
+    const approval = { ...makeApprovalRequest(1), correlationId: 'toolu_123' }
+    const completed = makeCommandCompleted(2, 1)
+    useStore.setState({ events: { [SESSION_ID]: [approval, completed] } })
+
+    renderPanel(SESSION_ID)
+
+    const list = screen.getByTestId('timeline-list')
+    fireEvent.click(within(list).getByText('Command Completed'))
+
+    expect(screen.getByText('toolu_123')).toBeInTheDocument()
+    const related = screen.getByTestId('timeline-related-event-link')
+    expect(related).toHaveTextContent('Approval Requested')
+
+    fireEvent.click(related)
+    await waitFor(() => expect(Element.prototype.scrollIntoView).toHaveBeenCalled())
+    expect(screen.getByText(/rm -rf \/tmp\/build/)).toBeInTheDocument()
+  })
+
   it('clicking the same row again collapses the inline detail (toggle)', () => {
     const events = [makeToolCall(1)]
     useStore.setState({ events: { [SESSION_ID]: events } })
@@ -326,5 +449,23 @@ describe('TIMELINE-04: Inline detail', () => {
     const toolCallRowLabelAgain = within(list).getByText('Tool Call')
     fireEvent.click(toolCallRowLabelAgain)
     expect(screen.queryByText('bash')).not.toBeInTheDocument()
+  })
+})
+
+describe('TIMELINE-05: Replay cursor', () => {
+  it('scrubber updates the shared replay cursor and hides events after the cursor', () => {
+    const events = [makeToolCall(1, T0), makeFileChange(2, T1), makeApprovalRequest(3, T2), makeSessionEnd(4, T2)]
+    useStore.setState({ events: { [SESSION_ID]: events }, replayCursorBySession: {} })
+
+    renderPanel(SESSION_ID)
+
+    fireEvent.change(screen.getByLabelText('Timeline scrubber'), { target: { value: '1' } })
+
+    expect(useStore.getState().replayCursorBySession[SESSION_ID]).toBe(1)
+    expect(screen.queryByTestId('timeline-replay-summary')).not.toBeInTheDocument()
+    const list = screen.getByTestId('timeline-list')
+    expect(within(list).getByText('Tool Call')).toBeInTheDocument()
+    expect(within(list).getByText('File Change')).toBeInTheDocument()
+    expect(within(list).queryByText('Approval Requested')).not.toBeInTheDocument()
   })
 })

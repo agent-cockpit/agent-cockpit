@@ -3,13 +3,14 @@ import type { NormalizedEvent } from '@agentcockpit/shared'
 import { useStore } from '../../store/index.js'
 import { EMPTY_EVENTS } from '../../store/eventsSlice.js'
 import { DAEMON_URL } from '../../lib/daemonUrl.js'
+import { formatReplayCursor, sliceEventsForReplay } from '../../lib/replay.js'
 import { usePanelSessionId } from './sessionScope.js'
 
 interface ArtifactItem {
   id: string
   filePath: string
   changeType: 'created' | 'modified' | 'deleted'
-  source: 'file_change' | 'tool_call'
+  source: 'file_change' | 'tool_call' | 'tool_called'
   timestamp: string
   diff?: string
 }
@@ -73,7 +74,7 @@ function deriveArtifacts(events: NormalizedEvent[]): ArtifactItem[] {
       return
     }
 
-    if (event.type === 'tool_call') {
+    if (event.type === 'tool_call' || event.type === 'tool_called') {
       if (!['Write', 'Edit', 'Update', 'MultiEdit'].includes(event.toolName)) return
       const filePath = maybeGetFilePath(event.input)
       if (!filePath) return
@@ -81,7 +82,7 @@ function deriveArtifacts(events: NormalizedEvent[]): ArtifactItem[] {
         id: `tool-${id}`,
         filePath,
         changeType: event.toolName === 'Write' ? 'created' : 'modified',
-        source: 'tool_call',
+        source: event.type,
         timestamp: event.timestamp,
         diff: maybeGetToolDiff(event.input, filePath),
       })
@@ -113,7 +114,7 @@ function deriveLogFromEvent(event: NormalizedEvent, index: number, approvalReque
       message: event.exitCode !== undefined ? `Exit code: ${event.exitCode}` : 'Session finished',
     }
   }
-  if (event.type === 'tool_call') {
+  if (event.type === 'tool_call' || event.type === 'tool_called') {
     return {
       id,
       timestamp: event.timestamp,
@@ -247,8 +248,10 @@ function changeTypeClass(type: ArtifactItem['changeType']): string {
 export function ArtifactsPanel() {
   const sessionId = usePanelSessionId()
   const events = useStore((s) => (sessionId ? s.events[sessionId] : EMPTY_EVENTS) ?? EMPTY_EVENTS)
+  const replayCursor = useStore((s) => (sessionId ? s.replayCursorBySession[sessionId] ?? null : null))
   const bulkApplyEvents = useStore((s) => s.bulkApplyEvents)
   const [approvalRequests, setApprovalRequests] = useState<ApprovalRequestMap>(new Map())
+  const replayEvents = useMemo(() => sliceEventsForReplay(events, replayCursor), [events, replayCursor])
 
   useEffect(() => {
     if (!sessionId) return
@@ -278,10 +281,10 @@ export function ArtifactsPanel() {
       .catch(() => {})
   }, [sessionId])
 
-  const artifacts = useMemo(() => deriveArtifacts(events), [events])
+  const artifacts = useMemo(() => deriveArtifacts(replayEvents), [replayEvents])
   const logs = useMemo(
-    () => [...events].map((event, index) => deriveLogFromEvent(event, index, approvalRequests)).reverse(),
-    [events, approvalRequests],
+    () => [...replayEvents].map((event, index) => deriveLogFromEvent(event, index, approvalRequests)).reverse(),
+    [replayEvents, approvalRequests],
   )
 
   if (!sessionId) {
@@ -306,6 +309,11 @@ export function ArtifactsPanel() {
           <span className="tabular-nums">{String(logs.length).padStart(2, '0')}</span>
         </span>
       </div>
+      {replayCursor !== null && (
+        <div data-testid="artifacts-replay-banner" className="border-b border-border bg-[var(--color-panel-surface)]/70 px-4 py-1.5 text-[10px] [font-family:var(--font-mono-data)] uppercase tracking-wide text-[var(--color-cockpit-amber)]">
+          Replay view · {formatReplayCursor(replayCursor, events.length)}
+        </div>
+      )}
 
       <div className="grid min-h-0 flex-1 grid-cols-1 lg:grid-cols-2">
         <section className="min-h-0 border-b border-border lg:border-r lg:border-b-0">

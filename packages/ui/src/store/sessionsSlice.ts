@@ -34,6 +34,10 @@ export function applyEventToSessions(
         canSendMessage: event.canSendMessage ?? (event.provider === 'codex'),
         canTerminateSession: event.canTerminateSession ?? (event.provider === 'codex'),
         reason: event.reason,
+        branch: event.branch,
+        taskTitle: event.taskTitle,
+        projectId: event.projectId,
+        childSessionIds: [],
         mode: event.mode,
       }
       break
@@ -47,6 +51,41 @@ export function applyEventToSessions(
         }
       }
       // No-op for unknown sessionId — do not create phantom records
+      break
+
+    case 'session_resumed':
+      if (sessions[event.sessionId]) {
+        const isPty = event.mode === 'pty'
+        sessions[event.sessionId] = {
+          ...sessions[event.sessionId]!,
+          status: 'active',
+          lastEventAt: now,
+          managedByDaemon: true,
+          canSendMessage: isPty ? false : true,
+          canTerminateSession: true,
+          ...(event.mode ? { mode: event.mode } : {}),
+        }
+      }
+      break
+
+    case 'subagent_spawn':
+      if (sessions[event.sessionId]) {
+        const parent = sessions[event.sessionId]!
+        const childSessionIds = new Set(parent.childSessionIds ?? [])
+        childSessionIds.add(event.subagentSessionId)
+        sessions[event.sessionId] = {
+          ...parent,
+          childSessionIds: Array.from(childSessionIds),
+          lastEventAt: now,
+        }
+      }
+      if (sessions[event.subagentSessionId]) {
+        sessions[event.subagentSessionId] = {
+          ...sessions[event.subagentSessionId]!,
+          parentSessionId: event.sessionId,
+          lastEventAt: now,
+        }
+      }
       break
 
     case 'approval_request':

@@ -110,25 +110,27 @@ describe('parseHookPayload', () => {
     expect(result.requiresApproval).toBe(true);
   });
 
-  it('Test 4b: PreToolUse for allowed tool (Read) → tool_call, requiresApproval false', () => {
+  it('Test 4b: PreToolUse for allowed tool (Read) → tool_called, requiresApproval false', () => {
     const result = parseHookPayload({
       hook_event_name: 'PreToolUse',
       session_id: 'sess-003b',
       tool_name: 'Read',
       tool_input: { file_path: '/tmp/foo.ts' },
     });
-    expect(result.event.type).toBe('tool_call');
+    expect(result.event.type).toBe('tool_called');
     expect(result.requiresApproval).toBe(false);
   });
 
-  it('Test 5: PostToolUse Bash → tool_call', () => {
+  it('Test 5: PostToolUse Bash → command_completed', () => {
     const result = parseHookPayload({
       hook_event_name: 'PostToolUse',
       session_id: 'sess-004',
       tool_name: 'Bash',
       tool_input: { command: 'ls' },
     });
-    expect(result.event.type).toBe('tool_call');
+    expect(result.event.type).toBe('command_completed');
+    if (result.event.type !== 'command_completed') return;
+    expect(result.event.command).toBe('ls');
   });
 
   it('Test 5b: PostToolUse Write → file_change', () => {

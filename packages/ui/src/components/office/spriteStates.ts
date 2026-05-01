@@ -88,7 +88,8 @@ export function deriveAgentState(
     case 'session_start':
       return 'planning'
 
-    case 'tool_call': {
+    case 'tool_call':
+    case 'tool_called': {
       const name = (lastEvent as { toolName?: string }).toolName?.toLowerCase() ?? ''
       if (/read|view|grep|search/.test(name)) return 'reading'
       if (/write|edit|create|apply/.test(name)) return 'coding'

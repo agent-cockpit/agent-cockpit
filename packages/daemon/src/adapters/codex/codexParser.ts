@@ -35,6 +35,12 @@ function toCommandTokens(command: unknown): string[] {
   return [];
 }
 
+function toCommandText(command: unknown): string {
+  const tokens = toCommandTokens(command);
+  if (tokens.length > 0) return tokens.join(' ');
+  return typeof command === 'string' ? command.trim() : '';
+}
+
 function extractFileChangePaths(item: Record<string, unknown> | undefined): string[] {
   const directPath = typeof item?.['path'] === 'string' ? [item['path']] : [];
   const changes = Array.isArray(item?.['changes'])
@@ -43,6 +49,49 @@ function extractFileChangePaths(item: Record<string, unknown> | undefined): stri
         .filter((path): path is string => typeof path === 'string' && path.length > 0)
     : [];
   return [...new Set([...directPath, ...changes])];
+}
+
+function stringId(value: unknown): string | undefined {
+  if (typeof value === 'string' && value.trim()) return value.trim();
+  if (typeof value === 'number' && Number.isFinite(value)) return String(value);
+  return undefined;
+}
+
+function extractCorrelationIdFromParams(params: Record<string, unknown>, fallback: unknown): string | undefined {
+  const item = params['item'] && typeof params['item'] === 'object'
+    ? (params['item'] as Record<string, unknown>)
+    : undefined;
+  return stringId(item?.['id']) ?? stringId(params['itemId']) ?? stringId(params['callId']) ?? stringId(fallback);
+}
+
+function extractToolName(item: Record<string, unknown> | undefined): string | undefined {
+  return stringId(item?.['toolName']) ?? stringId(item?.['tool_name']) ?? stringId(item?.['name'])
+}
+
+function extractToolInput(item: Record<string, unknown> | undefined): unknown {
+  return item?.['input'] ?? item?.['toolInput'] ?? item?.['tool_input'] ?? {}
+}
+
+function extractTaskUpdate(params: Record<string, unknown>): { status?: string; summary?: string; taskTitle?: string } | null {
+  const task = params['task'] && typeof params['task'] === 'object'
+    ? (params['task'] as Record<string, unknown>)
+    : undefined
+  const plan = params['plan'] && typeof params['plan'] === 'object'
+    ? (params['plan'] as Record<string, unknown>)
+    : undefined
+  const status = stringId(task?.['status']) ?? stringId(plan?.['status']) ?? stringId(params['status'])
+  const taskTitle = stringId(task?.['title']) ?? stringId(params['taskTitle'])
+  const summary =
+    extractText(task?.['summary']) ??
+    extractText(plan?.['summary']) ??
+    extractText(params['summary']) ??
+    extractText(params['message'])
+  if (!status && !summary && !taskTitle) return null
+  return {
+    ...(status ? { status } : {}),
+    ...(summary ? { summary } : {}),
+    ...(taskTitle ? { taskTitle } : {}),
+  }
 }
 
 function getAssistantDeltaSet(ctx: CodexParserContext): Set<string> {
@@ -287,12 +336,14 @@ export function parseCodexLine(
       const itemType = normalizeItemType(item?.['type']);
 
       if (itemType === 'commandexecution') {
-        const command = toCommandTokens(item?.['command']);
+        const command = toCommandText(item?.['command']) || 'commandExecution';
+        const correlationId = typeof item?.['id'] === 'string' ? item['id'] : undefined;
         return {
           ...base,
-          type: 'tool_call',
-          toolName: command.join(' ') || 'commandExecution',
-          input: { command, raw: item?.['command'] },
+          type: 'command_started',
+          command,
+          ...(typeof item?.['cwd'] === 'string' ? { cwd: item['cwd'] } : {}),
+          ...(correlationId ? { correlationId } : {}),
         };
       }
 
@@ -300,11 +351,25 @@ export function parseCodexLine(
         const paths = extractFileChangePaths(item);
         const filePath = paths[0] ?? '';
         const changeType = (item?.['changeType'] as 'created' | 'modified' | 'deleted' | undefined) ?? 'modified';
+        const correlationId = stringId(item?.['id']);
         return {
           ...base,
           type: 'file_change',
           filePath,
           changeType,
+          ...(correlationId ? { correlationId } : {}),
+        };
+      }
+
+      const toolName = extractToolName(item);
+      if (toolName) {
+        const correlationId = stringId(item?.['id']);
+        return {
+          ...base,
+          type: 'tool_called',
+          toolName,
+          input: extractToolInput(item),
+          ...(correlationId ? { correlationId } : {}),
         };
       }
 
@@ -330,7 +395,52 @@ export function parseCodexLine(
           content,
         };
       }
+      if (itemType === 'commandexecution') {
+        const command = toCommandText(item?.['command']) || 'commandExecution';
+        const correlationId = typeof item?.['id'] === 'string' ? item['id'] : undefined;
+        const exitCode =
+          typeof item?.['exitCode'] === 'number'
+            ? item['exitCode']
+            : typeof item?.['exit_code'] === 'number'
+              ? item['exit_code']
+              : undefined;
+        const output = extractText(item?.['output']) ?? extractText(item?.['stdout']);
+        const errorOutput = extractText(item?.['error']) ?? extractText(item?.['stderr']);
+        return {
+          ...base,
+          type: 'command_completed',
+          command,
+          ...(exitCode !== undefined ? { exitCode } : {}),
+          ...(output ? { stdoutExcerpt: output.slice(0, 2000) } : {}),
+          ...(errorOutput ? { stderrExcerpt: errorOutput.slice(0, 2000) } : {}),
+          ...(correlationId ? { correlationId } : {}),
+        };
+      }
+      const toolName = extractToolName(item);
+      if (toolName) {
+        const correlationId = stringId(item?.['id']);
+        return {
+          ...base,
+          type: 'tool_completed',
+          toolName,
+          output: item?.['output'] ?? item?.['result'] ?? item?.['content'],
+          ...(typeof item?.['success'] === 'boolean' ? { success: item['success'] } : {}),
+          ...(correlationId ? { correlationId } : {}),
+        };
+      }
       return null;
+    }
+
+    case 'task/updated':
+    case 'plan/updated':
+    case 'codex/event/task_update': {
+      const update = extractTaskUpdate(params);
+      if (!update) return null;
+      return {
+        ...base,
+        type: 'task_updated',
+        ...update,
+      };
     }
 
     case 'item/agentMessage/delta': {
@@ -388,6 +498,7 @@ export function parseCodexLine(
     case 'execCommandApproval': {
       const codexServerId = msg['id'];
       const classification = classifyCodexApproval(method, params);
+      const correlationId = extractCorrelationIdFromParams(params, codexServerId);
 
       const event: CodexNormalizedEvent = {
         ...base,
@@ -398,6 +509,7 @@ export function parseCodexLine(
         proposedAction: classification.proposedAction,
         affectedPaths: classification.affectedPaths,
         whyRisky: classification.whyRisky,
+        ...(correlationId ? { correlationId } : {}),
         _codexServerId: codexServerId,
       };
       return event;

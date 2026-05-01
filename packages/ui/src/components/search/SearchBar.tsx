@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react'
 import { DAEMON_URL } from '../../lib/daemonUrl.js'
 
 interface SearchResult {
-  sourceType: 'event' | 'approval' | 'memory_note'
+  sourceType: 'event' | 'approval' | 'memory_note' | 'session_metadata'
   sourceId: string
   sessionId: string
   snippet: string
@@ -29,7 +29,7 @@ export function SearchBar() {
     <div className="flex flex-col gap-2">
       <input
         type="search"
-        placeholder="Search sessions, files, approvals..."
+        placeholder="Search sessions, tags, files, approvals..."
         value={query}
         onChange={(e) => setQuery(e.target.value)}
         className="w-full rounded border border-border bg-background px-3 py-2 text-sm"

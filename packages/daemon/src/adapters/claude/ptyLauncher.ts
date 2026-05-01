@@ -77,6 +77,7 @@ export class PtyLauncher {
     model?: string,
     cols = 80,
     rows = 24,
+    options?: { continueSession?: boolean; permissionMode?: string },
   ): Promise<PtyRuntime> {
     const HOOK_TIMEOUT_S = 60;
     const HOOK_TIMEOUT_MS = (HOOK_TIMEOUT_S - 5) * 1000;
@@ -124,6 +125,8 @@ export class PtyLauncher {
       '--session-id', sessionId,
       '--settings', settingsPath,
       ...(model ? ['--model', model] : []),
+      ...(options?.continueSession ? ['--continue'] : []),
+      ...(options?.permissionMode === 'dangerously_skip' ? ['--dangerously-skip-permissions'] : []),
     ];
 
     const isWindows = process.platform === 'win32';

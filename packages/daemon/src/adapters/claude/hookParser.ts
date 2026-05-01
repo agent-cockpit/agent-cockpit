@@ -11,6 +11,10 @@ export type HookPayload = {
   tool_name?: string;
   tool_use_id?: string;
   tool_input?: Record<string, unknown>;
+  tool_response?: unknown;
+  tool_output?: unknown;
+  exit_code?: number;
+  success?: boolean;
   permission_suggestions?: Array<Record<string, unknown>>;
   message?: string;
   content?: string;
@@ -182,6 +186,50 @@ function getFileChangeDetails(
   }
 }
 
+function extractBashCommand(toolInput: Record<string, unknown>): string {
+  const command = toolInput['command'];
+  if (typeof command === 'string' && command.trim()) return command.trim();
+  return JSON.stringify(toolInput);
+}
+
+function excerpt(value: unknown): string | undefined {
+  const text = extractChatText(value);
+  return text ? text.slice(0, 2000) : undefined;
+}
+
+function approvalCorrelation(payload: HookPayload): { correlationId: string } | Record<string, never> {
+  const id = payload.tool_use_id ?? payload.elicitation_id;
+  return id ? { correlationId: id } : {};
+}
+
+function extractTaskUpdate(payload: HookPayload): { status?: string; summary?: string } | null {
+  const status =
+    typeof payload.notification_type === 'string' && payload.notification_type.trim()
+      ? payload.notification_type.trim()
+      : undefined
+  const summary =
+    extractChatText(payload.message) ??
+    extractChatText(payload.content) ??
+    extractChatText(payload.tool_input)
+  if (!status && !summary) return null
+  const lowerStatus = status?.toLowerCase() ?? ''
+  if (payload.hook_event_name === 'Notification' && !status) {
+    return null
+  }
+  if (
+    !lowerStatus.includes('task') &&
+    !lowerStatus.includes('plan') &&
+    !lowerStatus.includes('progress') &&
+    payload.hook_event_name !== 'Notification'
+  ) {
+    return null
+  }
+  return {
+    ...(status ? { status } : {}),
+    ...(summary ? { summary } : {}),
+  }
+}
+
 export function parseHookPayload(payload: HookPayload): {
   event: NormalizedEvent;
   requiresApproval: boolean;
@@ -228,6 +276,7 @@ export function parseHookPayload(payload: HookPayload): {
             proposedAction: `${toolName}: ${JSON.stringify(toolInput)}`,
             affectedPaths: [],
             whyRisky: classification.whyRisky,
+            ...approvalCorrelation(payload),
           },
           requiresApproval: true,
         };
@@ -236,9 +285,10 @@ export function parseHookPayload(payload: HookPayload): {
       return {
         event: {
           ...base,
-          type: 'tool_call',
+          type: 'tool_called',
           toolName,
           input: toolInput,
+          ...(payload.tool_use_id ? { correlationId: payload.tool_use_id } : {}),
         },
         requiresApproval: false,
       };
@@ -247,6 +297,20 @@ export function parseHookPayload(payload: HookPayload): {
     case 'PostToolUse': {
       const toolName = payload.tool_name ?? 'Unknown'
       const toolInput = payload.tool_input ?? {}
+      const correlation = payload.tool_use_id ? { correlationId: payload.tool_use_id } : {}
+      if (toolName === 'Bash') {
+        return {
+          event: {
+            ...base,
+            type: 'command_completed',
+            command: extractBashCommand(toolInput),
+            ...(typeof payload.exit_code === 'number' ? { exitCode: payload.exit_code } : {}),
+            ...(excerpt(payload.tool_response ?? payload.tool_output) ? { stdoutExcerpt: excerpt(payload.tool_response ?? payload.tool_output) } : {}),
+            ...correlation,
+          },
+          requiresApproval: false,
+        };
+      }
       const fileChange = getFileChangeDetails(toolName, toolInput)
       if (fileChange) {
         return {
@@ -254,6 +318,7 @@ export function parseHookPayload(payload: HookPayload): {
             ...base,
             type: 'file_change',
             ...fileChange,
+            ...correlation,
           },
           requiresApproval: false,
         };
@@ -262,9 +327,11 @@ export function parseHookPayload(payload: HookPayload): {
       return {
         event: {
           ...base,
-          type: 'tool_call',
+          type: 'tool_completed',
           toolName,
-          input: toolInput,
+          output: payload.tool_response ?? payload.tool_output ?? toolInput,
+          ...(typeof payload.success === 'boolean' ? { success: payload.success } : {}),
+          ...correlation,
         },
         requiresApproval: false,
       };
@@ -317,6 +384,7 @@ export function parseHookPayload(payload: HookPayload): {
           proposedAction: JSON.stringify(toolInput),
           affectedPaths: [],
           whyRisky: classification.whyRisky,
+          ...approvalCorrelation(payload),
         },
         requiresApproval: true,
       };
@@ -340,6 +408,7 @@ export function parseHookPayload(payload: HookPayload): {
             mode === 'url' && payload.url
               ? `MCP auth required via URL (${serverName}): ${payload.url}`
               : `MCP user input required (${serverName}, mode=${mode})`,
+          ...approvalCorrelation(payload),
         },
         requiresApproval: true,
       };
@@ -347,6 +416,17 @@ export function parseHookPayload(payload: HookPayload): {
 
     case 'Notification':
     default: {
+      const taskUpdate = extractTaskUpdate(payload)
+      if (taskUpdate) {
+        return {
+          event: {
+            ...base,
+            type: 'task_updated',
+            ...taskUpdate,
+          },
+          requiresApproval: false,
+        }
+      }
       const chatText =
         extractChatText(payload.message) ??
         extractChatText(payload.content) ??
@@ -367,9 +447,10 @@ export function parseHookPayload(payload: HookPayload): {
       return {
         event: {
           ...base,
-          type: 'tool_call',
+          type: 'tool_called',
           toolName: payload.tool_name ?? payload.hook_event_name,
           input: payload.tool_input ?? {},
+          ...approvalCorrelation(payload),
         },
         requiresApproval: false,
       };

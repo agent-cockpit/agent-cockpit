@@ -11,10 +11,12 @@ import type { ApprovalsSlice } from './approvalsSlice.js'
 import { applyEventToApprovals } from './approvalsSlice.js'
 import { applyEventToEvents } from './eventsSlice.js'
 import { applyEventToSessions } from './sessionsSlice.js'
+import type { NotificationMode, NotificationUrgency } from '../lib/notifications.js'
 
 export type SessionStatus = 'active' | 'ended' | 'error'
 export const PLAYER_CHARACTER_STORAGE_KEY = 'cockpit.player.character.v1'
 export const SESSION_CHARACTER_STORAGE_KEY = 'cockpit.session.characters.v1'
+export const NOTIFICATION_MODE_STORAGE_KEY = 'cockpit.notifications.mode.v1'
 
 function isCharacterType(value: string): value is CharacterType {
   return CHARACTER_TYPES.includes(value as CharacterType)
@@ -94,10 +96,29 @@ function removeStoredSessionCharacter(sessionId: string): void {
   persistSessionCharacterCache()
 }
 
+function readNotificationMode(): NotificationMode {
+  if (typeof window === 'undefined') return 'browser'
+  try {
+    const stored = window.localStorage.getItem(NOTIFICATION_MODE_STORAGE_KEY)
+    return stored === 'off' || stored === 'in_app' || stored === 'browser'
+      ? stored
+      : 'browser'
+  } catch {
+    return 'browser'
+  }
+}
+
 export interface SessionSummary {
   sessionId: string
   provider: string
   workspacePath: string
+  title?: string
+  tags?: string[]
+  branch?: string | null
+  taskTitle?: string
+  projectId?: string
+  parentSessionId?: string | null
+  childSessionIds?: string[]
   startedAt: string
   endedAt: string | null
   approvalCount: number
@@ -124,6 +145,11 @@ export interface SessionRecord {
   canSendMessage?: boolean
   canTerminateSession?: boolean
   reason?: string
+  branch?: string
+  taskTitle?: string
+  projectId?: string
+  parentSessionId?: string
+  childSessionIds?: string[]
   mode?: 'stream-json' | 'pty'
 }
 
@@ -147,6 +173,18 @@ export interface SessionPopupWindowPatch {
   height?: number
 }
 
+export interface CockpitNotification {
+  id: string
+  dedupeKey: string
+  title: string
+  body: string
+  urgency: NotificationUrgency
+  sessionId?: string
+  preferredTab?: PopupTabId
+  createdAt: string
+  read: boolean
+}
+
 interface SessionsSlice {
   sessions: Record<string, SessionRecord>
   characterBag: CharacterType[]
@@ -163,12 +201,16 @@ interface UiSlice {
   popupPreferredTab: PopupTabId | null
   popupWindows: Record<string, SessionPopupWindow>
   popupWindowOrder: string[]
+  replayCursorBySession: Record<string, number | null>
+  focusedFileBySession: Record<string, string | null>
   filters: { provider: string | null; status: string | null; search: string }
   sessionDetailOpen: boolean
   selectSession: (id: string) => void
   setSelectedPlayerCharacter: (character: CharacterType) => void
   setActivePanel: (panel: PanelId) => void
   setPopupPreferredTab: (tab: PopupTabId | null) => void
+  setReplayCursor: (sessionId: string, cursor: number | null) => void
+  setFocusedFile: (sessionId: string, path: string | null) => void
   openSessionPopup: (sessionId: string, options?: { preferredTab?: PopupTabId | null }) => void
   closeSessionPopup: (sessionId: string) => void
   minimizeSessionPopup: (sessionId: string) => void
@@ -197,12 +239,24 @@ interface HistorySlice {
   historyMode: boolean
   compareSelectionIds: string[]
   bulkApplySessions: (sessions: SessionSummary[]) => void
+  updateHistorySessionLabels: (sessionId: string, labels: { title: string; tags: string[] }) => void
   removeHistorySessions: (sessionIds: string[]) => void
   setHistoryMode: (on: boolean) => void
   toggleCompareSelection: (id: string) => void
 }
 
-export type AppStore = SessionsSlice & UiSlice & WsSlice & EventsSlice & HistorySlice & ApprovalsSlice
+interface NotificationsSlice {
+  notifications: CockpitNotification[]
+  notificationMode: NotificationMode
+  unreadNotificationCount: number
+  addNotification: (notification: Omit<CockpitNotification, 'id' | 'createdAt' | 'read'>) => CockpitNotification | null
+  markNotificationRead: (id: string) => void
+  dismissNotification: (id: string) => void
+  clearNotifications: () => void
+  setNotificationMode: (mode: NotificationMode) => void
+}
+
+export type AppStore = SessionsSlice & UiSlice & WsSlice & EventsSlice & HistorySlice & ApprovalsSlice & NotificationsSlice
 
 const POPUP_DEFAULT_WIDTH = 980
 const POPUP_DEFAULT_HEIGHT = 640
@@ -247,9 +301,9 @@ function defaultPopupWindow(
 }
 
 function reduceStoreWithEvent(
-  state: Pick<AppStore, 'sessions' | 'events' | 'pendingApprovalsBySession' | 'characterBag' | 'subagentSessionIds' | 'activeSubagentParents'>,
+  state: Pick<AppStore, 'sessions' | 'events' | 'pendingApprovalsBySession' | 'characterBag' | 'subagentSessionIds' | 'activeSubagentParents' | 'historySessions'>,
   event: NormalizedEvent,
-): Pick<AppStore, 'sessions' | 'events' | 'pendingApprovalsBySession' | 'characterBag' | 'subagentSessionIds' | 'activeSubagentParents'> {
+): Pick<AppStore, 'sessions' | 'events' | 'pendingApprovalsBySession' | 'characterBag' | 'subagentSessionIds' | 'activeSubagentParents' | 'historySessions'> {
   let characterBag = state.characterBag
   let character: CharacterType | undefined
   if (event.type === 'session_start') {
@@ -272,6 +326,21 @@ function reduceStoreWithEvent(
     removeStoredSessionCharacter(event.sessionId)
   }
   const sessionsPatch = applyEventToSessions(state, event, character)
+  if (event.type === 'session_start') {
+    for (const sessionEvents of Object.values(state.events)) {
+      const parentSpawn = sessionEvents.find((candidate) => (
+        candidate.type === 'subagent_spawn' &&
+        candidate.subagentSessionId === event.sessionId
+      ))
+      if (parentSpawn && sessionsPatch.sessions[event.sessionId]) {
+        sessionsPatch.sessions[event.sessionId] = {
+          ...sessionsPatch.sessions[event.sessionId]!,
+          parentSessionId: parentSpawn.sessionId,
+        }
+        break
+      }
+    }
+  }
   const eventsPatch = applyEventToEvents(state, event)
   const { pendingApprovalsBySession } = applyEventToApprovals(state, event)
   let subagentSessionIds = state.subagentSessionIds
@@ -293,6 +362,38 @@ function reduceStoreWithEvent(
       activeSubagentParents[event.sessionId] = next
     }
   }
+  let historySessions = state.historySessions
+  const existingHistory = historySessions[event.sessionId]
+  if (existingHistory) {
+    if (event.type === 'subagent_spawn') {
+      const childSessionIds = new Set(existingHistory.childSessionIds ?? [])
+      childSessionIds.add(event.subagentSessionId)
+      historySessions = {
+        ...historySessions,
+        [event.sessionId]: { ...existingHistory, childSessionIds: Array.from(childSessionIds) },
+      }
+    } else if (event.type === 'session_resumed') {
+      historySessions = {
+        ...historySessions,
+        [event.sessionId]: { ...existingHistory, finalStatus: 'active', endedAt: null },
+      }
+    } else if (event.type === 'session_end') {
+      historySessions = {
+        ...historySessions,
+        [event.sessionId]: { ...existingHistory, finalStatus: 'ended', endedAt: event.timestamp },
+      }
+    }
+  }
+  if (event.type === 'subagent_spawn' && historySessions[event.subagentSessionId]) {
+    historySessions = {
+      ...historySessions,
+      [event.subagentSessionId]: {
+        ...historySessions[event.subagentSessionId]!,
+        parentSessionId: event.sessionId,
+      },
+    }
+  }
+
   return {
     sessions: sessionsPatch.sessions,
     events: eventsPatch.events,
@@ -300,6 +401,7 @@ function reduceStoreWithEvent(
     characterBag,
     subagentSessionIds,
     activeSubagentParents,
+    historySessions,
   }
 }
 
@@ -316,13 +418,14 @@ export const useStore = create<AppStore>()(
       set((state) => {
         if (events.length === 0) return {}
 
-        let nextState: Pick<AppStore, 'sessions' | 'events' | 'pendingApprovalsBySession' | 'characterBag' | 'subagentSessionIds' | 'activeSubagentParents'> = {
+        let nextState: Pick<AppStore, 'sessions' | 'events' | 'pendingApprovalsBySession' | 'characterBag' | 'subagentSessionIds' | 'activeSubagentParents' | 'historySessions'> = {
           sessions: state.sessions,
           events: state.events,
           pendingApprovalsBySession: state.pendingApprovalsBySession,
           characterBag: state.characterBag,
           subagentSessionIds: state.subagentSessionIds,
           activeSubagentParents: state.activeSubagentParents,
+          historySessions: state.historySessions,
         }
 
         for (const event of events) {
@@ -334,8 +437,9 @@ export const useStore = create<AppStore>()(
 
     // eventsSlice
     events: {},
-    bulkApplyEvents: (sessionId, evs) =>
-      set((s) => ({ events: { ...s.events, [sessionId]: evs } })),
+    bulkApplyEvents: (sessionId, evs) => {
+      set((s) => ({ events: { ...s.events, [sessionId]: evs } }))
+    },
 
     // approvalsSlice
     pendingApprovalsBySession: {},
@@ -360,6 +464,8 @@ export const useStore = create<AppStore>()(
     popupPreferredTab: null,
     popupWindows: {},
     popupWindowOrder: [],
+    replayCursorBySession: {},
+    focusedFileBySession: {},
     filters: { provider: null, status: 'active', search: '' },
     sessionDetailOpen: false,
     selectSession: (id) => set({ selectedSessionId: id }),
@@ -374,6 +480,18 @@ export const useStore = create<AppStore>()(
     },
     setActivePanel: (panel) => set({ activePanel: panel }),
     setPopupPreferredTab: (tab) => set({ popupPreferredTab: tab }),
+    setReplayCursor: (sessionId, cursor) =>
+      set((s) => ({
+        replayCursorBySession: {
+          ...s.replayCursorBySession,
+          [sessionId]: cursor,
+        },
+      })),
+    setFocusedFile: (sessionId, path) =>
+      set((s) => ({
+        focusedFileBySession: { ...s.focusedFileBySession, [sessionId]: path },
+        activePanel: path !== null ? 'diff' : s.activePanel,
+      })),
     openSessionPopup: (sessionId, options) =>
       set((s) => {
         const preferredTab =
@@ -570,6 +688,21 @@ export const useStore = create<AppStore>()(
           ...Object.fromEntries(sessions.map((sess) => [sess.sessionId, sess])),
         },
       })),
+    updateHistorySessionLabels: (sessionId, labels) =>
+      set((s) => {
+        const existing = s.historySessions[sessionId]
+        if (!existing) return {}
+        return {
+          historySessions: {
+            ...s.historySessions,
+            [sessionId]: {
+              ...existing,
+              title: labels.title,
+              tags: labels.tags,
+            },
+          },
+        }
+      }),
     removeHistorySessions: (sessionIds) =>
       set((s) => {
         if (sessionIds.length === 0) return {}
@@ -596,5 +729,61 @@ export const useStore = create<AppStore>()(
         const next = current.length >= 2 ? [current[1]!, id] : [...current, id]
         return { compareSelectionIds: next }
       }),
+
+    // notificationsSlice
+    notifications: [],
+    notificationMode: readNotificationMode(),
+    unreadNotificationCount: 0,
+    addNotification: (notification) => {
+      const id = `${notification.dedupeKey}:${Date.now()}`
+      const createdAt = new Date().toISOString()
+      const nextNotification: CockpitNotification = {
+        ...notification,
+        id,
+        createdAt,
+        read: false,
+      }
+      let inserted: CockpitNotification | null = null
+      set((s) => {
+        if (s.notificationMode === 'off') return {}
+        if (s.notifications.some((existing) => existing.dedupeKey === notification.dedupeKey)) {
+          return {}
+        }
+        inserted = nextNotification
+        const notifications = [nextNotification, ...s.notifications].slice(0, 50)
+        return {
+          notifications,
+          unreadNotificationCount: notifications.filter((item) => !item.read).length,
+        }
+      })
+      return inserted
+    },
+    markNotificationRead: (id) =>
+      set((s) => {
+        const notifications = s.notifications.map((item) =>
+          item.id === id ? { ...item, read: true } : item,
+        )
+        return {
+          notifications,
+          unreadNotificationCount: notifications.filter((item) => !item.read).length,
+        }
+      }),
+    dismissNotification: (id) =>
+      set((s) => {
+        const notifications = s.notifications.filter((item) => item.id !== id)
+        return {
+          notifications,
+          unreadNotificationCount: notifications.filter((item) => !item.read).length,
+        }
+      }),
+    clearNotifications: () => set({ notifications: [], unreadNotificationCount: 0 }),
+    setNotificationMode: (mode) => {
+      try {
+        window.localStorage.setItem(NOTIFICATION_MODE_STORAGE_KEY, mode)
+      } catch {
+        // Ignore storage failures and keep the in-memory setting.
+      }
+      set({ notificationMode: mode })
+    },
   }))
 )

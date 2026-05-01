@@ -1,5 +1,6 @@
 import type { NormalizedEvent } from '@agentcockpit/shared';
 import type Database from 'better-sqlite3';
+import { execFileSync } from 'node:child_process';
 import crypto from 'node:crypto';
 import fs from 'node:fs';
 import http, { createServer } from 'node:http';
@@ -12,11 +13,11 @@ import { PtyLauncher, type PtyRuntime } from '../adapters/claude/ptyLauncher.js'
 import { markSessionStarted } from '../adapters/claude/hookServer.js';
 import { CodexAdapter } from '../adapters/codex/codexAdapter.js';
 import { getApprovalsBySession } from '../approvals/approvalStore.js';
-import { deleteSessionRecords, getAllSessions, getEventsBySession, getSessionStats, getSessionSummary, getUsageStats, persistEvent, searchAll, type SessionSummary } from '../db/queries.js';
+import { deleteSessionRecords, getAllSessions, getClaudeSessionRecord, getCodexSessionRecord, getEventsBySession, getResumeContext, getSessionStats, getSessionSummary, getUsageStats, persistEvent, searchAll, upsertResumeContext, upsertSessionLabels, type SessionSummary } from '../db/queries.js';
 import { eventBus } from '../eventBus.js';
 import { logger } from '../logger.js';
 import { deleteNote, insertNote, listNotes } from '../memory/memoryNotes.js';
-import { getWorkspacePath, readFileSafe, resolveAutoMemoryPath, resolveClaudeMdPath, writeFileSafe } from '../memory/memoryReader.js';
+import { getWorkspacePath, readFileSafe, resolveAgentsMdPath, resolveAutoMemoryPath, resolveClaudeMdPath, writeFileSafe } from '../memory/memoryReader.js';
 import { handleConnection } from './handlers.js';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -96,6 +97,34 @@ function expandBrowsePath(rawPath: string): string {
   return rawPath.replace(/^~(?=$|[\\/])/, HOME_DIR);
 }
 
+function detectGitBranch(workspacePath: string): string | undefined {
+  try {
+    const out = execFileSync('git', ['rev-parse', '--abbrev-ref', 'HEAD'], {
+      cwd: workspacePath,
+      stdio: ['ignore', 'pipe', 'ignore'],
+      timeout: 1500,
+    }).toString().trim();
+    if (!out || out === 'HEAD') return undefined;
+    return out.slice(0, 120);
+  } catch {
+    return undefined;
+  }
+}
+
+function deriveProjectId(workspacePath: string): string {
+  const normalized = path.resolve(workspacePath)
+  const basename = path.basename(normalized).trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '') || 'project'
+  const hash = crypto.createHash('sha1').update(normalized).digest('hex').slice(0, 8)
+  return `${basename}-${hash}`.slice(0, 80)
+}
+
+function normalizePromptForResume(value: string | undefined): string | null {
+  const normalized = typeof value === 'string'
+    ? value.trim().replace(/\s+/g, ' ').slice(0, 500)
+    : ''
+  return normalized || null
+}
+
 function isWithinRoot(candidatePath: string, rootPath: string): boolean {
   const relative = path.relative(rootPath, candidatePath);
   return relative === '' || (!relative.startsWith('..') && !path.isAbsolute(relative));
@@ -125,6 +154,7 @@ function handleLaunchSession(
           workspacePath,
           skipPermissions,
           permissionMode: requestedPermissionMode,
+          taskTitle: requestedTaskTitle,
           model,
           cols,
           rows,
@@ -133,6 +163,7 @@ function handleLaunchSession(
           workspacePath?: string;
           skipPermissions?: boolean;
           permissionMode?: string;
+          taskTitle?: string;
           model?: string;
           cols?: number;
           rows?: number;
@@ -142,6 +173,12 @@ function handleLaunchSession(
           res.end(JSON.stringify({ error: 'provider and workspacePath are required' }));
           return;
         }
+        const taskTitle = typeof requestedTaskTitle === 'string'
+          ? requestedTaskTitle.trim().replace(/\s+/g, ' ').slice(0, 120)
+          : '';
+        const resumePrompt = normalizePromptForResume(requestedTaskTitle);
+        const branch = detectGitBranch(workspacePath);
+        const projectId = deriveProjectId(workspacePath);
 
         // Shared preflight: validate workspace exists
         if (!fs.existsSync(workspacePath)) {
@@ -175,6 +212,7 @@ function handleLaunchSession(
             model,
             typeof cols === 'number' && cols > 0 ? cols : undefined,
             typeof rows === 'number' && rows > 0 ? rows : undefined,
+            { permissionMode: requestedPermissionMode },
           );
           ptyRegistry.set(sessionId, ptyRuntime);
           runtimeRegistry.register(sessionId, {
@@ -194,11 +232,34 @@ function handleLaunchSession(
             canSendMessage: false,
             canTerminateSession: true,
             mode: 'pty',
+            projectId,
+            ...(branch ? { branch } : {}),
+            ...(taskTitle ? { taskTitle } : {}),
           } as NormalizedEvent);
+          if (taskTitle || branch || projectId) {
+            eventBus.emit('event', {
+              schemaVersion: 1,
+              sessionId,
+              type: 'task_created',
+              timestamp: new Date().toISOString(),
+              workspacePath,
+              projectId,
+              ...(taskTitle ? { taskTitle } : {}),
+              ...(branch ? { branch } : {}),
+            } as NormalizedEvent);
+          }
           logger.info('launch', 'Claude PTY session spawned', { sessionId });
           res.writeHead(200, { 'Content-Type': 'application/json' });
           res.end(JSON.stringify({ sessionId, mode: 'pty' }));
         } else {
+          upsertResumeContext(db, {
+            sessionId,
+            provider: 'codex',
+            workspace: workspacePath,
+            branch: branch ?? null,
+            lastPrompt: resumePrompt,
+            resumeSource: 'launch',
+          });
           // Codex: spawn codex app-server as a child process
           const adapter = new CodexAdapter(
             sessionId,
@@ -213,6 +274,9 @@ function handleLaunchSession(
               }
               eventBus.emit('event', event);
             },
+            undefined,
+            undefined,
+            { branch, taskTitle: taskTitle || undefined, projectId },
           );
           runtimeRegistry.register(sessionId, {
             provider: 'codex',
@@ -362,6 +426,19 @@ export function createWsServer(
       return;
     }
 
+    // GET /api/memory/:sessionId/agents-md  — Codex AGENTS.md mirror of CLAUDE.md
+    const agentsMdMatch = req.method === 'GET' && req.url?.match(/^\/api\/memory\/([^/]+)\/agents-md$/);
+    if (agentsMdMatch) {
+      const sessionId = agentsMdMatch[1]!;
+      const workspace = getWorkspacePath(db, sessionId);
+      if (!workspace) { res.writeHead(404, { 'Content-Type': 'application/json' }); res.end(JSON.stringify({ error: 'session not found' })); return; }
+      const filePath = resolveAgentsMdPath(workspace);
+      const content = readFileSafe(filePath);
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ content, path: content !== null ? filePath : null }));
+      return;
+    }
+
     // GET /api/search?q=<query>
     const searchMatch = req.method === 'GET' && req.url?.startsWith('/api/search');
     if (searchMatch) {
@@ -413,6 +490,41 @@ export function createWsServer(
       const sessions = getAllSessions(db).map((summary) => applyRuntimeCapabilityState(summary, runtimeRegistry));
       res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
       res.end(JSON.stringify(sessions));
+      return;
+    }
+
+    // PUT /api/sessions/:id/labels
+    const sessionLabelsMatch = req.method === 'PUT' && req.url?.match(/^\/api\/sessions\/([^/]+)\/labels$/);
+    if (sessionLabelsMatch) {
+      const sessionId = decodeURIComponent(sessionLabelsMatch[1]!);
+      let body = '';
+      req.on('data', (chunk) => {
+        body += chunk;
+        if (body.length > MAX_BODY) {
+          res.writeHead(413, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ error: 'payload too large' }));
+          req.destroy();
+        }
+      });
+      req.on('end', () => {
+        try {
+          if (!getSessionSummary(db, sessionId)) {
+            res.writeHead(404, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
+            res.end(JSON.stringify({ error: 'session not found' }));
+            return;
+          }
+          const parsed = body ? JSON.parse(body) as { title?: unknown; tags?: unknown } : {};
+          const labels = upsertSessionLabels(db, sessionId, {
+            title: typeof parsed.title === 'string' ? parsed.title : '',
+            tags: Array.isArray(parsed.tags) ? parsed.tags.filter((tag): tag is string => typeof tag === 'string') : [],
+          });
+          res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
+          res.end(JSON.stringify(labels));
+        } catch {
+          res.writeHead(400, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
+          res.end(JSON.stringify({ error: 'invalid JSON body' }));
+        }
+      });
       return;
     }
 
@@ -536,6 +648,157 @@ export function createWsServer(
       return;
     }
 
+    // POST /api/sessions/:id/resume — resume daemon-managed Codex/Claude sessions
+    const resumeMatch = req.method === 'POST' && req.url?.match(/^\/api\/sessions\/([^/]+)\/resume$/);
+    if (resumeMatch) {
+      const sessionId = decodeURIComponent(resumeMatch[1]!);
+      void (async () => {
+        try {
+          if (runtimeRegistry.has(sessionId)) {
+            res.writeHead(409, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ error: 'Session is already active.' }));
+            return;
+          }
+
+          const resumeContext = getResumeContext(db, sessionId);
+          const codexRow = getCodexSessionRecord(db, sessionId);
+          const possibleClaudeRow = codexRow ? null : getClaudeSessionRecord(db, sessionId);
+          const claudeRow = possibleClaudeRow?.claudeId === sessionId ? possibleClaudeRow : null;
+
+          if (!codexRow && !claudeRow) {
+            res.writeHead(422, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({
+              error: 'Resume is only supported for daemon-managed Claude or Codex sessions with saved provider context. External sessions can still be inspected, but cannot be resumed from Agent Cockpit.',
+            }));
+            return;
+          }
+
+          if (codexRow) {
+            const context = upsertResumeContext(db, {
+              sessionId,
+              provider: 'codex',
+              workspace: codexRow.workspace,
+              branch: resumeContext?.branch ?? detectGitBranch(codexRow.workspace) ?? null,
+              lastPrompt: resumeContext?.lastPrompt ?? null,
+              providerThreadId: codexRow.threadId,
+              resumeSource: 'codex_thread',
+            });
+
+          const adapter = new CodexAdapter(
+            sessionId,
+            codexRow.workspace,
+            db,
+            (event) => {
+              if (event.type === 'session_end') {
+                if (!runtimeRegistry.has(sessionId)) return;
+                runtimeRegistry.unregister(sessionId);
+              }
+              eventBus.emit('event', event);
+            },
+          );
+          runtimeRegistry.register(sessionId, {
+            provider: 'codex',
+            sendMessage: (message) => adapter.sendChatMessage(message),
+            terminateSession: () => {
+              adapter.stop();
+              runtimeRegistry.unregister(sessionId);
+            },
+          });
+
+          adapter.start().catch((err: unknown) => {
+            runtimeRegistry.unregister(sessionId);
+            logger.error('resume', 'CodexAdapter.start() failed', { sessionId, error: String(err) });
+          });
+
+          eventBus.emit('event', {
+            schemaVersion: 1,
+            sessionId,
+            type: 'session_resumed',
+            provider: 'codex',
+            timestamp: new Date().toISOString(),
+            resumedFromSessionId: sessionId,
+            resumeSource: 'codex_thread',
+            workspacePath: codexRow.workspace,
+            ...(context.branch ? { branch: context.branch } : {}),
+            ...(context.lastPrompt ? { lastPrompt: context.lastPrompt } : {}),
+            providerThreadId: codexRow.threadId,
+          } as NormalizedEvent);
+
+          res.writeHead(200, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ sessionId, mode: 'resumed', provider: 'codex', resumeSource: 'codex_thread' }));
+          return;
+          }
+
+          const claudeContext = upsertResumeContext(db, {
+            sessionId,
+            provider: 'claude',
+            workspace: claudeRow!.workspace,
+            branch: resumeContext?.branch ?? detectGitBranch(claudeRow!.workspace) ?? null,
+            lastPrompt: resumeContext?.lastPrompt ?? null,
+            providerThreadId: claudeRow!.claudeId,
+            resumeSource: 'claude_continue',
+          });
+          const resumeHookPort = Number(process.env['COCKPIT_HOOK_PORT'] ?? '3002');
+          const ptyResumeLauncher = new PtyLauncher(resumeHookPort, db);
+          logger.info('resume', 'Resuming claude PTY session', { sessionId, workspace: claudeRow!.workspace });
+          const resumePtyRuntime = await ptyResumeLauncher.launch(
+            sessionId,
+            claudeRow!.workspace,
+            (data) => broadcast(wss, JSON.stringify({ type: 'pty_output', sessionId, data })),
+            () => {
+              ptyRegistry.delete(sessionId);
+              runtimeRegistry.unregister(sessionId);
+              eventBus.emit('event', {
+                schemaVersion: 1,
+                sessionId,
+                type: 'session_end',
+                provider: 'claude',
+                timestamp: new Date().toISOString(),
+              } as NormalizedEvent);
+            },
+            undefined,
+            undefined,
+            undefined,
+            { continueSession: true },
+          );
+          ptyRegistry.set(sessionId, resumePtyRuntime);
+          runtimeRegistry.register(sessionId, {
+            provider: 'claude',
+            sendMessage: (msg) => { resumePtyRuntime.write(msg + '\n'); return Promise.resolve(); },
+            terminateSession: () => resumePtyRuntime.kill(),
+          });
+
+          eventBus.emit('event', {
+            schemaVersion: 1,
+            sessionId,
+            type: 'session_resumed',
+            provider: 'claude',
+            timestamp: new Date().toISOString(),
+            resumedFromSessionId: sessionId,
+            resumeSource: 'claude_continue',
+            workspacePath: claudeRow!.workspace,
+            mode: 'pty',
+            ...(claudeContext.branch ? { branch: claudeContext.branch } : {}),
+            ...(claudeContext.lastPrompt ? { lastPrompt: claudeContext.lastPrompt } : {}),
+            providerThreadId: claudeRow!.claudeId,
+          } as NormalizedEvent);
+
+          res.writeHead(200, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ sessionId, mode: 'pty', provider: 'claude', resumeSource: 'claude_continue' }));
+        } catch (err) {
+          logger.error('resume', 'Failed to resume session', { sessionId, error: String(err) });
+          if (err instanceof LaunchError) {
+            res.writeHead(422, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ error: err.message, error_code: err.code }));
+          } else {
+            res.writeHead(500, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ error: 'Failed to resume session.' }));
+          }
+        }
+      })();
+      return;
+    }
+
     // GET /api/browse?path=<dir>  — returns immediate subdirectories for folder picker
     const browseMatch = req.method === 'GET' && req.url?.startsWith('/api/browse');
     if (browseMatch) {
@@ -630,9 +893,15 @@ export function createWsServer(
       });
       req.on('end', () => {
         try {
-          const { workspace, content, pinned } = JSON.parse(body) as { workspace: string; content: string; pinned?: boolean };
+          const { workspace, content, pinned, category, scope } = JSON.parse(body) as {
+            workspace: string;
+            content: string;
+            pinned?: boolean;
+            category?: string;
+            scope?: string;
+          };
           if (!workspace || !content) { res.writeHead(400, { 'Content-Type': 'application/json' }); res.end(JSON.stringify({ error: 'workspace and content required' })); return; }
-          const note = insertNote(db, { workspace, content, pinned });
+          const note = insertNote(db, { workspace, content, pinned, category, scope });
           res.writeHead(201, { 'Content-Type': 'application/json' });
           res.end(JSON.stringify(note));
         } catch { res.writeHead(400, { 'Content-Type': 'application/json' }); res.end(JSON.stringify({ error: 'invalid body' })); }

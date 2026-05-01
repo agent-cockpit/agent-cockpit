@@ -9,3 +9,6 @@ packages/daemon/public/
 .env
 # Added by code-review-graph
 .code-review-graph/
+
+PRD.txt
+docs/prd-missing-scope.md

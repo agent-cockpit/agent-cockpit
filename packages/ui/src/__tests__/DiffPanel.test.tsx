@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, vi } from 'vitest'
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import { render, screen, fireEvent, within, act } from '@testing-library/react'
 import { MemoryRouter, Route, Routes } from 'react-router'
 import { useStore } from '../store/index.js'
@@ -79,7 +79,11 @@ function renderPanel(sessionId: string) {
 
 beforeEach(() => {
   mockFetch.mockReset()
-  useStore.setState({ events: {}, sessions: {}, selectedSessionId: null })
+  useStore.setState({ events: {}, sessions: {}, selectedSessionId: null, replayCursorBySession: {} })
+})
+
+afterEach(() => {
+  vi.unstubAllGlobals()
 })
 
 describe('DiffPanel', () => {
@@ -269,8 +273,59 @@ describe('DiffPanel', () => {
     renderPanel(SESSION_ID)
 
     expect(screen.getByText('01')).toBeInTheDocument()
+    expect(screen.getByText('+0 ~1 -0')).toBeInTheDocument()
     expect(screen.getByText('ended')).toBeInTheDocument()
     expect(screen.getByText('1m 30s')).toBeInTheDocument()
+  })
+
+  it('copies a grouped diff summary to the clipboard', async () => {
+    const writeText = vi.fn().mockResolvedValue(undefined)
+    vi.stubGlobal('navigator', {
+      ...navigator,
+      clipboard: { writeText },
+    })
+
+    useStore.setState({
+      events: {
+        [SESSION_ID]: [
+          makeSessionStart(T_START),
+          makeFileChange('/home/user/project/src/new.ts', 'created', undefined, T_MID),
+          makeFileChange('/home/user/project/src/edit.ts', 'modified', undefined, T_MID),
+          makeFileChange('/home/user/project/src/old.ts', 'deleted', undefined, T_MID),
+          makeSessionEnd(T_END),
+        ],
+      },
+      sessions: {
+        [SESSION_ID]: {
+          sessionId: SESSION_ID,
+          provider: 'claude',
+          workspacePath: '/home/user/project',
+          startedAt: T_START,
+          status: 'ended',
+          lastEventAt: T_END,
+          pendingApprovals: 0,
+          character: 'astronaut',
+        },
+      },
+    })
+
+    renderPanel(SESSION_ID)
+
+    await act(async () => {
+      fireEvent.click(screen.getByTestId('copy-diff-summary'))
+    })
+
+    expect(writeText).toHaveBeenCalledOnce()
+    const summary = writeText.mock.calls[0]?.[0] as string
+    expect(summary).toContain('Agent Cockpit diff summary')
+    expect(summary).toContain(`Session: ${SESSION_ID}`)
+    expect(summary).toContain('Status: ended')
+    expect(summary).toContain('Elapsed: 1m 30s')
+    expect(summary).toContain('Files touched: 3')
+    expect(summary).toContain('Created (1):\n- /home/user/project/src/new.ts')
+    expect(summary).toContain('Modified (1):\n- /home/user/project/src/edit.ts')
+    expect(summary).toContain('Deleted (1):\n- /home/user/project/src/old.ts')
+    expect(screen.getByText('Copied')).toBeInTheDocument()
   })
 
   it('renders fetched rows after hydrating from the backend', async () => {
@@ -296,5 +351,25 @@ describe('DiffPanel', () => {
     const fileList = within(screen.getByTestId('file-tree-row'))
     expect(fileList.getByText('index.ts')).toBeInTheDocument()
     expect(screen.getByText('+new line')).toBeInTheDocument()
+  })
+
+  it('respects the shared replay cursor when building the file tree', () => {
+    useStore.setState({
+      events: {
+        [SESSION_ID]: [
+          makeSessionStart(T_START),
+          makeFileChange('/home/user/project/src/first.ts', 'modified', undefined, T_MID),
+          makeFileChange('/home/user/project/src/second.ts', 'modified', undefined, T_END),
+        ],
+      },
+      replayCursorBySession: { [SESSION_ID]: 1 },
+    })
+
+    renderPanel(SESSION_ID)
+
+    expect(screen.getAllByTestId('file-tree-row')).toHaveLength(1)
+    expect(screen.getByText('first.ts')).toBeInTheDocument()
+    expect(screen.queryByText('second.ts')).not.toBeInTheDocument()
+    expect(screen.getByTestId('diff-replay-banner')).toHaveTextContent('Replay view')
   })
 })

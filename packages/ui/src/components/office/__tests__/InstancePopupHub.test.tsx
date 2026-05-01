@@ -65,6 +65,7 @@ let mockStore = {
   selectedSessionId: 'session-123',
   wsStatus: 'connected' as const,
   events: {} as Record<string, unknown[]>,
+  historySessions: {} as Record<string, unknown>,
   sessions: {
     'session-123': {
       sessionId: 'session-123',
@@ -74,7 +75,15 @@ let mockStore = {
       startedAt: 0,
       character: 'astronaut',
     },
-  },
+  } as Record<string, {
+    sessionId: string
+    workspacePath: string
+    provider: 'claude' | 'codex'
+    status: 'active' | 'ended' | 'error'
+    startedAt: number
+    character: string
+    managedByDaemon?: boolean
+  }>,
   popupPreferredTab: null as PopupTabId | null,
   setPopupPreferredTab: vi.fn((_tab: PopupTabId | null) => {}),
 }
@@ -88,6 +97,17 @@ describe('InstancePopupHub', () => {
   beforeEach(() => {
     mockStore.popupPreferredTab = null
     mockStore.events = {}
+    mockStore.historySessions = {}
+    mockStore.sessions = {
+      'session-123': {
+        sessionId: 'session-123',
+        workspacePath: '/home/user/my-project',
+        provider: 'claude',
+        status: 'active',
+        startedAt: 0,
+        character: 'astronaut',
+      },
+    }
     mockStore.setPopupPreferredTab.mockClear()
   })
 
@@ -114,6 +134,21 @@ describe('InstancePopupHub', () => {
   it('shows session name from store in header', () => {
     render(<InstancePopupHub open={true} onClose={vi.fn()} />)
     expect(screen.getByText('my-project')).toBeInTheDocument()
+  })
+
+  it('exposes session status and window controls with accessible names in inline mode', () => {
+    render(
+      <InstancePopupHub
+        inline
+        open={true}
+        sessionId="session-123"
+        onClose={vi.fn()}
+        onMinimize={vi.fn()}
+      />,
+    )
+    expect(screen.getByRole('status', { name: /session status: active/i })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /minimize my-project popup/i })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /close my-project popup/i })).toBeInTheDocument()
   })
 
   it('calls onClose when close button clicked', () => {
@@ -193,5 +228,44 @@ describe('InstancePopupHub', () => {
 
     expect(screen.getByText(/tokens in 1\.2k · out 340/i)).toBeInTheDocument()
     expect(screen.getByText(/ctx 42%/i)).toBeInTheDocument()
+  })
+
+  it('shows an enabled resume button for ended daemon-managed Claude sessions', () => {
+    mockStore.sessions['session-123'] = {
+      sessionId: 'session-123',
+      workspacePath: '/home/user/my-project',
+      provider: 'claude',
+      status: 'ended',
+      startedAt: 0,
+      character: 'astronaut',
+      managedByDaemon: true,
+    }
+
+    render(<InstancePopupHub open={true} onClose={vi.fn()} />)
+
+    const button = screen.getByTestId('popup-resume-button')
+    expect(button).toBeEnabled()
+    expect(button).toHaveAttribute('title', 'Continue Claude session with --continue')
+  })
+
+  it('shows a disabled resume explanation for external ended sessions', () => {
+    mockStore.sessions['session-123'] = {
+      sessionId: 'session-123',
+      workspacePath: '/home/user/my-project',
+      provider: 'claude',
+      status: 'ended',
+      startedAt: 0,
+      character: 'astronaut',
+      managedByDaemon: false,
+    }
+
+    render(<InstancePopupHub open={true} onClose={vi.fn()} />)
+
+    const button = screen.getByTestId('popup-resume-button')
+    expect(button).toBeDisabled()
+    expect(button).toHaveAttribute(
+      'title',
+      'External sessions can be inspected, but cannot be resumed from Agent Cockpit.',
+    )
   })
 })

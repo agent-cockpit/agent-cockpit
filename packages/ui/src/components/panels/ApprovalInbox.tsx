@@ -1,9 +1,11 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useStore } from '../../store/index.js'
 import { sendWsMessage } from '../../hooks/useSessionEvents.js'
 import { EMPTY_APPROVALS } from '../../store/approvalsSlice.js'
 import type { PendingApproval } from '../../store/approvalsSlice.js'
+import { EMPTY_EVENTS } from '../../store/eventsSlice.js'
 import { DAEMON_URL } from '../../lib/daemonUrl.js'
+import { derivePendingApprovalsBySession, formatReplayCursor, sliceEventsForReplay } from '../../lib/replay.js'
 import { RiskBadge } from '../RiskBadge.js'
 import type { RiskLevel } from '../RiskBadge.js'
 import { usePanelSessionId } from './sessionScope.js'
@@ -138,13 +140,17 @@ function ApprovalCard({
     'h-9 w-full border px-3 text-[10px] font-semibold [font-family:var(--font-mono-data)] uppercase tracking-[0.14em] disabled:opacity-45 disabled:cursor-not-allowed transition-colors'
 
   return (
-    <div className="cockpit-frame-full mb-3 overflow-hidden border border-[color-mix(in_srgb,var(--color-cockpit-accent)_28%,var(--color-border))] bg-[linear-gradient(180deg,oklch(0.17_0.028_252)_0%,oklch(0.16_0.028_252)_100%)]">
+    <article
+      className="cockpit-frame-full mb-3 overflow-hidden border border-[color-mix(in_srgb,var(--color-cockpit-accent)_28%,var(--color-border))] bg-[linear-gradient(180deg,oklch(0.17_0.028_252)_0%,oklch(0.16_0.028_252)_100%)]"
+      aria-label={`${actionLabel} approval ${queuePosition} of ${queueTotal}. Risk: ${approval.riskLevel}.`}
+    >
       <span className="cockpit-corner cockpit-corner-tl" aria-hidden />
       <span className="cockpit-corner cockpit-corner-br" aria-hidden />
 
       <div className="grid grid-cols-1 md:grid-cols-[68px_minmax(0,1fr)_154px]">
         <div
           className={`flex items-center justify-between gap-3 border-b border-[color-mix(in_srgb,var(--color-border)_80%,transparent)] px-3 py-2 md:flex-col md:justify-center md:gap-2 md:border-b-0 md:border-r md:px-1 ${riskTheme.railClass}`}
+          aria-label={`Risk level ${approval.riskLevel}`}
         >
           <span
             className={`[font-family:var(--font-mono-data)] text-[10px] font-semibold uppercase tracking-[0.18em] ${riskTheme.textClass}`}
@@ -174,7 +180,10 @@ function ApprovalCard({
             <span className="block [font-family:var(--font-mono-data)] text-[10px] uppercase tracking-[0.14em] text-[var(--color-cockpit-dim)]">
               Requested Command
             </span>
-            <pre className="mt-1 max-h-72 overflow-auto whitespace-pre-wrap break-words [font-family:var(--font-mono-data)] text-[12px] leading-relaxed text-foreground">
+            <pre
+              className="mt-1 max-h-72 overflow-auto whitespace-pre-wrap break-words [font-family:var(--font-mono-data)] text-[12px] leading-relaxed text-foreground"
+              aria-label="Requested command preview"
+            >
               {formattedAction}
             </pre>
           </div>
@@ -212,7 +221,7 @@ function ApprovalCard({
             disabled={disabled}
             onClick={() => onDecision(approval.approvalId, 'approve')}
             className={`${buttonBase} border-[color-mix(in_srgb,var(--color-cockpit-green)_58%,transparent)] bg-[color-mix(in_srgb,var(--color-cockpit-green)_18%,transparent)] text-[var(--color-cockpit-green)] hover:bg-[color-mix(in_srgb,var(--color-cockpit-green)_28%,transparent)]`}
-            aria-label="Approve"
+            aria-label={`Approve ${actionLabel} approval`}
           >
             Allow
           </button>
@@ -220,7 +229,7 @@ function ApprovalCard({
             disabled={disabled}
             onClick={() => onDecision(approval.approvalId, 'deny')}
             className={`${buttonBase} border-[color-mix(in_srgb,var(--color-cockpit-red)_60%,transparent)] bg-[color-mix(in_srgb,var(--color-cockpit-red)_18%,transparent)] text-[var(--color-cockpit-red)] hover:bg-[color-mix(in_srgb,var(--color-cockpit-red)_28%,transparent)]`}
-            aria-label="Deny"
+            aria-label={`Deny ${actionLabel} approval`}
           >
             Deny
           </button>
@@ -228,13 +237,13 @@ function ApprovalCard({
             disabled={disabled}
             onClick={() => onDecision(approval.approvalId, 'always_allow')}
             className={`${buttonBase} border-[color-mix(in_srgb,var(--color-cockpit-cyan)_50%,transparent)] bg-[color-mix(in_srgb,var(--color-cockpit-cyan)_14%,transparent)] text-[var(--color-cockpit-cyan)] hover:bg-[color-mix(in_srgb,var(--color-cockpit-cyan)_24%,transparent)]`}
-            aria-label="Always Allow"
+            aria-label={`Always allow future matching ${actionLabel} approvals`}
           >
-            Edit
+            Always Allow
           </button>
         </div>
       </div>
-    </div>
+    </article>
   )
 }
 
@@ -254,9 +263,11 @@ interface ApprovalDbRow {
 
 export function ApprovalInbox() {
   const sessionId = usePanelSessionId()
-  const approvals = useStore(
+  const liveApprovals = useStore(
     (s) => s.pendingApprovalsBySession[sessionId ?? ''] ?? EMPTY_APPROVALS,
   )
+  const events = useStore((s) => (sessionId ? s.events[sessionId] : EMPTY_EVENTS) ?? EMPTY_EVENTS)
+  const replayCursor = useStore((s) => (sessionId ? s.replayCursorBySession[sessionId] ?? null : null))
   const hydratePendingApprovals = useStore((s) => s.hydratePendingApprovals)
   const wsStatus = useStore((s) => s.wsStatus)
 
@@ -297,18 +308,31 @@ export function ApprovalInbox() {
     low: 3,
   }
 
+  const replayEvents = useMemo(() => sliceEventsForReplay(events, replayCursor), [events, replayCursor])
+  const replayApprovals = useMemo(
+    () => derivePendingApprovalsBySession(replayEvents),
+    [replayEvents],
+  )
+  const approvals = replayCursor === null
+    ? liveApprovals
+    : replayApprovals[sessionId ?? ''] ?? EMPTY_APPROVALS
+
+  const effectiveDecidedIds = replayCursor === null ? decidedIds : new Set<string>()
   const visibleApprovals = approvals
-    .filter((a) => !decidedIds.has(a.approvalId))
+    .filter((a) => !effectiveDecidedIds.has(a.approvalId))
     .sort((a, b) => {
       const riskDelta = (riskRank[a.riskLevel] ?? 9) - (riskRank[b.riskLevel] ?? 9)
       if (riskDelta !== 0) return riskDelta
       return b.timestamp.localeCompare(a.timestamp)
     })
 
-  const isConnected = wsStatus === 'connected'
+  const isConnected = wsStatus === 'connected' && replayCursor === null
 
   return (
-    <div className="flex h-full flex-col overflow-y-auto bg-[linear-gradient(180deg,oklch(0.15_0.025_255)_0%,oklch(0.14_0.025_255)_100%)] p-4">
+    <section
+      className="flex h-full flex-col overflow-y-auto bg-[linear-gradient(180deg,oklch(0.15_0.025_255)_0%,oklch(0.14_0.025_255)_100%)] p-4"
+      aria-label="Approval queue"
+    >
       <div className="mb-4 border border-[color-mix(in_srgb,var(--color-cockpit-amber)_45%,var(--color-border))] bg-[linear-gradient(180deg,color-mix(in_srgb,var(--color-cockpit-amber)_16%,transparent)_0%,color-mix(in_srgb,var(--color-cockpit-amber)_9%,transparent)_100%)] px-3 py-2">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <div className="flex items-center gap-3">
@@ -352,13 +376,19 @@ export function ApprovalInbox() {
         </p>
       </div>
 
+      {replayCursor !== null && (
+        <div data-testid="approvals-replay-banner" className="mb-3 border border-[var(--color-cockpit-amber)]/35 bg-[color-mix(in_srgb,var(--color-cockpit-amber)_12%,transparent)] px-3 py-2 text-[10px] [font-family:var(--font-mono-data)] uppercase tracking-[0.14em] text-[var(--color-cockpit-amber)]">
+          Replay view · {formatReplayCursor(replayCursor, events.length)} · decisions disabled
+        </div>
+      )}
+
       {!isConnected && (
         <div className="mb-3">
           <span
             className="inline-flex border border-amber-400/45 bg-amber-500/20 px-2 py-1 [font-family:var(--font-mono-data)] text-xs text-amber-200"
             style={{ textShadow: '0 0 6px rgba(251,191,36,0.4)' }}
           >
-            Reconnecting... decisions are temporarily disabled.
+            {replayCursor !== null ? 'Replay view active. Decisions are disabled.' : 'Reconnecting... decisions are temporarily disabled.'}
           </span>
         </div>
       )}
@@ -384,6 +414,6 @@ export function ApprovalInbox() {
           ))}
         </div>
       )}
-    </div>
+    </section>
   )
 }

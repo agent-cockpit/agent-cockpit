@@ -3,6 +3,7 @@ import { useStore } from '../../store/index.js'
 import { sendWsMessage } from '../../hooks/useSessionEvents.js'
 import type { NormalizedEvent } from '@agentcockpit/shared'
 import { EMPTY_EVENTS } from '../../store/eventsSlice.js'
+import { formatReplayCursor, sliceEventsForReplay } from '../../lib/replay.js'
 import { usePanelSessionId } from './sessionScope.js'
 
 // ─── Slash commands ───────────────────────────────────────────────────────────
@@ -35,8 +36,8 @@ function isApprovalResolved(e: NormalizedEvent): e is NormalizedEvent & {
 } { return e.type === 'approval_resolved' }
 
 function isToolCall(e: NormalizedEvent): e is NormalizedEvent & {
-  type: 'tool_call'; toolName: string; input: unknown
-} { return e.type === 'tool_call' }
+  type: 'tool_call' | 'tool_called'; toolName: string; input: unknown
+} { return e.type === 'tool_call' || e.type === 'tool_called' }
 
 function isFileChange(e: NormalizedEvent): e is NormalizedEvent & {
   type: 'file_change'; filePath: string; changeType: 'created' | 'modified' | 'deleted'
@@ -87,10 +88,11 @@ interface ApprovalItemProps {
   riskLevel: string; proposedAction: string
   affectedPaths?: string[]; whyRisky?: string
   resolvedDecision?: string
+  disabled?: boolean
   onDecide: (id: string, d: 'approve' | 'deny') => void
 }
 
-function ApprovalItem({ approvalId, actionType, riskLevel, proposedAction, affectedPaths, whyRisky, resolvedDecision, onDecide }: ApprovalItemProps) {
+function ApprovalItem({ approvalId, actionType, riskLevel, proposedAction, affectedPaths, whyRisky, resolvedDecision, disabled, onDecide }: ApprovalItemProps) {
   const riskColor = RISK_COLORS[riskLevel] ?? 'var(--color-cockpit-dim)'
   let parsedAction: string
   try { parsedAction = JSON.stringify(JSON.parse(proposedAction), null, 2) }
@@ -132,11 +134,11 @@ function ApprovalItem({ approvalId, actionType, riskLevel, proposedAction, affec
         </div>
       ) : (
         <div className="flex gap-2 pt-1">
-          <button onClick={() => onDecide(approvalId, 'approve')}
+          <button disabled={disabled} onClick={() => onDecide(approvalId, 'approve')}
             className="px-3 py-1 text-xs border border-[var(--color-cockpit-accent)] text-[var(--color-cockpit-accent)] hover:bg-[var(--color-cockpit-accent)] hover:text-black transition-colors">
             Approve
           </button>
-          <button onClick={() => onDecide(approvalId, 'deny')}
+          <button disabled={disabled} onClick={() => onDecide(approvalId, 'deny')}
             className="px-3 py-1 text-xs border border-[var(--color-cockpit-red)] text-[var(--color-cockpit-red)] hover:bg-[var(--color-cockpit-red)] hover:text-black transition-colors">
             Deny
           </button>
@@ -152,6 +154,7 @@ export function ChatPanel() {
   const sessionId = usePanelSessionId()
   const session = useStore((s) => (sessionId ? s.sessions[sessionId] : undefined))
   const events = useStore((s) => (sessionId ? s.events[sessionId] : EMPTY_EVENTS) ?? EMPTY_EVENTS)
+  const replayCursor = useStore((s) => (sessionId ? s.replayCursorBySession[sessionId] ?? null : null))
   const wsStatus = useStore((s) => s.wsStatus)
 
   const [message, setMessage] = useState('')
@@ -165,6 +168,7 @@ export function ChatPanel() {
   const modelBannerTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const composerRef = useRef<HTMLTextAreaElement | null>(null)
   const historyRef = useRef<HTMLDivElement | null>(null)
+  const isReplayActive = replayCursor !== null
 
   const activeModel = useMemo(() => {
     for (let i = events.length - 1; i >= 0; i--) {
@@ -182,8 +186,9 @@ export function ChatPanel() {
     : []
 
   // All renderable events in chronological order
+  const replayEvents = useMemo(() => sliceEventsForReplay(events, replayCursor), [events, replayCursor])
   const timelineItems = useMemo(() => {
-    const raw = events.filter((e) =>
+    const raw = replayEvents.filter((e) =>
       isChatMessage(e) || isApprovalRequest(e) || isToolCall(e) ||
       isFileChange(e) || isSubagentSpawn(e) || isSubagentComplete(e) || isSessionEnd(e),
     )
@@ -209,30 +214,30 @@ export function ChatPanel() {
       merged.push(item)
     }
     return merged
-  }, [events])
+  }, [replayEvents])
 
   const visibleItems = clearedAt ? timelineItems.filter((i) => i.timestamp > clearedAt) : timelineItems
 
   // Map approvalId → resolved decision from server events
   const resolvedDecisions = useMemo(() => {
     const map: Record<string, string> = {}
-    for (const e of events) {
+    for (const e of replayEvents) {
       if (isApprovalResolved(e)) map[e.approvalId] = e.decision
     }
     return map
-  }, [events])
+  }, [replayEvents])
 
   const latestError = useMemo(() => {
-    for (let i = events.length - 1; i >= 0; i--) {
-      const e = events[i]
+    for (let i = replayEvents.length - 1; i >= 0; i--) {
+      const e = replayEvents[i]
       if (e && isChatError(e)) return e.reason
     }
     return undefined
-  }, [events])
+  }, [replayEvents])
 
-  const sendEnabledForSession = session?.canSendMessage === true
+  const sendEnabledForSession = session?.canSendMessage === true && !isReplayActive
   const canSend = sendEnabledForSession && wsStatus === 'connected' && !awaitingReply
-  const promptPlaceholder = canSend ? 'Type a message...' : 'Waiting for reply'
+  const promptPlaceholder = isReplayActive ? 'Replay view' : canSend ? 'Type a message...' : 'Waiting for reply'
 
   useEffect(() => () => {
     if (replyTimeoutRef.current) { clearTimeout(replyTimeoutRef.current); replyTimeoutRef.current = null }
@@ -240,7 +245,7 @@ export function ChatPanel() {
   }, [])
 
   useEffect(() => {
-    if (!awaitingReply || !lastSendAt) return
+    if (isReplayActive || !awaitingReply || !lastSendAt) return
     const resolved = events.some((e) => {
       if (e.timestamp < lastSendAt) return false
       if (isChatError(e)) return true
@@ -249,7 +254,7 @@ export function ChatPanel() {
     if (!resolved) return
     setAwaitingReply(false)
     if (replyTimeoutRef.current) { clearTimeout(replyTimeoutRef.current); replyTimeoutRef.current = null }
-  }, [awaitingReply, events, lastSendAt])
+  }, [awaitingReply, events, isReplayActive, lastSendAt])
 
   useEffect(() => {
     if (wsStatus === 'connected') return
@@ -269,6 +274,23 @@ export function ChatPanel() {
     if (!el) return
     el.scrollTop = el.scrollHeight
   }, [timelineItems.length])
+
+  // Scroll to bottom when the history container becomes visible (Radix Tabs.Content
+  // hides inactive tabs with display:none; height goes 0→real when the tab activates).
+  useEffect(() => {
+    const el = historyRef.current
+    if (!el) return
+    let prevHeight = 0
+    const observer = new ResizeObserver(() => {
+      const h = el.clientHeight
+      if (h > 0 && prevHeight === 0) {
+        el.scrollTop = el.scrollHeight
+      }
+      prevHeight = h
+    })
+    observer.observe(el)
+    return () => observer.disconnect()
+  }, [])
 
   function executeSlashCommand(cmd: SlashCmd): void {
     if (cmd === 'clear') {
@@ -314,7 +336,12 @@ export function ChatPanel() {
     <div className="flex h-full flex-col text-[var(--color-foreground)]">
       <div className="shrink-0 border-b border-border p-3">
         <h2 className="cockpit-label">Session Chat</h2>
-        {awaitingReply && (
+        {isReplayActive && (
+          <p className="mt-1 text-xs text-[var(--color-cockpit-amber)] [font-family:var(--font-mono-data)]">
+            Replay view · {formatReplayCursor(replayCursor, events.length)} · chat send disabled
+          </p>
+        )}
+        {!isReplayActive && awaitingReply && (
           <p className="mt-1 text-xs text-[var(--color-cockpit-accent)] [font-family:var(--font-mono-data)]">
             {session.provider === 'claude' ? 'Claude is typing...' : 'Codex is typing...'}
           </p>
@@ -330,16 +357,18 @@ export function ChatPanel() {
             const key = `${item.timestamp}-${index}`
 
             if (isApprovalRequest(item)) {
+              const localDecision = isReplayActive ? undefined : localDecisions[item.approvalId]
               const resolved = resolvedDecisions[item.approvalId]
-                ?? (localDecisions[item.approvalId] === 'approve' ? 'approved'
-                  : localDecisions[item.approvalId] === 'deny' ? 'denied'
+                ?? (localDecision === 'approve' ? 'approved'
+                  : localDecision === 'deny' ? 'denied'
                   : undefined)
               return (
                 <ApprovalItem key={key}
                   approvalId={item.approvalId} actionType={item.actionType}
                   riskLevel={item.riskLevel} proposedAction={item.proposedAction}
                   affectedPaths={item.affectedPaths} whyRisky={item.whyRisky}
-                  resolvedDecision={resolved} onDecide={onApprovalDecide} />
+                  resolvedDecision={resolved} disabled={isReplayActive}
+                  onDecide={onApprovalDecide} />
               )
             }
 
@@ -486,7 +515,9 @@ export function ChatPanel() {
       ) : (
         <div className="shrink-0 border-t border-border p-3">
           <p className="text-xs text-[var(--color-muted-foreground)]">
-            This session is approval-only and does not support chat sends.
+            {isReplayActive
+              ? 'Replay mode is read-only.'
+              : 'This session is approval-only and does not support chat sends.'}
           </p>
           {session.reason && <p className="text-xs mt-1 text-[var(--color-muted-foreground)]">{session.reason}</p>}
         </div>
