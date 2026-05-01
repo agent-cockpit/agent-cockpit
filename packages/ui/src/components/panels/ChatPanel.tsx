@@ -312,7 +312,7 @@ export function ChatPanel() {
 
   return (
     <div className="flex h-full flex-col text-[var(--color-foreground)]">
-      <div className="border-b border-border p-3">
+      <div className="shrink-0 border-b border-border p-3">
         <h2 className="cockpit-label">Session Chat</h2>
         {awaitingReply && (
           <p className="mt-1 text-xs text-[var(--color-cockpit-accent)] [font-family:var(--font-mono-data)]">
@@ -422,7 +422,7 @@ export function ChatPanel() {
       </div>
 
       {sendEnabledForSession ? (
-        <div className="border-t border-border p-3">
+        <div className="shrink-0 border-t border-border p-3">
           {modelBanner && (
           <div className="mb-2 px-3 py-1.5 border border-[var(--color-cockpit-accent)] [font-family:var(--font-mono-data)] text-xs flex items-center gap-2"
             style={{ color: 'var(--color-cockpit-accent)' }}>
@@ -484,7 +484,7 @@ export function ChatPanel() {
           </p>
         </div>
       ) : (
-        <div className="border-t border-border p-3">
+        <div className="shrink-0 border-t border-border p-3">
           <p className="text-xs text-[var(--color-muted-foreground)]">
             This session is approval-only and does not support chat sends.
           </p>

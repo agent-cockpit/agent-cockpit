@@ -46,22 +46,27 @@ export function TerminalPanel() {
     const fitAddon = new FitAddon()
     term.loadAddon(fitAddon)
     term.open(container)
-    fitAddon.fit()
+    if (container.clientWidth > 0 && container.clientHeight > 0) {
+      try { fitAddon.fit() } catch {}
+    }
     term.focus()
 
     const unsubscribe = ptyBus.subscribe(sessionId, (data) => term.write(data))
     term.onData((data) => { sendWsMessage({ type: 'pty_input', sessionId, data }) })
 
     let resizeTimer: ReturnType<typeof setTimeout> | null = null
+    let hasFitted = false
     const observer = new ResizeObserver(() => {
       if (resizeTimer) clearTimeout(resizeTimer)
+      const delay = hasFitted ? 50 : 0
       resizeTimer = setTimeout(() => {
         if (container.clientWidth === 0 || container.clientHeight === 0) return
         try { fitAddon.fit() } catch { return }
+        hasFitted = true
         if (term.cols > 0 && term.rows > 0) {
           sendWsMessage({ type: 'pty_resize', sessionId, cols: term.cols, rows: term.rows })
         }
-      }, 150)
+      }, delay)
     })
     observer.observe(container)
 
