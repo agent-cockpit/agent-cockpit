@@ -472,3 +472,23 @@ Plans:
 
 Plans:
 - [ ] TBD (run /gsd-plan-phase 30 to break down)
+
+### Phase 30.1: Claude PTY tab parity for approvals timeline diff memory and artifacts (INSERTED)
+
+**Goal:** Restore full Claude tab parity on top of the new PTY runtime. A Claude session launched through the PTY path must keep `Approvals`, `timeline`, `diff`, `memory`, and `artifacts` accurate in both live and replayed views, without regressing the new embedded terminal experience.
+**Requirements:** PTY-TABS-01, PTY-TABS-02, PTY-TABS-03, PTY-TABS-04, PTY-TABS-05
+**Depends on:** Phase 30
+**Success Criteria** (what must be TRUE):
+  1. Claude sessions running in `mode: 'pty'` still emit or derive the normalized events needed by `ApprovalInbox`, `TimelinePanel`, `DiffPanel`, `MemoryPanel`, and `ArtifactsPanel`; PTY output alone is not the only source of truth
+  2. Reopening a PTY Claude popup or reconnecting the UI reproduces the same approvals, timeline entries, file changes, memory suggestions, and artifacts via replay/catch-up as a live observer saw
+  3. Pending approval badges and the `Approvals` tab remain correct for PTY Claude sessions, including resolve/timeout flows and session-scoped queue hydration
+  4. `Diff` and `artifacts` stay useful for PTY Claude sessions, including cases where structured tool metadata must be translated into synthetic diff/artifact entries
+  5. `Memory` continues to load workspace-backed `CLAUDE.md`, auto-memory, notes, and suggested memory writes for PTY-launched Claude sessions with the correct session/workspace lookup
+  6. The PTY terminal path remains intact: terminal streaming, input, resize, and session capability state still work after the parity fixes
+**Plans:** 4/4 plans executed
+
+Plans:
+- [x] 30.1-01-PLAN.md — Add RED parity tests for PTY Claude structured events, catch-up, and tab hydration contracts (PTY-TABS-01, PTY-TABS-02)
+- [x] 30.1-02-PLAN.md — Fix daemon/runtime PTY Claude event emission, session metadata, and replay-safe structured state (PTY-TABS-01, PTY-TABS-02, PTY-TABS-03)
+- [x] 30.1-03-PLAN.md — Restore non-terminal UI tab parity and regression coverage for approvals, timeline, diff, memory, and artifacts on PTY Claude sessions (PTY-TABS-03, PTY-TABS-04, PTY-TABS-05)
+- [x] 30.1-04-PLAN.md — Add PTY terminal coexistence regression coverage so the terminal path stays intact while tab parity is restored (Phase 30 regression guard)

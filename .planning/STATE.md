@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v1.1
 milestone_name: — 2D Pixel Art Game Experience
-status: completed
+status: executing
 stopped_at: Completed 25-01-PLAN.md
-last_updated: "2026-04-15T23:36:45.000Z"
-last_activity: "2026-04-15 - Completed quick task 1: Add NPC behaviours for the sessions characters. They are completly still right now. Make them move around the map and when they have a pending approval or something that needs user attention make it go back to the center of the map. When the user interact with the \"NPC\" it should stop until the user closes the interaction"
+last_updated: "2026-05-04T18:57:00.000Z"
+last_activity: 2026-05-04 -- Phase 30.1 execution and targeted verification completed
 progress:
-  total_phases: 31
+  total_phases: 33
   completed_phases: 20
-  total_plans: 65
-  completed_plans: 57
-  percent: 91
+  total_plans: 69
+  completed_plans: 61
+  percent: 88
 ---
 
 # Project State
@@ -21,14 +21,14 @@ progress:
 See: .planning/PROJECT.md (updated 2026-04-10)
 
 **Core value:** One unified approval, memory and replay layer across Claude Code and Codex — so developers can run agents productively, not just watch them.
-**Current focus:** Phase 28 complete — walking-sprites-all-characters
+**Current focus:** Phase 30.1 verification handoff — claude-pty-tab-parity-for-approvals-timeline-diff-memory-and
 
 ## Current Position
 
-Phase: 28
-Plan: 3 of 3 complete
-Status: Phase 28 complete
-Last activity: 2026-04-15 - Completed quick task 1: Add NPC behaviours for the sessions characters. They are completly still right now. Make them move around the map and when they have a pending approval or something that needs user attention make it go back to the center of the map. When the user interact with the "NPC" it should stop until the user closes the interaction
+Phase: 30.1 (claude-pty-tab-parity-for-approvals-timeline-diff-memory-and) — EXECUTING
+Plan: 4 of 4
+Status: Execution complete; pending formal phase verification
+Last activity: 2026-05-04 -- Phase 30.1 execution and targeted verification completed
 
 Progress: [█████████░] 91%
 
@@ -186,6 +186,7 @@ All v1.0 decisions remain active and respected.
 - Phase 23 added: Approval Hook Reliability Across Providers and Subagents
 - Phase 24 added: Agent Avatar Chat Popup Interaction
 - Phase 25 added: Session Termination Controls
+- Phase 30.1 inserted after Phase 30: Claude PTY tab parity for approvals timeline diff memory and artifacts (URGENT)
 
 ### Pending Todos
 
