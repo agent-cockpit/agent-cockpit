@@ -41,7 +41,8 @@ export function MemoryPanel() {
 
   const sessionStatus = liveSession?.status ?? historySession?.finalStatus
   const showActiveWarning = !historyMode && sessionStatus === 'active'
-  const workspace = liveSession?.workspacePath ?? historySession?.workspacePath ?? ''
+  const sessionStartWorkspace = events.find((event) => event.type === 'session_start')?.workspacePath ?? ''
+  const workspace = liveSession?.workspacePath ?? historySession?.workspacePath ?? sessionStartWorkspace
 
   // Hydrate session events for pending suggestions if local cache is empty.
   useEffect(() => {

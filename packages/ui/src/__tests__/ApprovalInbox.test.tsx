@@ -6,6 +6,8 @@ import { ApprovalInbox } from '../components/panels/ApprovalInbox.js'
 import type { PendingApproval } from '../store/approvalsSlice.js'
 
 const SESSION_ID = '00000000-0000-0000-0000-000000000001'
+const mockFetch = vi.fn()
+global.fetch = mockFetch as typeof global.fetch
 
 // ─── Mock sendWsMessage ───────────────────────────────────────────────────────
 
@@ -53,6 +55,10 @@ beforeEach(() => {
     wsStatus: 'connected',
   })
   mockSendWsMessage.mockClear()
+  mockFetch.mockReset()
+  mockFetch.mockResolvedValue({
+    json: async () => [],
+  })
 })
 
 // ─── APPR-01: Empty state ─────────────────────────────────────────────────────
@@ -223,5 +229,32 @@ describe('APPR-03: Buttons disabled when disconnected', () => {
     expect(screen.getByRole('button', { name: /approve/i })).not.toBeDisabled()
     expect(screen.getByRole('button', { name: /deny/i })).not.toBeDisabled()
     expect(screen.getByRole('button', { name: /always allow/i })).not.toBeDisabled()
+  })
+})
+
+describe('APPR-PTY: backend hydration on empty store', () => {
+  it('hydrates pending approvals from the daemon endpoint when the local queue is empty', async () => {
+    mockFetch.mockResolvedValueOnce({
+      json: async () => [
+        {
+          approvalId: 'appr-pty-001',
+          sessionId: SESSION_ID,
+          actionType: 'shell_command',
+          riskLevel: 'high',
+          proposedAction: 'git status',
+          affectedPaths: [],
+          whyRisky: '',
+          createdAt: '2026-01-01T00:00:00.000Z',
+          status: 'pending',
+        },
+      ],
+    })
+
+    renderInbox()
+
+    expect(await screen.findByText('git status')).toBeInTheDocument()
+    expect(mockFetch).toHaveBeenCalledWith(
+      expect.stringContaining(`/api/sessions/${SESSION_ID}/approvals`),
+    )
   })
 })

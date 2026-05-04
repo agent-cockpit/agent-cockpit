@@ -96,12 +96,13 @@ type ApprovalRequestMap = Map<string, { actionType: string; proposedAction: stri
 function deriveLogFromEvent(event: NormalizedEvent, index: number, approvalRequests?: ApprovalRequestMap): LogItem {
   const id = getEventSequence(event, index)
   if (event.type === 'session_start') {
+    const modeSuffix = event.mode ? ` (${event.mode})` : ''
     return {
       id,
       timestamp: event.timestamp,
       level: 'info',
       label: 'Session Started',
-      message: `${event.provider} @ ${event.workspacePath}`,
+      message: `${event.provider}${modeSuffix} @ ${event.workspacePath}`,
     }
   }
   if (event.type === 'session_end') {

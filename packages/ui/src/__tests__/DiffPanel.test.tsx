@@ -297,4 +297,28 @@ describe('DiffPanel', () => {
     expect(fileList.getByText('index.ts')).toBeInTheDocument()
     expect(screen.getByText('+new line')).toBeInTheDocument()
   })
+
+  it('derives active status from replayed events when the session store is empty', async () => {
+    mockFetch.mockResolvedValueOnce({
+      json: async () => [
+        makeSessionStart(),
+        makeToolCall(
+          'Edit',
+          {
+            file_path: '/home/user/project/src/index.ts',
+            old_string: 'const before = true',
+            new_string: 'const before = false',
+          },
+        ),
+      ],
+    })
+
+    await act(async () => {
+      renderPanel(SESSION_ID)
+    })
+
+    await vi.waitFor(() => {
+      expect(screen.getByText('active')).toBeInTheDocument()
+    })
+  })
 })

@@ -172,9 +172,9 @@ export function DiffPanel() {
   // Derived values
   const fileTree = deriveFileTree(events)
   const filesTouched = fileTree.length
-  const finalStatus = session?.status ?? 'unknown'
   const startEvent = events.find((e) => e.type === 'session_start')
   const endEvent = [...events].reverse().find((e) => e.type === 'session_end')
+  const finalStatus = session?.status ?? (endEvent ? 'ended' : startEvent ? 'active' : 'unknown')
   const startTime = startEvent ? new Date(startEvent.timestamp).getTime() : null
   const endTime =
     endEvent

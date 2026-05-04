@@ -91,6 +91,7 @@ function InlineDetail({ event }: { event: NormalizedEvent }) {
     return (
       <div className={base}>
         <Field label="Provider" value={event.provider} />
+        {event.mode && <Field label="Mode" value={event.mode} />}
         <Field label="Workspace" value={event.workspacePath} />
       </div>
     )

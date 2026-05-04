@@ -102,6 +102,7 @@ export interface SessionSummary {
   endedAt: string | null
   approvalCount: number
   filesChanged: number
+  mode?: 'stream-json' | 'pty'
   capabilities?: {
     managedByDaemon: boolean
     canSendMessage: boolean

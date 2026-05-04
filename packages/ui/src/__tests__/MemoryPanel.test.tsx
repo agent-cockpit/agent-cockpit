@@ -297,6 +297,55 @@ describe('MEM-03: Memory notes', () => {
     // New note should appear after list refresh
     expect(await screen.findByText('New note')).toBeInTheDocument()
   })
+
+  it('fetches workspace-backed notes after recovering workspacePath from replayed session_start events', async () => {
+    const fallbackFetch = makeFetchMock()
+    const fetchMock = vi.fn((url: string, opts?: RequestInit) => {
+      const method = (opts?.method ?? 'GET').toUpperCase()
+      const u = String(url)
+
+      if (method === 'GET' && u.includes(`/api/sessions/${SESSION_ID}/events`)) {
+        return Promise.resolve({
+          ok: true,
+          json: () =>
+            Promise.resolve([
+              {
+                schemaVersion: 1,
+                sessionId: SESSION_ID,
+                timestamp: '2026-01-01T00:00:00.000Z',
+                type: 'session_start',
+                provider: 'claude',
+                workspacePath: WORKSPACE,
+                mode: 'pty',
+              },
+            ]),
+        })
+      }
+
+      if (method === 'GET' && u.includes('/notes')) {
+        return Promise.resolve({
+          ok: true,
+          json: () =>
+            Promise.resolve([
+              {
+                note_id: 'n-replay',
+                workspace: WORKSPACE,
+                content: 'Replay hydrated note',
+                pinned: 1,
+                created_at: '2026-01-01T00:00:00.000Z',
+              },
+            ]),
+        })
+      }
+
+      return fallbackFetch(url, opts)
+    })
+    vi.stubGlobal('fetch', fetchMock)
+
+    renderPanel()
+
+    expect(await screen.findByText('Replay hydrated note')).toBeInTheDocument()
+  })
 })
 
 // ─── MEM-04: Suggested memory writes ─────────────────────────────────────────

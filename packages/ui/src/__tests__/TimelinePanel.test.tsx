@@ -57,6 +57,19 @@ function makeApprovalRequest(seq: number, timestamp = T2): NormalizedEvent & { s
   }
 }
 
+function makePtySessionStart(seq: number, timestamp = T0): NormalizedEvent & { sequenceNumber: number } {
+  return {
+    schemaVersion: 1,
+    sessionId: SESSION_ID,
+    timestamp,
+    sequenceNumber: seq,
+    type: 'session_start',
+    provider: 'claude',
+    workspacePath: '/workspace/pty-project',
+    mode: 'pty',
+  }
+}
+
 // Helper: render TimelinePanel with a given sessionId in router context
 function renderPanel(sessionId: string) {
   return render(
@@ -326,5 +339,18 @@ describe('TIMELINE-04: Inline detail', () => {
     const toolCallRowLabelAgain = within(list).getByText('Tool Call')
     fireEvent.click(toolCallRowLabelAgain)
     expect(screen.queryByText('bash')).not.toBeInTheDocument()
+  })
+
+  it('shows PTY mode in session_start inline detail after hydration', () => {
+    useStore.setState({ events: { [SESSION_ID]: [makePtySessionStart(1)] } })
+
+    renderPanel(SESSION_ID)
+
+    const list = screen.getByTestId('timeline-list')
+    const sessionStartRowLabel = within(list).getByText('Session Started')
+    fireEvent.click(sessionStartRowLabel)
+
+    expect(screen.getByText('Mode:')).toBeInTheDocument()
+    expect(screen.getByText('pty')).toBeInTheDocument()
   })
 })
