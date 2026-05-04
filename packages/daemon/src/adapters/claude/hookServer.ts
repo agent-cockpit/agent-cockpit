@@ -252,6 +252,7 @@ function handleRequest(
         managedByDaemon,
         canSendMessage: managedByDaemon,
         canTerminateSession: managedByDaemon,
+        ...(managedByDaemon ? { mode: 'pty' as const } : {}),
         ...(managedByDaemon ? {} : { reason: EXTERNAL_SESSION_REASON }),
       } as NormalizedEvent);
     }

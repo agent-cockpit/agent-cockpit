@@ -143,6 +143,17 @@ function handleLaunchSession(
           return;
         }
 
+        if (
+          provider === 'claude' &&
+          requestedPermissionMode !== undefined &&
+          requestedPermissionMode !== 'default' &&
+          requestedPermissionMode !== 'dangerously_skip'
+        ) {
+          res.writeHead(400, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ error: "permissionMode must be 'default' or 'dangerously_skip'" }));
+          return;
+        }
+
         // Shared preflight: validate workspace exists
         if (!fs.existsSync(workspacePath)) {
           res.writeHead(422, { 'Content-Type': 'application/json' });

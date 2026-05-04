@@ -158,7 +158,7 @@ afterEach(async () => {
 });
 
 describe('POST /api/sessions', () => {
-  it('returns 200 with { sessionId, mode: "initiated" } for Claude (no hookCommand)', async () => {
+  it('returns 200 with { sessionId, mode: "pty" } for Claude launch', async () => {
     const { status, data } = await httpPost(port, '/api/sessions', {
       provider: 'claude',
       workspacePath: '/tmp',
@@ -166,7 +166,7 @@ describe('POST /api/sessions', () => {
     expect(status).toBe(200);
     expect(typeof data.sessionId).toBe('string');
     expect(data.sessionId).toMatch(/^[0-9a-f-]{36}$/);
-    expect(data.mode).toBe('initiated');
+    expect(data.mode).toBe('pty');
     expect(data.hookCommand).toBeUndefined();
   });
 
@@ -194,8 +194,39 @@ describe('POST /api/sessions', () => {
     };
     expect(payload.workspacePath).toBe('/tmp');
     expect(payload.managedByDaemon).toBe(true);
-    expect(payload.canSendMessage).toBe(true);
+    expect(payload.canSendMessage).toBe(false);
     expect(payload.canTerminateSession).toBe(true);
+    expect(payload.mode).toBe('pty');
+  });
+
+  it('includes PTY mode in session summary endpoints for daemon-launched Claude sessions', async () => {
+    const { status, data } = await httpPost(port, '/api/sessions', {
+      provider: 'claude',
+      workspacePath: '/tmp',
+    });
+
+    expect(status).toBe(200);
+    const sessionId = data.sessionId as string;
+
+    const summary = await httpGetJson(port, `/api/sessions/${sessionId}/summary`);
+    expect(summary.status).toBe(200);
+    expect(summary.body).toMatchObject({
+      sessionId,
+      workspacePath: '/tmp',
+      mode: 'pty',
+    });
+
+    const sessions = await httpGetJson(port, '/api/sessions');
+    expect(sessions.status).toBe(200);
+    expect(sessions.body).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          sessionId,
+          workspacePath: '/tmp',
+          mode: 'pty',
+        }),
+      ]),
+    );
   });
 
   it('accepts explicit permissionMode=dangerously_skip for Claude launch', async () => {
@@ -206,7 +237,7 @@ describe('POST /api/sessions', () => {
     });
     expect(status).toBe(200);
     expect(typeof data.sessionId).toBe('string');
-    expect(data.mode).toBe('initiated');
+    expect(data.mode).toBe('pty');
   });
 
   it('accepts legacy skipPermissions=true for backward compatibility', async () => {

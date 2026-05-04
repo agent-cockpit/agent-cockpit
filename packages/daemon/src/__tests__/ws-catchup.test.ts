@@ -1,10 +1,12 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { createServer } from 'node:http';
+import http, { createServer } from 'node:http';
 import { WebSocketServer, WebSocket } from 'ws';
 import { openDatabase } from '../db/database.js';
-import { persistEvent } from '../db/queries.js';
+import { persistEvent, setClaudeSessionId } from '../db/queries.js';
 import { handleConnection } from '../ws/handlers.js';
 import { broadcast } from '../ws/server.js';
+import { createHookServer } from '../adapters/claude/hookServer.js';
+import { setClaudeSessionCache, setClaudeSessionDb } from '../adapters/claude/hookParser.js';
 import type { NormalizedEvent } from '@agentcockpit/shared';
 import type { Database } from 'better-sqlite3';
 
@@ -72,6 +74,35 @@ function connectAndCollect(
   });
 }
 
+function postHook(
+  port: number,
+  body: unknown,
+): Promise<{ status: number; body: string }> {
+  return new Promise((resolve, reject) => {
+    const data = JSON.stringify(body);
+    const client = http.request(
+      {
+        hostname: '127.0.0.1',
+        port,
+        path: '/hook',
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Content-Length': Buffer.byteLength(data),
+        },
+      },
+      (res) => {
+        let responseBody = '';
+        res.on('data', (chunk: Buffer) => { responseBody += chunk.toString(); });
+        res.on('end', () => resolve({ status: res.statusCode ?? 0, body: responseBody }));
+      },
+    );
+    client.on('error', reject);
+    client.write(data);
+    client.end();
+  });
+}
+
 let db: InstanceType<typeof import('better-sqlite3').default>;
 let wss: WebSocketServer;
 let httpServer: ReturnType<typeof createServer>;
@@ -79,6 +110,8 @@ let port: number;
 
 beforeEach(() => {
   db = openDatabase(':memory:');
+  setClaudeSessionDb(db);
+  setClaudeSessionCache(new Map());
   httpServer = createServer();
   wss = new WebSocketServer({ noServer: true });
 
@@ -104,6 +137,8 @@ afterEach(() => {
   return new Promise<void>((resolve) => {
     wss.close(() => {
       httpServer.close(() => {
+        setClaudeSessionDb(null);
+        setClaudeSessionCache(new Map());
         db.close();
         resolve();
       });
@@ -182,6 +217,45 @@ describe('WebSocket catch-up protocol', () => {
     const messages = await messagePromise;
     expect(messages.events).toHaveLength(1);
     expect(messages.events[0]!.type).toBe('session_start');
+  });
+
+  it('replays PTY-mode synthetic session_start before the first managed Claude tool event after reconnect', async () => {
+    const hookServer = createHookServer(
+      0,
+      (event) => { persistEvent(db, event); },
+      () => {},
+    );
+    await new Promise<void>((resolve) => hookServer.once('listening', resolve));
+    const hookPort = (hookServer.address() as { port: number }).port;
+
+    const managedSessionId = '123e4567-e89b-12d3-a456-426614174111';
+    setClaudeSessionId(db, managedSessionId, managedSessionId, '/workspace/replay-pty');
+    setClaudeSessionCache(new Map([[managedSessionId, managedSessionId]]));
+    await postHook(hookPort, {
+      hook_event_name: 'PostToolUse',
+      session_id: managedSessionId,
+      cwd: '/workspace/replay-pty',
+      tool_name: 'Read',
+      tool_input: { file_path: '/workspace/replay-pty/README.md' },
+    });
+
+    const messages = await connectAndCollect(
+      `ws://localhost:${port}?lastSeenSequence=0`,
+      2,
+    );
+
+    expect(messages.events[0]).toMatchObject({
+      type: 'session_start',
+      sessionId: managedSessionId,
+      mode: 'pty',
+      workspacePath: '/workspace/replay-pty',
+    });
+    expect(messages.events[1]).toMatchObject({
+      type: 'tool_call',
+      sessionId: managedSessionId,
+    });
+
+    await new Promise<void>((resolve) => hookServer.close(() => resolve()));
   });
 });
 

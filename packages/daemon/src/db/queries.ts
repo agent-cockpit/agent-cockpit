@@ -16,6 +16,7 @@ export interface SessionSummary {
   endedAt: string | null
   approvalCount: number
   filesChanged: number
+  mode?: 'stream-json' | 'pty'
   capabilities: SessionCapabilities
   finalStatus: 'active' | 'ended' | 'error'
 }
@@ -52,6 +53,7 @@ function normalizeAffectedPaths(value: unknown): string[] {
 type SessionStartSignature = {
   provider: string
   workspacePath: string
+  mode: string
   managedByDaemon: boolean | null
   canSendMessage: boolean | null
   canTerminateSession: boolean | null
@@ -75,6 +77,7 @@ function toSessionStartSignature(event: NormalizedEvent): SessionStartSignature 
   return {
     provider: normalizeText(payload['provider'] ?? ''),
     workspacePath: normalizeText(payload['workspacePath'] ?? ''),
+    mode: normalizeText(payload['mode'] ?? ''),
     managedByDaemon: toBoolean(payload['managedByDaemon']),
     canSendMessage: toBoolean(payload['canSendMessage']),
     canTerminateSession: toBoolean(payload['canTerminateSession']),
@@ -86,6 +89,7 @@ function areSessionStartSignaturesEqual(a: SessionStartSignature, b: SessionStar
   return (
     a.provider === b.provider &&
     a.workspacePath === b.workspacePath &&
+    a.mode === b.mode &&
     a.managedByDaemon === b.managedByDaemon &&
     a.canSendMessage === b.canSendMessage &&
     a.canTerminateSession === b.canTerminateSession &&
@@ -170,6 +174,7 @@ export function getAllSessions(db: Database.Database): SessionSummary[] {
       e.session_id AS sessionId,
       COALESCE(JSON_EXTRACT(e.payload, '$.provider'), 'unknown') AS provider,
       COALESCE(JSON_EXTRACT(e.payload, '$.workspacePath'), '') AS workspacePath,
+      COALESCE(JSON_EXTRACT(e.payload, '$.mode'), '') AS mode,
       JSON_EXTRACT(e.payload, '$.managedByDaemon') AS managedByDaemon,
       JSON_EXTRACT(e.payload, '$.canSendMessage') AS canSendMessage,
       JSON_EXTRACT(e.payload, '$.canTerminateSession') AS canTerminateSession,
@@ -186,6 +191,7 @@ export function getAllSessions(db: Database.Database): SessionSummary[] {
   `).all() as Array<{
     sessionId: string; provider: string; workspacePath: string; startedAt: string;
     endedAt: string | null; approvalCount: number; filesChanged: number;
+    mode: string;
     managedByDaemon: unknown; canSendMessage: unknown; canTerminateSession: unknown; capabilityReason: unknown;
   }>;
   return rows.map((r) => {
@@ -207,6 +213,7 @@ export function getAllSessions(db: Database.Database): SessionSummary[] {
       endedAt: r.endedAt,
       approvalCount: r.approvalCount,
       filesChanged: r.filesChanged,
+      ...(r.mode === 'pty' || r.mode === 'stream-json' ? { mode: r.mode } : {}),
       capabilities: {
         managedByDaemon,
         canSendMessage,

@@ -1,6 +1,10 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import http from 'node:http';
 import type { NormalizedEvent } from '@agentcockpit/shared';
+import { openDatabase } from '../db/database.js';
+import { setClaudeSessionId } from '../db/queries.js';
+import { setClaudeSessionCache, setClaudeSessionDb } from '../adapters/claude/hookParser.js';
+import type BetterSqlite3 from 'better-sqlite3';
 
 // ─── Unit tests: riskClassifier ───────────────────────────────────────────────
 
@@ -168,6 +172,7 @@ describe('parseHookPayload', () => {
 describe('hookServer', () => {
   let server: http.Server;
   let port: number;
+  let db: BetterSqlite3.Database;
   let createHookServer: (
     port: number,
     onEvent: (event: NormalizedEvent) => void,
@@ -176,6 +181,9 @@ describe('hookServer', () => {
   let resolveApproval: (approvalId: string, decision: 'allow' | 'deny' | 'always_allow', reason?: string) => void;
 
   beforeEach(async () => {
+    db = openDatabase(':memory:');
+    setClaudeSessionDb(db);
+    setClaudeSessionCache(new Map());
     const mod = await import('../adapters/claude/hookServer.js');
     createHookServer = mod.createHookServer;
     resolveApproval = mod.resolveApproval;
@@ -186,6 +194,9 @@ describe('hookServer', () => {
     if (server) {
       await new Promise<void>((resolve) => server.close(() => resolve()));
     }
+    setClaudeSessionDb(null);
+    setClaudeSessionCache(new Map());
+    db.close();
   });
 
   /** Helper: POST JSON to the server's /hook endpoint */
@@ -237,6 +248,41 @@ describe('hookServer', () => {
     expect(res.status).toBe(200);
     expect(events).toHaveLength(1);
     expect(events[0]!.type).toBe('session_start');
+  });
+
+  it('emits a PTY-mode synthetic session_start before the first managed Claude tool event', async () => {
+    const events: NormalizedEvent[] = [];
+    server = createHookServer(
+      port,
+      (e) => events.push(e),
+      () => {},
+    );
+    await new Promise<void>((resolve) => server.once('listening', resolve));
+
+    const managedSessionId = '123e4567-e89b-12d3-a456-426614174000';
+    setClaudeSessionId(db, managedSessionId, managedSessionId, '/workspace/pty-project');
+    setClaudeSessionCache(new Map([[managedSessionId, managedSessionId]]));
+    const res = await postHook(server, {
+      hook_event_name: 'PostToolUse',
+      session_id: managedSessionId,
+      cwd: '/workspace/pty-project',
+      tool_name: 'Read',
+      tool_input: { file_path: '/workspace/pty-project/README.md' },
+    });
+
+    expect(res.status).toBe(200);
+    expect(events).toHaveLength(2);
+    expect(events[0]).toMatchObject({
+      type: 'session_start',
+      sessionId: managedSessionId,
+      workspacePath: '/workspace/pty-project',
+      managedByDaemon: true,
+      mode: 'pty',
+    });
+    expect(events[1]).toMatchObject({
+      type: 'tool_call',
+      sessionId: managedSessionId,
+    });
   });
 
   it('Test 13: PermissionRequest calls onDecisionNeeded and does NOT close response', async () => {
