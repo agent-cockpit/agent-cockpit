@@ -58,6 +58,9 @@ vi.mock('../../../components/panels/ArtifactsPanel.js', () => ({
 vi.mock('../../../components/panels/ChatPanel.js', () => ({
   ChatPanel: () => <div data-testid="chat-panel">ChatPanel</div>,
 }))
+vi.mock('../../../components/panels/TerminalPanel.js', () => ({
+  TerminalPanel: () => <div data-testid="terminal-panel">TerminalPanel</div>,
+}))
 
 // Mock store
 type PopupTabId = 'approvals' | 'chat' | 'timeline' | 'diff' | 'memory' | 'artifacts'
@@ -73,6 +76,8 @@ let mockStore = {
       status: 'active',
       startedAt: 0,
       character: 'astronaut',
+      canTerminateSession: true,
+      mode: 'stream-json' as const,
     },
   },
   popupPreferredTab: null as PopupTabId | null,
@@ -89,6 +94,16 @@ describe('InstancePopupHub', () => {
     mockStore.popupPreferredTab = null
     mockStore.events = {}
     mockStore.setPopupPreferredTab.mockClear()
+    mockStore.sessions['session-123'] = {
+      sessionId: 'session-123',
+      workspacePath: '/home/user/my-project',
+      provider: 'claude',
+      status: 'active',
+      startedAt: 0,
+      character: 'astronaut',
+      canTerminateSession: true,
+      mode: 'stream-json',
+    }
   })
 
   it('renders nothing when open=false', () => {
@@ -134,6 +149,18 @@ describe('InstancePopupHub', () => {
   it('renders ChatPanel inside chat tab content', () => {
     render(<InstancePopupHub open={true} onClose={vi.fn()} />)
     expect(screen.getByTestId('chat-panel')).toBeInTheDocument()
+  })
+
+  it('renders TerminalPanel instead of ChatPanel for PTY Claude sessions', () => {
+    mockStore.sessions['session-123'] = {
+      ...mockStore.sessions['session-123'],
+      mode: 'pty',
+    }
+
+    render(<InstancePopupHub open={true} onClose={vi.fn()} />)
+
+    expect(screen.getByTestId('terminal-panel')).toBeInTheDocument()
+    expect(screen.queryByTestId('chat-panel')).not.toBeInTheDocument()
   })
 
   it('initializes popup tabs to chat when popupPreferredTab is chat', () => {
@@ -193,5 +220,24 @@ describe('InstancePopupHub', () => {
 
     expect(screen.getByText(/tokens in 1\.2k · out 340/i)).toBeInTheDocument()
     expect(screen.getByText(/ctx 42%/i)).toBeInTheDocument()
+  })
+
+  it('shows the terminate button for active sessions when termination is available', () => {
+    render(<InstancePopupHub open={true} onClose={vi.fn()} />)
+
+    expect(screen.getByRole('button', { name: /terminate/i })).toBeInTheDocument()
+  })
+
+  it('shows the disabled reason text when PTY termination is unavailable', () => {
+    mockStore.sessions['session-123'] = {
+      ...mockStore.sessions['session-123'],
+      canTerminateSession: false,
+      reason: 'Session termination is unavailable for this session.',
+    }
+
+    render(<InstancePopupHub open={true} onClose={vi.fn()} />)
+
+    expect(screen.getByText('Session termination is unavailable for this session.')).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /terminate/i })).not.toBeInTheDocument()
   })
 })
