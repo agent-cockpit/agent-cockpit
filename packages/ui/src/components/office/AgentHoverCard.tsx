@@ -18,7 +18,7 @@ export function AgentHoverCard({ session, lastToolUsed, elapsedMs }: AgentHoverC
   // task title from workspacePath — will improve when SessionRecord gains a title field
   const basename =
     session.workspacePath
-      .split('/')
+      .split(/[/\\]/)
       .filter(Boolean)
       .pop() ?? session.sessionId
 

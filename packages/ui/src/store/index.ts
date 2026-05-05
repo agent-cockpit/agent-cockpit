@@ -125,6 +125,10 @@ export interface SessionRecord {
   canTerminateSession?: boolean
   reason?: string
   mode?: 'stream-json' | 'pty'
+  totalInputTokens?: number
+  totalOutputTokens?: number
+  totalTokens?: number
+  contextPercent?: number
 }
 
 export type PanelId = 'approvals' | 'timeline' | 'diff' | 'memory' | 'artifacts'

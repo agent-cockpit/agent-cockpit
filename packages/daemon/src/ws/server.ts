@@ -12,6 +12,7 @@ import { PtyLauncher, type PtyRuntime } from '../adapters/claude/ptyLauncher.js'
 import { markSessionStarted } from '../adapters/claude/hookServer.js';
 import { CodexAdapter } from '../adapters/codex/codexAdapter.js';
 import { getApprovalsBySession } from '../approvals/approvalStore.js';
+import { approvalQueue } from '../approvals/approvalQueue.js';
 import { deleteSessionRecords, getAllSessions, getEventsBySession, getSessionStats, getSessionSummary, getUsageStats, persistEvent, searchAll, type SessionSummary } from '../db/queries.js';
 import { eventBus } from '../eventBus.js';
 import { logger } from '../logger.js';
@@ -101,12 +102,111 @@ function isWithinRoot(candidatePath: string, rootPath: string): boolean {
   return relative === '' || (!relative.startsWith('..') && !path.isAbsolute(relative));
 }
 
+// Per-session cumulative token counts parsed from PTY terminal output
+const ptyTokenAccumulator = new Map<string, { input: number; output: number }>()
+// Rolling buffer per session so patterns split across PTY chunks are still matched
+const ptyDataBuffers = new Map<string, string>()
+const PTY_BUFFER_MAX = 16384
+
+function stripAnsi(raw: string): string {
+  return raw
+    .replace(/\x1b\[[0-9;?]*[A-Za-z]/g, '')           // CSI sequences (colors, cursor movement)
+    .replace(/\x1b\][^\x07\x1b]*(?:\x07|\x1b\\)/g, '') // OSC sequences (window title, hyperlinks)
+    .replace(/\x1b[@-_][^\x80-\xff]?/g, '')            // 2-char ESC sequences
+    .replace(/[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]/g, '') // other non-printable control chars
+}
+
+// Try to extract (input, output) token counts from a clean (no-ANSI) text block.
+// Covers every known Claude Code terminal output format.
+function extractTokenCounts(text: string): { input: number; output: number } | null {
+  const t = text.replace(/\r/g, '\n')
+
+  function parse(s: string): number { return parseInt(s.replace(/,/g, ''), 10) }
+  function ok(n: number): boolean { return Number.isFinite(n) && n >= 0 }
+
+  // ── Format 1: "Input tokens: 1,234" + "Output tokens: 567" ─────────────────
+  // Covers: "Input tokens: X", "input token: X", "Input Tokens: X"
+  {
+    const i = t.match(/[Ii]nput\s+[Tt]okens?[:\s]+([\d,]+)/)
+    const o = t.match(/[Oo]utput\s+[Tt]okens?[:\s]+([\d,]+)/)
+    if (i && o) {
+      const input = parse(i[1]!), output = parse(o[1]!)
+      if (ok(input) && ok(output)) return { input, output }
+    }
+  }
+
+  // ── Format 2: "X↑ Y↓" — arrow AFTER number (most common in Claude Code UI) ─
+  {
+    const m = t.match(/([\d,]+)\s*↑[^\S\n]*([\d,]+)\s*↓/)
+    if (m) {
+      const input = parse(m[1]!), output = parse(m[2]!)
+      if (ok(input) && ok(output)) return { input, output }
+    }
+  }
+
+  // ── Format 3: "↑X ↓Y" — arrow BEFORE number ────────────────────────────────
+  {
+    const m = t.match(/↑\s*([\d,]+)[^\S\n↓]*↓\s*([\d,]+)/)
+    if (m) {
+      const input = parse(m[1]!), output = parse(m[2]!)
+      if (ok(input) && ok(output)) return { input, output }
+    }
+  }
+
+  // ── Format 4: "1,234 in, 567 out" or "1,234 in / 567 out" ──────────────────
+  {
+    const m = t.match(/([\d,]+)\s+in\b[^a-z\n]*?([\d,]+)\s+out\b/)
+    if (m) {
+      const input = parse(m[1]!), output = parse(m[2]!)
+      // Sanity: at least one of them must be > 0
+      if (ok(input) && ok(output) && (input > 0 || output > 0)) return { input, output }
+    }
+  }
+
+  // ── Format 5: "Input: 1,234" + "Output: 567" (short labels) ────────────────
+  {
+    const i = t.match(/\bInput:\s*([\d,]+)/)
+    const o = t.match(/\bOutput:\s*([\d,]+)/)
+    if (i && o) {
+      const input = parse(i[1]!), output = parse(o[1]!)
+      // Require input > 50 to avoid matching unrelated "Input: 5" style lines
+      if (ok(input) && ok(output) && input > 50) return { input, output }
+    }
+  }
+
+  // ── Format 6: "(1,234 input, 567 output)" — inside parentheses ──────────────
+  {
+    const m = t.match(/\(\s*([\d,]+)\s+input[^,)]*,?\s*([\d,]+)\s+output/)
+    if (m) {
+      const input = parse(m[1]!), output = parse(m[2]!)
+      if (ok(input) && ok(output)) return { input, output }
+    }
+  }
+
+  return null
+}
+
+function parsePtyTokens(sessionId: string, newData: string): { input: number; output: number } | null {
+  let buf = (ptyDataBuffers.get(sessionId) ?? '') + newData
+  if (buf.length > PTY_BUFFER_MAX) buf = buf.slice(-PTY_BUFFER_MAX)
+  ptyDataBuffers.set(sessionId, buf)
+
+  const clean = stripAnsi(buf)
+  const result = extractTokenCounts(clean)
+  if (result) {
+    logger.info('pty-tokens', 'Token match from PTY output', { sessionId, ...result })
+    ptyDataBuffers.set(sessionId, '')
+    return result
+  }
+  return null
+}
+
 function handleLaunchSession(
   req: http.IncomingMessage,
   res: http.ServerResponse,
   db: Database.Database,
   runtimeRegistry: ManagedSessionRegistry,
-  extras: { broadcastRaw: (payload: string) => void; ptyRegistry: Map<string, PtyRuntime> },
+  extras: { broadcastRaw: (payload: string) => void; ptyRegistry: Map<string, PtyRuntime>; hookPort: number },
 ): void {
   let body = '';
   req.on('data', (chunk) => {
@@ -151,19 +251,38 @@ function handleLaunchSession(
         }
 
         const sessionId = crypto.randomUUID();
-        const hookPort = Number(process.env['COCKPIT_HOOK_PORT'] ?? '3002');
+        const { broadcastRaw, ptyRegistry, hookPort } = extras;
 
         if (provider === 'claude') {
-          const { broadcastRaw, ptyRegistry } = extras;
           const ptyLaunch = new PtyLauncher(hookPort, db);
           logger.info('launch', 'Launching claude PTY session', { sessionId, workspacePath, model });
           const ptyRuntime = await ptyLaunch.launch(
             sessionId,
             workspacePath,
-            (data) => broadcastRaw(JSON.stringify({ type: 'pty_output', sessionId, data })),
+            (data) => {
+              broadcastRaw(JSON.stringify({ type: 'pty_output', sessionId, data }));
+              const parsed = parsePtyTokens(sessionId, data);
+              if (parsed) {
+                const prev = ptyTokenAccumulator.get(sessionId) ?? { input: 0, output: 0 };
+                const acc = { input: prev.input + parsed.input, output: prev.output + parsed.output };
+                ptyTokenAccumulator.set(sessionId, acc);
+                eventBus.emit('event', {
+                  schemaVersion: 1,
+                  sessionId,
+                  type: 'session_usage',
+                  provider: 'claude',
+                  timestamp: new Date().toISOString(),
+                  inputTokens: acc.input,
+                  outputTokens: acc.output,
+                  totalTokens: acc.input + acc.output,
+                } as NormalizedEvent);
+              }
+            },
             () => {
               ptyRegistry.delete(sessionId);
               runtimeRegistry.unregister(sessionId);
+              ptyTokenAccumulator.delete(sessionId);
+              ptyDataBuffers.delete(sessionId);
               eventBus.emit('event', {
                 schemaVersion: 1,
                 sessionId,
@@ -299,6 +418,7 @@ function serveStatic(req: http.IncomingMessage, res: http.ServerResponse): void 
 export function createWsServer(
   db: Database.Database,
   port: number,
+  hookPort: number,
 ): { wss: WebSocketServer; httpServer: ReturnType<typeof createServer>; runtimeRegistry: ManagedSessionRegistry } {
   const httpServer = createServer();
   const wss = new WebSocketServer({ noServer: true });
@@ -532,6 +652,7 @@ export function createWsServer(
       handleLaunchSession(req, res, db, runtimeRegistry, {
         broadcastRaw: (payload) => broadcast(wss, payload),
         ptyRegistry,
+        hookPort,
       });
       return;
     }
@@ -675,6 +796,12 @@ export function createWsServer(
       },
       ptyRegistry: {
         get: (sessionId) => ptyRegistry.get(sessionId),
+      },
+      autoApproveForSession: (sessionId) => {
+        const pendingIds = approvalQueue.getPendingForSession(sessionId);
+        if (pendingIds.length > 0) {
+          approvalQueue.decide(pendingIds[0]!, 'approve', db);
+        }
       },
     });
   });

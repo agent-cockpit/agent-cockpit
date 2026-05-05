@@ -26,6 +26,7 @@ interface ConnectionDeps {
   ptyRegistry?: {
     get: (sessionId: string) => PtyHandle | undefined
   }
+  autoApproveForSession?: (sessionId: string) => void
 }
 
 export function handleConnection(
@@ -132,6 +133,9 @@ export function handleConnection(
       const sessionId = m['sessionId'];
       const data = m['data'];
       if (typeof sessionId === 'string' && typeof data === 'string') {
+        if ((data === '\r' || data === '\n' || data === '\r\n') && deps?.autoApproveForSession) {
+          deps.autoApproveForSession(sessionId);
+        }
         deps?.ptyRegistry?.get(sessionId)?.write(data);
       }
       return;

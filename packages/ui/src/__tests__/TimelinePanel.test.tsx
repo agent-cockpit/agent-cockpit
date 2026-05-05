@@ -5,11 +5,8 @@ import { useStore } from '../store/index.js'
 import { TimelinePanel } from '../components/panels/TimelinePanel.js'
 import type { NormalizedEvent } from '@agentcockpit/shared'
 
-// Mock fetch globally
 const mockFetch = vi.fn()
 global.fetch = mockFetch
-
-// Mock scrollIntoView (jsdom does not implement it)
 Element.prototype.scrollIntoView = vi.fn()
 
 const SESSION_ID = '00000000-0000-0000-0000-000000000001'
@@ -57,7 +54,6 @@ function makeApprovalRequest(seq: number, timestamp = T2): NormalizedEvent & { s
   }
 }
 
-// Helper: render TimelinePanel with a given sessionId in router context
 function renderPanel(sessionId: string) {
   return render(
     <MemoryRouter initialEntries={[`/session/${sessionId}/timeline`]}>
@@ -68,35 +64,41 @@ function renderPanel(sessionId: string) {
   )
 }
 
+/** Switch to Raw Events mode by clicking the toggle button */
+function switchToRawMode() {
+  const rawBtn = screen.getByRole('button', { name: /raw events/i })
+  fireEvent.click(rawBtn)
+}
+
 beforeEach(() => {
   mockFetch.mockReset()
   vi.mocked(Element.prototype.scrollIntoView).mockReset()
   useStore.setState({ events: {} })
 })
 
-// ─── TIMELINE-01: Ordered event list ──────────────────────────────────────────
+// ─── TIMELINE-01: Event display ───────────────────────────────────────────────
 
-describe('TIMELINE-01: Ordered event list', () => {
-  it('renders all event rows from store events[sessionId] in order', () => {
+describe('TIMELINE-01: Event display', () => {
+  it('renders event rows in raw mode for each event in the store', () => {
     const events = [makeToolCall(1), makeFileChange(2), makeApprovalRequest(3)]
     useStore.setState({ events: { [SESSION_ID]: events } })
 
     renderPanel(SESSION_ID)
+    switchToRawMode()
 
-    // Each label appears in both the filter chip and the event row (2x each)
     const list = screen.getByTestId('timeline-list')
     expect(within(list).getByText('Tool Call')).toBeInTheDocument()
     expect(within(list).getByText('File Change')).toBeInTheDocument()
     expect(within(list).getByText('Approval Requested')).toBeInTheDocument()
   })
 
-  it('shows human-readable type labels using EVENT_TYPE_LABELS map', () => {
+  it('shows human-readable type labels (not raw type strings) in raw mode', () => {
     const events = [makeToolCall(1)]
     useStore.setState({ events: { [SESSION_ID]: events } })
 
     renderPanel(SESSION_ID)
+    switchToRawMode()
 
-    // Should show "Tool Call" not "tool_call" — check in the list area
     const list = screen.getByTestId('timeline-list')
     expect(within(list).getByText('Tool Call')).toBeInTheDocument()
     expect(screen.queryByText('tool_call')).not.toBeInTheDocument()
@@ -132,7 +134,6 @@ describe('TIMELINE-01: Ordered event list', () => {
 
     renderPanel(SESSION_ID)
 
-    // Wait for fetch to resolve
     await vi.waitFor(() => {
       const stored = useStore.getState().events[SESSION_ID]
       expect(stored).toBeDefined()
@@ -141,172 +142,70 @@ describe('TIMELINE-01: Ordered event list', () => {
   })
 })
 
-// ─── TIMELINE-02: Jump-to ─────────────────────────────────────────────────────
+// ─── TIMELINE-02: Turn grouping ───────────────────────────────────────────────
 
-describe('TIMELINE-02: Jump-to', () => {
-  it('"Next Approval" button scrolls to next approval_request event', () => {
-    const events = [makeToolCall(1), makeApprovalRequest(2)]
+describe('TIMELINE-02: Turn grouping', () => {
+  it('shows a Turns toggle button', () => {
+    const events = [makeToolCall(1)]
     useStore.setState({ events: { [SESSION_ID]: events } })
 
     renderPanel(SESSION_ID)
 
-    const nextApprovalBtn = screen.getByRole('button', { name: /next approval/i })
-    fireEvent.click(nextApprovalBtn)
-
-    expect(Element.prototype.scrollIntoView).toHaveBeenCalled()
+    expect(screen.getByRole('button', { name: /turns/i })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /raw events/i })).toBeInTheDocument()
   })
 
-  it('"Next File Change" button scrolls to next file_change event', () => {
-    const events = [makeToolCall(1), makeFileChange(2)]
-    useStore.setState({ events: { [SESSION_ID]: events } })
-
-    renderPanel(SESSION_ID)
-
-    const nextFileBtn = screen.getByRole('button', { name: /next file change/i })
-    fireEvent.click(nextFileBtn)
-
-    expect(Element.prototype.scrollIntoView).toHaveBeenCalled()
-  })
-
-  it('"Next Approval" button is disabled when no approval_request events exist', () => {
-    const events = [makeToolCall(1), makeFileChange(2)]
-    useStore.setState({ events: { [SESSION_ID]: events } })
-
-    renderPanel(SESSION_ID)
-
-    const nextApprovalBtn = screen.getByRole('button', { name: /next approval/i })
-    expect(nextApprovalBtn).toBeDisabled()
-  })
-
-  it('"Next File Change" button is disabled when no file_change events exist', () => {
-    const events = [makeToolCall(1), makeApprovalRequest(2)]
-    useStore.setState({ events: { [SESSION_ID]: events } })
-
-    renderPanel(SESSION_ID)
-
-    const nextFileBtn = screen.getByRole('button', { name: /next file change/i })
-    expect(nextFileBtn).toBeDisabled()
-  })
-})
-
-// ─── TIMELINE-03: Filter ──────────────────────────────────────────────────────
-
-describe('TIMELINE-03: Filter', () => {
-  it('clicking a filter chip hides rows that do not match the selected type', () => {
+  it('turns mode shows summary chips with tool/file/approval counts', () => {
     const events = [makeToolCall(1), makeFileChange(2), makeApprovalRequest(3)]
     useStore.setState({ events: { [SESSION_ID]: events } })
 
     renderPanel(SESSION_ID)
 
-    // Click "Tool Call" filter chip
-    const toolCallChip = screen.getByRole('button', { name: 'Tool Call' })
-    fireEvent.click(toolCallChip)
-
-    // In the timeline list: only "Tool Call" row visible, no "File Change" or "Approval Requested" rows
+    // Default is turns mode — summary chips should be visible
     const list = screen.getByTestId('timeline-list')
-    expect(within(list).getByText('Tool Call')).toBeInTheDocument()
-    expect(within(list).queryByText('File Change')).not.toBeInTheDocument()
-    expect(within(list).queryByText('Approval Requested')).not.toBeInTheDocument()
+    expect(within(list).getByText(/1 tools/i)).toBeInTheDocument()
+    expect(within(list).getByText(/1 files/i)).toBeInTheDocument()
+    expect(within(list).getByText(/1 approval/i)).toBeInTheDocument()
   })
 
-  it('clicking the active filter chip again clears the filter (shows all)', () => {
+  it('switching to raw mode shows individual event rows', () => {
     const events = [makeToolCall(1), makeFileChange(2)]
     useStore.setState({ events: { [SESSION_ID]: events } })
 
     renderPanel(SESSION_ID)
+    switchToRawMode()
 
-    const toolCallChip = screen.getByRole('button', { name: 'Tool Call' })
-    // Click once to filter
-    fireEvent.click(toolCallChip)
-    // Click again to clear
-    fireEvent.click(toolCallChip)
-
-    // Both rows should now be visible in the list
     const list = screen.getByTestId('timeline-list')
     expect(within(list).getByText('Tool Call')).toBeInTheDocument()
     expect(within(list).getByText('File Change')).toBeInTheDocument()
   })
 
-  it('"All" chip shows all events regardless of type', () => {
+  it('displays event + turn count in status readout', () => {
     const events = [makeToolCall(1), makeFileChange(2)]
     useStore.setState({ events: { [SESSION_ID]: events } })
 
     renderPanel(SESSION_ID)
 
-    // Apply a filter first
-    const toolCallChip = screen.getByRole('button', { name: 'Tool Call' })
-    fireEvent.click(toolCallChip)
-
-    // Now click "All" to clear
-    const allChip = screen.getByRole('button', { name: 'All' })
-    fireEvent.click(allChip)
-
-    const list = screen.getByTestId('timeline-list')
-    expect(within(list).getByText('Tool Call')).toBeInTheDocument()
-    expect(within(list).getByText('File Change')).toBeInTheDocument()
+    expect(screen.getByText(/2 events/i)).toBeInTheDocument()
   })
 })
 
-// ─── TIMELINE-04: Inline detail ──────────────────────────────────────────────
+// ─── TIMELINE-03: Raw mode event expansion ────────────────────────────────────
 
-describe('TIMELINE-04: Inline detail', () => {
-  it('clicking an event row renders an inline detail section below it', () => {
+describe('TIMELINE-03: Raw mode event expansion', () => {
+  it('clicking an event row in raw mode expands its detail (shows JSON with command)', () => {
     const events = [makeToolCall(1)]
     useStore.setState({ events: { [SESSION_ID]: events } })
 
     renderPanel(SESSION_ID)
-
-    // The chip bar also shows "Tool Call" — target the row inside the list
-    const list = screen.getByTestId('timeline-list')
-    const toolCallRowLabel = within(list).getByText('Tool Call')
-    fireEvent.click(toolCallRowLabel)
-
-    // Some detail content should appear
-    expect(screen.getByText('bash')).toBeInTheDocument()
-  })
-
-  it('tool_call inline detail shows toolName and JSON-stringified toolInput', () => {
-    const events = [makeToolCall(1)]
-    useStore.setState({ events: { [SESSION_ID]: events } })
-
-    renderPanel(SESSION_ID)
+    switchToRawMode()
 
     const list = screen.getByTestId('timeline-list')
-    const toolCallRowLabel = within(list).getByText('Tool Call')
-    fireEvent.click(toolCallRowLabel)
+    const toolCallRow = within(list).getByText('Tool Call')
+    fireEvent.click(toolCallRow)
 
-    expect(screen.getByText('bash')).toBeInTheDocument()
-    // JSON input should appear
+    // JSON expansion should contain the command
     expect(screen.getByText(/ls -la/)).toBeInTheDocument()
-  })
-
-  it('file_change inline detail shows filePath and changeType', () => {
-    const events = [makeFileChange(1)]
-    useStore.setState({ events: { [SESSION_ID]: events } })
-
-    renderPanel(SESSION_ID)
-
-    const list = screen.getByTestId('timeline-list')
-    const fileChangeRowLabel = within(list).getByText('File Change')
-    fireEvent.click(fileChangeRowLabel)
-
-    expect(screen.getByText(/index\.ts/)).toBeInTheDocument()
-    expect(screen.getByText(/modified/)).toBeInTheDocument()
-  })
-
-  it('approval_request inline detail shows proposedAction, riskLevel, and whyRisky', () => {
-    const events = [makeApprovalRequest(1)]
-    useStore.setState({ events: { [SESSION_ID]: events } })
-
-    renderPanel(SESSION_ID)
-
-    const list = screen.getByTestId('timeline-list')
-    const approvalRowLabel = within(list).getByText('Approval Requested')
-    fireEvent.click(approvalRowLabel)
-
-    expect(screen.getByText(/rm -rf \/tmp\/build/)).toBeInTheDocument()
-    expect(screen.getByText(/high/)).toBeInTheDocument()
-    expect(screen.getByText(/Deletes files permanently/)).toBeInTheDocument()
   })
 
   it('clicking the same row again collapses the inline detail (toggle)', () => {
@@ -314,17 +213,40 @@ describe('TIMELINE-04: Inline detail', () => {
     useStore.setState({ events: { [SESSION_ID]: events } })
 
     renderPanel(SESSION_ID)
+    switchToRawMode()
 
     const list = screen.getByTestId('timeline-list')
-    const toolCallRowLabel = within(list).getByText('Tool Call')
+    const toolCallRow = within(list).getByText('Tool Call')
 
-    // Open
-    fireEvent.click(toolCallRowLabel)
-    expect(screen.getByText('bash')).toBeInTheDocument()
+    // Expand — JSON with command becomes visible
+    fireEvent.click(toolCallRow)
+    expect(screen.getByText(/ls -la/)).toBeInTheDocument()
 
-    // Close — re-query since the DOM may have changed after open
-    const toolCallRowLabelAgain = within(list).getByText('Tool Call')
-    fireEvent.click(toolCallRowLabelAgain)
-    expect(screen.queryByText('bash')).not.toBeInTheDocument()
+    // Collapse — JSON disappears
+    const toolCallRowAgain = within(list).getByText('Tool Call')
+    fireEvent.click(toolCallRowAgain)
+    expect(screen.queryByText(/ls -la/)).not.toBeInTheDocument()
+  })
+})
+
+// ─── TIMELINE-04: Turns expansion ─────────────────────────────────────────────
+
+describe('TIMELINE-04: Turn expansion', () => {
+  it('clicking a turn card expands to show individual events', () => {
+    const events = [makeToolCall(1), makeFileChange(2)]
+    useStore.setState({ events: { [SESSION_ID]: events } })
+
+    renderPanel(SESSION_ID)
+
+    // Should see a turn card (default turns mode)
+    const list = screen.getByTestId('timeline-list')
+    // Click the turn card header (it contains the turn number and summary chips)
+    const turnCard = within(list).getByText(/1 tools/i).closest('[class*="cursor-pointer"]')
+    expect(turnCard).not.toBeNull()
+    fireEvent.click(turnCard!)
+
+    // Individual event rows should now be visible
+    expect(within(list).getByText('Tool Call')).toBeInTheDocument()
+    expect(within(list).getByText('File Change')).toBeInTheDocument()
   })
 })

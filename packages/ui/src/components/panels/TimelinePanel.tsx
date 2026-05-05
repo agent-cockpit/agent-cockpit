@@ -1,9 +1,115 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import type { NormalizedEvent } from '@agentcockpit/shared'
 import { useStore } from '../../store/index.js'
 import { EMPTY_EVENTS } from '../../store/eventsSlice.js'
 import { DAEMON_URL } from '../../lib/daemonUrl.js'
 import { usePanelSessionId } from './sessionScope.js'
+
+// ─── Turn grouping ─────────────────────────────────────────────────────────────
+
+interface TurnGroup {
+  id: string
+  startTime: string
+  endTime: string
+  events: NormalizedEvent[]
+  toolCalls: number
+  filesChanged: number
+  approvals: number
+  userPrompt?: string
+  assistantSummary?: string
+  isSessionBoundary: boolean
+}
+
+const TWO_MINUTES_MS = 2 * 60 * 1000
+
+function groupIntoTurns(events: NormalizedEvent[]): TurnGroup[] {
+  if (events.length === 0) return []
+
+  const turns: TurnGroup[] = []
+  let currentEvents: NormalizedEvent[] = []
+
+  function flushTurn() {
+    if (currentEvents.length === 0) return
+    const first = currentEvents[0]!
+    const last = currentEvents[currentEvents.length - 1]!
+    const toolCalls = currentEvents.filter((e) => e.type === 'tool_call').length
+    const filesChanged = currentEvents.filter((e) => e.type === 'file_change').length
+    const approvals = currentEvents.filter((e) => e.type === 'approval_request').length
+    const userMsg = currentEvents.find(
+      (e) => e.type === 'session_chat_message' && (e as { role: string }).role === 'user',
+    )
+    const assistantMsg = [...currentEvents]
+      .reverse()
+      .find((e) => e.type === 'session_chat_message' && (e as { role: string }).role === 'assistant')
+    const isBoundary = first.type === 'session_start' || first.type === 'session_end'
+
+    turns.push({
+      id: `turn-${turns.length}`,
+      startTime: first.timestamp,
+      endTime: last.timestamp,
+      events: [...currentEvents],
+      toolCalls,
+      filesChanged,
+      approvals,
+      userPrompt:
+        userMsg?.type === 'session_chat_message'
+          ? (userMsg as { content: string }).content.slice(0, 120)
+          : undefined,
+      assistantSummary:
+        assistantMsg?.type === 'session_chat_message'
+          ? (assistantMsg as { content: string }).content.slice(0, 120)
+          : undefined,
+      isSessionBoundary: isBoundary,
+    })
+    currentEvents = []
+  }
+
+  for (const event of events) {
+    // Session boundaries always start a new turn
+    if (event.type === 'session_start' || event.type === 'session_end') {
+      flushTurn()
+      currentEvents.push(event)
+      flushTurn()
+      continue
+    }
+
+    // User message starts a new turn
+    if (event.type === 'session_chat_message' && (event as { role: string }).role === 'user') {
+      flushTurn()
+      currentEvents.push(event)
+      continue
+    }
+
+    // Time gap > 2 min starts a new turn
+    const prev = currentEvents[currentEvents.length - 1]
+    if (prev) {
+      const gap = new Date(event.timestamp).getTime() - new Date(prev.timestamp).getTime()
+      if (gap > TWO_MINUTES_MS) {
+        flushTurn()
+      }
+    }
+
+    currentEvents.push(event)
+  }
+
+  flushTurn()
+  return turns
+}
+
+function formatTime(iso: string): string {
+  return new Date(iso).toLocaleTimeString()
+}
+
+function formatElapsed(startIso: string, endIso: string): string {
+  const ms = new Date(endIso).getTime() - new Date(startIso).getTime()
+  if (ms < 1000) return '<1s'
+  if (ms < 60000) return `${Math.floor(ms / 1000)}s`
+  const m = Math.floor(ms / 60000)
+  const s = Math.floor((ms % 60000) / 1000)
+  return `${m}m ${s}s`
+}
+
+// ─── Event detail (expanded within a turn) ────────────────────────────────────
 
 const EVENT_TYPE_LABELS: Record<string, string> = {
   session_start: 'Session Started',
@@ -13,325 +119,242 @@ const EVENT_TYPE_LABELS: Record<string, string> = {
   approval_request: 'Approval Requested',
   approval_resolved: 'Approval Resolved',
   subagent_spawn: 'Subagent Spawned',
-  subagent_complete: 'Subagent Completed',
+  subagent_complete: 'Subagent Done',
   memory_read: 'Memory Read',
-  memory_write: 'Memory Written',
+  memory_write: 'Memory Write',
   provider_parse_error: 'Parse Error',
-  session_chat_message: 'Chat Message',
+  session_chat_message: 'Chat',
   session_chat_error: 'Chat Error',
+  session_usage: 'Usage',
 }
 
-type EventWithSeq = NormalizedEvent & { sequenceNumber?: number }
+function eventAccentColor(type: string): string {
+  switch (type) {
+    case 'approval_request': return 'var(--color-cockpit-amber)'
+    case 'approval_resolved': return 'var(--color-cockpit-green)'
+    case 'file_change': return 'var(--color-cockpit-cyan)'
+    case 'provider_parse_error':
+    case 'session_chat_error': return 'var(--color-cockpit-red)'
+    case 'session_start':
+    case 'session_end': return 'var(--color-cockpit-dim)'
+    default: return 'var(--color-cockpit-accent)'
+  }
+}
 
-function Field({ label, value }: { label: string; value: string }) {
+function EventRow({ event }: { event: NormalizedEvent }) {
+  const [expanded, setExpanded] = useState(false)
+  const label = EVENT_TYPE_LABELS[event.type] ?? event.type
+  const color = eventAccentColor(event.type)
+
+  let detail = ''
+  if (event.type === 'tool_call') detail = event.toolName
+  else if (event.type === 'file_change') detail = `${event.changeType.toUpperCase()} ${event.filePath.split(/[/\\]/).pop() ?? event.filePath}`
+  else if (event.type === 'approval_request') detail = `${event.actionType} (${event.riskLevel})`
+  else if (event.type === 'approval_resolved') detail = event.decision
+  else if (event.type === 'session_chat_message') detail = `${(event as { role: string }).role}: ${(event as { content: string }).content.slice(0, 60)}…`
+  else if (event.type === 'memory_read') detail = (event as { memoryKey: string }).memoryKey
+  else if (event.type === 'memory_write') detail = (event as { memoryKey: string }).memoryKey
+  else if (event.type === 'session_usage') {
+    const e = event as { inputTokens: number; outputTokens: number }
+    detail = `in ${e.inputTokens} · out ${e.outputTokens}`
+  }
+
   return (
-    <div className="[font-family:var(--font-mono-data)]">
-      <span className="cockpit-label">{label}:&nbsp;</span>
-      <span className="text-muted-foreground">{value}</span>
+    <div>
+      <div
+        onClick={() => setExpanded((v) => !v)}
+        className="flex items-center gap-2 pl-8 pr-3 py-1 cursor-pointer hover:bg-muted/20 border-b border-border/20"
+      >
+        <span className="text-[9px] data-readout-dim w-14 shrink-0 tabular-nums">
+          {formatTime(event.timestamp)}
+        </span>
+        <span className="[font-family:var(--font-mono-data)] text-[9px] uppercase tracking-wide shrink-0" style={{ color, minWidth: '80px' }}>
+          {label}
+        </span>
+        <span className="text-[10px] text-muted-foreground truncate [font-family:var(--font-mono-data)]">
+          {detail}
+        </span>
+      </div>
+      {expanded && (
+        <div className="pl-8 pr-3 py-2 bg-[var(--color-panel-surface)] border-b border-border/30 text-[10px] text-muted-foreground [font-family:var(--font-mono-data)]">
+          <pre className="whitespace-pre-wrap break-words max-h-40 overflow-y-auto">
+            {JSON.stringify(event, null, 2)}
+          </pre>
+        </div>
+      )}
     </div>
   )
 }
 
-function InlineDetail({ event }: { event: NormalizedEvent }) {
-  const base = 'px-4 py-2 bg-[var(--color-panel-surface)] text-xs border-b border-border/50 text-muted-foreground'
+// ─── Turn card ─────────────────────────────────────────────────────────────────
 
-  if (event.type === 'tool_call') {
+function TurnCard({ turn, turnNumber }: { turn: TurnGroup; turnNumber: number }) {
+  const [expanded, setExpanded] = useState(false)
+
+  const borderColor = turn.approvals > 0
+    ? 'var(--color-cockpit-amber)'
+    : turn.filesChanged > 0
+      ? 'var(--color-cockpit-cyan)'
+      : 'var(--color-border)'
+
+  if (turn.isSessionBoundary) {
+    const isStar = turn.events[0]?.type === 'session_start'
     return (
-      <div className={base}>
-        <div className="[font-family:var(--font-mono-data)] font-medium text-[var(--color-cockpit-accent)]">{event.toolName}</div>
-        <pre className="mt-1 whitespace-pre-wrap text-muted-foreground [font-family:var(--font-mono-data)]">
-          {JSON.stringify(event.input, null, 2)}
-        </pre>
+      <div className="flex items-center gap-3 px-4 py-2 border-b border-border/40">
+        <span className="[font-family:var(--font-mono-data)] text-[10px] uppercase tracking-wide"
+              style={{ color: isStar ? 'var(--color-cockpit-green)' : 'var(--color-cockpit-dim)' }}>
+          {isStar ? '▶ Session Started' : '■ Session Ended'}
+        </span>
+        <span className="data-readout-dim text-[10px] tabular-nums">{formatTime(turn.startTime)}</span>
       </div>
     )
   }
 
-  if (event.type === 'file_change') {
-    return (
-      <div className={base}>
-        <div className="[font-family:var(--font-mono-data)] text-[var(--color-cockpit-accent)]">
-          {event.filePath}{' '}
-          <span className="text-muted-foreground">({event.changeType})</span>
-        </div>
-        {event.diff && (
-          <pre className="mt-1 whitespace-pre text-muted-foreground overflow-x-auto [font-family:var(--font-mono-data)]">{event.diff}</pre>
-        )}
-      </div>
-    )
-  }
+  return (
+    <div className="border-b border-border/40">
+      {/* Turn header */}
+      <div
+        onClick={() => setExpanded((v) => !v)}
+        className="flex items-start gap-3 px-4 py-2.5 cursor-pointer hover:bg-muted/10 transition-colors border-l-2"
+        style={{ borderLeftColor: expanded ? borderColor : 'transparent' }}
+      >
+        <span className="data-readout-dim text-[9px] tabular-nums w-8 shrink-0 pt-0.5">
+          #{String(turnNumber).padStart(2, '0')}
+        </span>
 
-  if (event.type === 'approval_request') {
-    return (
-      <div className={base}>
-        <div className="[font-family:var(--font-mono-data)]">
-          <span className="cockpit-label">Action:&nbsp;</span>{event.proposedAction}
-        </div>
-        <div className="[font-family:var(--font-mono-data)]">
-          <span className="cockpit-label">Risk:&nbsp;</span>{event.riskLevel}
-        </div>
-        {event.whyRisky && (
-          <div className="[font-family:var(--font-mono-data)]">
-            <span className="cockpit-label">Why risky:&nbsp;</span>{event.whyRisky}
+        <div className="flex-1 min-w-0">
+          {/* User prompt preview */}
+          {turn.userPrompt && (
+            <p className="text-[11px] text-foreground [font-family:var(--font-mono-data)] truncate mb-1">
+              {turn.userPrompt}
+            </p>
+          )}
+          {!turn.userPrompt && turn.toolCalls > 0 && (
+            <p className="text-[11px] text-foreground [font-family:var(--font-mono-data)] mb-1">
+              {turn.toolCalls} tool{turn.toolCalls > 1 ? 's' : ''} executed
+            </p>
+          )}
+
+          {/* Stat chips */}
+          <div className="flex flex-wrap gap-1.5 mt-1">
+            {turn.toolCalls > 0 && (
+              <span className="[font-family:var(--font-mono-data)] text-[9px] uppercase px-1 py-0.5 border"
+                    style={{ color: 'var(--color-cockpit-accent)', borderColor: 'color-mix(in srgb, var(--color-cockpit-accent) 40%, transparent)' }}>
+                {turn.toolCalls} tools
+              </span>
+            )}
+            {turn.filesChanged > 0 && (
+              <span className="[font-family:var(--font-mono-data)] text-[9px] uppercase px-1 py-0.5 border"
+                    style={{ color: 'var(--color-cockpit-cyan)', borderColor: 'color-mix(in srgb, var(--color-cockpit-cyan) 40%, transparent)' }}>
+                {turn.filesChanged} files
+              </span>
+            )}
+            {turn.approvals > 0 && (
+              <span className="[font-family:var(--font-mono-data)] text-[9px] uppercase px-1 py-0.5 border"
+                    style={{ color: 'var(--color-cockpit-amber)', borderColor: 'color-mix(in srgb, var(--color-cockpit-amber) 40%, transparent)' }}>
+                {turn.approvals} approval{turn.approvals > 1 ? 's' : ''}
+              </span>
+            )}
+            <span className="data-readout-dim text-[9px] tabular-nums">
+              {formatTime(turn.startTime)}
+              {turn.startTime !== turn.endTime && ` — ${formatElapsed(turn.startTime, turn.endTime)}`}
+            </span>
           </div>
-        )}
-      </div>
-    )
-  }
-
-  if (event.type === 'approval_resolved') {
-    return (
-      <div className={base}>
-        <Field label="Decision" value={event.decision} />
-        <Field label="ID" value={event.approvalId.slice(0, 8)} />
-      </div>
-    )
-  }
-
-  if (event.type === 'session_start') {
-    return (
-      <div className={base}>
-        <Field label="Provider" value={event.provider} />
-        <Field label="Workspace" value={event.workspacePath} />
-      </div>
-    )
-  }
-
-  if (event.type === 'session_end') {
-    return (
-      <div className={base}>
-        <Field label="Provider" value={event.provider} />
-        {event.exitCode !== undefined && <Field label="Exit code" value={String(event.exitCode)} />}
-      </div>
-    )
-  }
-
-  if (event.type === 'subagent_spawn') {
-    return (
-      <div className={base}>
-        <Field label="Subagent ID" value={event.subagentSessionId.slice(0, 8)} />
-      </div>
-    )
-  }
-
-  if (event.type === 'subagent_complete') {
-    return (
-      <div className={base}>
-        <Field label="Subagent ID" value={event.subagentSessionId.slice(0, 8)} />
-        <Field label="Success" value={event.success ? 'yes' : 'no'} />
-      </div>
-    )
-  }
-
-  if (event.type === 'memory_read') {
-    return (
-      <div className={base}>
-        <Field label="Key" value={event.memoryKey} />
-      </div>
-    )
-  }
-
-  if (event.type === 'memory_write') {
-    return (
-      <div className={base}>
-        <Field label="Key" value={event.memoryKey} />
-        <div className="[font-family:var(--font-mono-data)] mt-1">
-          <span className="cockpit-label">Value:&nbsp;</span>
-          <span className="text-muted-foreground whitespace-pre-wrap">{event.value}</span>
         </div>
-      </div>
-    )
-  }
 
-  if (event.type === 'provider_parse_error') {
-    return (
-      <div className={base}>
-        <Field label="Provider" value={event.provider} />
-        <div className="[font-family:var(--font-mono-data)] mt-1 text-[var(--color-cockpit-red)]">{event.errorMessage}</div>
-        <pre className="mt-1 whitespace-pre-wrap text-muted-foreground [font-family:var(--font-mono-data)] max-h-32 overflow-y-auto">
-          {event.rawPayload.slice(0, 500)}{event.rawPayload.length > 500 ? '…' : ''}
-        </pre>
+        <span className="data-readout-dim text-[10px] shrink-0 pt-0.5 transition-transform"
+              style={{ transform: expanded ? 'rotate(90deg)' : 'none' }}>
+          ▶
+        </span>
       </div>
-    )
-  }
 
-  if (event.type === 'session_chat_message') {
-    return (
-      <div className={base}>
-        <Field label="Role" value={event.role} />
-        <pre className="mt-1 whitespace-pre-wrap text-muted-foreground [font-family:var(--font-mono-data)] max-h-40 overflow-y-auto">
-          {event.content.slice(0, 600)}{event.content.length > 600 ? '…' : ''}
-        </pre>
-      </div>
-    )
-  }
-
-  if (event.type === 'session_chat_error') {
-    return (
-      <div className={base}>
-        <Field label="Code" value={event.reasonCode} />
-        <Field label="Reason" value={event.reason} />
-      </div>
-    )
-  }
-
-  return null
+      {/* Expanded events */}
+      {expanded && (
+        <div className="bg-[var(--color-panel-surface)]/30">
+          {turn.events.map((event, i) => (
+            <EventRow key={`${turn.id}-${i}`} event={event} />
+          ))}
+        </div>
+      )}
+    </div>
+  )
 }
+
+// ─── Component ────────────────────────────────────────────────────────────────
 
 export function TimelinePanel() {
   const sessionId = usePanelSessionId()
   const events = useStore((s) => s.events[sessionId!] ?? EMPTY_EVENTS)
   const bulkApplyEvents = useStore((s) => s.bulkApplyEvents)
+  const [viewMode, setViewMode] = useState<'turns' | 'raw'>('turns')
 
-  const [filterType, setFilterType] = useState<string | null>(null)
-  const [selectedSeq, setSelectedSeq] = useState<number | string | null>(null)
-  const [jumpIndex, setJumpIndex] = useState<number>(0)
-  const rowRefs = useRef<Map<number, HTMLElement>>(new Map())
-
-  // Hydration on mount — fetch only if empty
   useEffect(() => {
     if (!sessionId) return
     if (events.length > 0) return
     fetch(`${DAEMON_URL}/api/sessions/${sessionId}/events`)
       .then((r) => r.json())
       .then((evs: NormalizedEvent[]) => bulkApplyEvents(sessionId, evs))
-      .catch(() => {
-        /* silently ignore */
-      })
+      .catch(() => {})
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [sessionId]) // intentionally omit events/bulkApplyEvents — run once on mount
+  }, [sessionId])
 
-  // Pair each event with its original index, filter, then reverse (newest first)
-  const filteredEventsWithIdx = useMemo(() => {
-    const indexed = events.map((e, i) => ({ event: e, origIdx: i }))
-    const filtered = filterType ? indexed.filter(({ event }) => event.type === filterType) : indexed
-    return filtered.slice().reverse()
-  }, [events, filterType])
+  const turns = useMemo(() => groupIntoTurns(events), [events])
 
-  // Jump-to targets always from UNFILTERED list
-  const jumpTargets = events
-    .map((e, i) => ({ e, i }))
-    .filter(({ e }) => e.type === 'approval_request' || e.type === 'file_change')
+  // Reverse for newest-first in raw mode, keep chronological for turns
+  const rawEventsReversed = useMemo(() => [...events].reverse(), [events])
 
-  function jumpNext(type?: string) {
-    const targets = type ? jumpTargets.filter(({ e }) => e.type === type) : jumpTargets
-    const next = targets.find(({ i }) => i > jumpIndex)
-    if (next) {
-      setJumpIndex(next.i)
-      setFilterType(null)
-      rowRefs.current.get(next.i)?.scrollIntoView({ block: 'nearest' })
-    } else if (targets.length > 0) {
-      const first = targets[0]!
-      setJumpIndex(first.i)
-      setFilterType(null)
-      rowRefs.current.get(first.i)?.scrollIntoView({ block: 'nearest' })
-    }
-  }
-
-  function jumpPrev(type?: string) {
-    const targets = type ? jumpTargets.filter(({ e }) => e.type === type) : jumpTargets
-    const prev = [...targets].reverse().find(({ i }) => i < jumpIndex)
-    if (prev) {
-      setJumpIndex(prev.i)
-      setFilterType(null)
-      rowRefs.current.get(prev.i)?.scrollIntoView({ block: 'nearest' })
-    }
-  }
-
-  const ALL_TYPES = [...new Set(events.map((e) => e.type))]
+  let turnCounter = 0
 
   return (
     <div className="flex flex-col h-full overflow-hidden">
-      {/* Filter bar */}
-      <div className="flex flex-wrap gap-1 p-2 border-b border-border bg-[var(--color-panel-surface)]">
+      {/* Mode toggle */}
+      <div className="flex items-center gap-2 p-2 border-b border-border bg-[var(--color-panel-surface)]">
         <button
-          onClick={() => setFilterType(null)}
+          onClick={() => setViewMode('turns')}
           className={`px-2 py-0.5 text-[10px] [font-family:var(--font-mono-data)] uppercase tracking-wide transition-colors ${
-            filterType === null
+            viewMode === 'turns'
               ? 'border border-[color-mix(in_srgb,var(--color-cockpit-accent)_60%,transparent)] text-[var(--color-cockpit-accent)] bg-[color-mix(in_srgb,var(--color-cockpit-accent)_10%,transparent)]'
               : 'border border-border/60 text-muted-foreground hover:text-foreground hover:border-border'
           }`}
         >
-          All
+          Turns
         </button>
-        {ALL_TYPES.map((t) => (
-          <button
-            key={t}
-            onClick={() => setFilterType(filterType === t ? null : t)}
-            className={`px-2 py-0.5 text-[10px] [font-family:var(--font-mono-data)] uppercase tracking-wide transition-colors ${
-              filterType === t
-                ? 'border border-[color-mix(in_srgb,var(--color-cockpit-accent)_60%,transparent)] text-[var(--color-cockpit-accent)] bg-[color-mix(in_srgb,var(--color-cockpit-accent)_10%,transparent)]'
-                : 'border border-border/60 text-muted-foreground hover:text-foreground hover:border-border'
-            }`}
-          >
-            {EVENT_TYPE_LABELS[t] ?? t}
-          </button>
-        ))}
+        <button
+          onClick={() => setViewMode('raw')}
+          className={`px-2 py-0.5 text-[10px] [font-family:var(--font-mono-data)] uppercase tracking-wide transition-colors ${
+            viewMode === 'raw'
+              ? 'border border-[color-mix(in_srgb,var(--color-cockpit-accent)_60%,transparent)] text-[var(--color-cockpit-accent)] bg-[color-mix(in_srgb,var(--color-cockpit-accent)_10%,transparent)]'
+              : 'border border-border/60 text-muted-foreground hover:text-foreground hover:border-border'
+          }`}
+        >
+          Raw Events
+        </button>
+        <span className="data-readout-dim text-[10px] tabular-nums ml-auto">
+          {events.length} events · {turns.filter((t) => !t.isSessionBoundary).length} turns
+        </span>
       </div>
 
-      {/* Jump-to controls */}
-      <div className="flex gap-2 px-2 py-1.5 border-b border-border bg-[var(--color-panel-surface)]">
-        <button
-          onClick={() => jumpNext('approval_request')}
-          disabled={!jumpTargets.some(({ e }) => e.type === 'approval_request')}
-          className="cockpit-btn text-[9px] py-0.5 disabled:opacity-30"
-        >
-          Next Approval
-        </button>
-        <button
-          onClick={() => jumpNext('file_change')}
-          disabled={!jumpTargets.some(({ e }) => e.type === 'file_change')}
-          className="cockpit-btn text-[9px] py-0.5 disabled:opacity-30"
-        >
-          Next File Change
-        </button>
-        <button
-          onClick={() => jumpPrev('approval_request')}
-          disabled={!jumpTargets.some(({ e }) => e.type === 'approval_request')}
-          className="hidden"
-        >
-          Prev Approval
-        </button>
-        <button
-          onClick={() => jumpPrev('file_change')}
-          disabled={!jumpTargets.some(({ e }) => e.type === 'file_change')}
-          className="hidden"
-        >
-          Prev File Change
-        </button>
-      </div>
-
-      {/* Timeline list */}
       <div className="flex-1 overflow-y-auto" data-testid="timeline-list">
-        {filteredEventsWithIdx.length === 0 && (
+        {events.length === 0 && (
           <div className="flex items-center justify-center h-full cockpit-label" style={{ color: 'var(--color-cockpit-dim)' }}>
             -- NO EVENTS --
           </div>
         )}
-        {filteredEventsWithIdx.map(({ event, origIdx }) => {
-          const rowKey = (event as EventWithSeq).sequenceNumber ?? `idx-${origIdx}`
-          const isSelected = selectedSeq === rowKey
+
+        {viewMode === 'turns' && turns.map((turn) => {
+          if (!turn.isSessionBoundary) turnCounter++
           return (
-            <div key={rowKey}>
-              <div
-                ref={(el) => {
-                  if (el) rowRefs.current.set(origIdx, el)
-                }}
-                onClick={() => setSelectedSeq(isSelected ? null : rowKey)}
-                className={`flex items-start gap-2 px-3 py-2 cursor-pointer border-b border-border/40 transition-colors ${
-                  isSelected ? 'bg-[var(--color-panel-surface)] border-l-2 border-l-[color-mix(in_srgb,var(--color-cockpit-accent)_50%,transparent)]' : 'hover:bg-[var(--color-panel-surface)]/60'
-                }`}
-              >
-                <span className="data-readout-dim text-[10px] w-16 shrink-0 tabular-nums">
-                  {new Date(event.timestamp).toLocaleTimeString()}
-                </span>
-                <span className="[font-family:var(--font-mono-data)] text-[10px] uppercase tracking-wide text-foreground">
-                  {EVENT_TYPE_LABELS[event.type] ?? event.type}
-                </span>
-              </div>
-              {isSelected && <InlineDetail event={event} />}
-            </div>
+            <TurnCard
+              key={turn.id}
+              turn={turn}
+              turnNumber={turn.isSessionBoundary ? 0 : turnCounter}
+            />
           )
         })}
+
+        {viewMode === 'raw' && rawEventsReversed.map((event, i) => (
+          <EventRow key={`raw-${i}`} event={event} />
+        ))}
       </div>
     </div>
   )

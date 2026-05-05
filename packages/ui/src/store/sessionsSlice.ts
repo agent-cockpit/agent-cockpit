@@ -80,6 +80,19 @@ export function applyEventToSessions(
       }
       break
 
+    case 'session_usage':
+      if (sessions[event.sessionId]) {
+        sessions[event.sessionId] = {
+          ...sessions[event.sessionId]!,
+          totalInputTokens: event.inputTokens,
+          totalOutputTokens: event.outputTokens,
+          totalTokens: event.totalTokens,
+          contextPercent: event.contextPercent,
+          lastEventAt: now,
+        }
+      }
+      break
+
     default:
       // All other event types: update lastEventAt only if session exists
       if (sessions[event.sessionId]) {

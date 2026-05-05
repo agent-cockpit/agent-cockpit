@@ -5,9 +5,11 @@ import { HistoryPopup } from '../office/HistoryPopup.js'
 import { StatsPopup } from '../office/StatsPopup.js'
 import { scrollToSession } from '../../pages/OfficePage.js'
 import { useActiveSessions } from '../../store/selectors.js'
+import { useStore } from '../../store/index.js'
 
 export function OpsLayout() {
   const activeSessions = useActiveSessions()
+  const wsStatus = useStore((s) => s.wsStatus)
   const [historyOpen, setHistoryOpen] = useState(false)
   const [statsOpen, setStatsOpen] = useState(false)
   const activeSessionCount = activeSessions.length
