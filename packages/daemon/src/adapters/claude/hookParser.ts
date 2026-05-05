@@ -3,6 +3,7 @@ import type { NormalizedEvent } from '@agentcockpit/shared';
 import type Database from 'better-sqlite3';
 import { classifyRisk } from './riskClassifier.js';
 import { getClaudeSessionId, setClaudeSessionId } from '../../db/queries.js';
+import { logger } from '../../logger.js';
 
 export type HookPayload = {
   session_id: string;
@@ -400,19 +401,43 @@ export function parseHookPayload(payload: HookPayload): {
     }
 
     case 'Stop': {
-      const u = payload.usage;
-      if (u && (u.input_tokens || u.output_tokens)) {
-        const turnInput = u.input_tokens ?? 0;
-        const turnOutput = u.output_tokens ?? 0;
-        const turnCached = (u.cache_read_input_tokens ?? 0) + (u.cache_creation_input_tokens ?? 0);
-        // Accumulate across turns so the UI always shows session-total counts
+      // Log full Stop payload so we can see exactly what Claude sends
+      logger.info('hook', 'Stop hook payload', { sessionId: base.sessionId, payload: JSON.stringify(payload) });
+
+      // Pull token counts from wherever Claude decided to put them.
+      // Claude Code does not consistently include usage — try every known location.
+      const raw = payload as unknown as Record<string, unknown>;
+      const u = payload.usage ?? (raw['usage_stats'] as typeof payload.usage) ?? null;
+
+      // Top-level alternatives some Claude versions use
+      const inputTokens =
+        u?.input_tokens ??
+        (raw['input_tokens'] as number | undefined) ??
+        (raw['inputTokens'] as number | undefined) ??
+        0;
+      const outputTokens =
+        u?.output_tokens ??
+        (raw['output_tokens'] as number | undefined) ??
+        (raw['outputTokens'] as number | undefined) ??
+        0;
+      const cacheRead =
+        u?.cache_read_input_tokens ??
+        (raw['cache_read_input_tokens'] as number | undefined) ??
+        0;
+      const cacheCreate =
+        u?.cache_creation_input_tokens ??
+        (raw['cache_creation_input_tokens'] as number | undefined) ??
+        0;
+
+      if (inputTokens > 0 || outputTokens > 0) {
         const prev = tokenAccumulator.get(base.sessionId) ?? { input: 0, output: 0, cached: 0 };
         const acc = {
-          input: prev.input + turnInput,
-          output: prev.output + turnOutput,
-          cached: prev.cached + turnCached,
+          input: prev.input + inputTokens,
+          output: prev.output + outputTokens,
+          cached: prev.cached + cacheRead + cacheCreate,
         };
         tokenAccumulator.set(base.sessionId, acc);
+        logger.info('hook', 'Stop hook: emitting session_usage', { sessionId: base.sessionId, acc });
         return {
           event: {
             ...base,
@@ -426,6 +451,8 @@ export function parseHookPayload(payload: HookPayload): {
           requiresApproval: false,
         };
       }
+
+      logger.info('hook', 'Stop hook: no token data found in payload', { sessionId: base.sessionId });
       return {
         event: {
           ...base,

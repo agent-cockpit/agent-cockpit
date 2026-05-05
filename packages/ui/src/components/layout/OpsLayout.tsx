@@ -7,23 +7,12 @@ import { scrollToSession } from '../../pages/OfficePage.js'
 import { useActiveSessions } from '../../store/selectors.js'
 import { useStore } from '../../store/index.js'
 
-function fmtTokens(n: number): string {
-  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`
-  if (n >= 1_000) return `${(n / 1_000).toFixed(1)}K`
-  return String(n)
-}
-
 export function OpsLayout() {
   const activeSessions = useActiveSessions()
-  const allSessions = useStore((s) => s.sessions)
   const wsStatus = useStore((s) => s.wsStatus)
   const [historyOpen, setHistoryOpen] = useState(false)
   const [statsOpen, setStatsOpen] = useState(false)
   const activeSessionCount = activeSessions.length
-
-  const totalTokens = Object.values(allSessions).reduce((sum, s) => sum + (s.totalTokens ?? 0), 0)
-  const totalIn = Object.values(allSessions).reduce((sum, s) => sum + (s.totalInputTokens ?? 0), 0)
-  const totalOut = Object.values(allSessions).reduce((sum, s) => sum + (s.totalOutputTokens ?? 0), 0)
 
   return (
     <div className="flex flex-col h-screen bg-background text-foreground">
@@ -85,29 +74,6 @@ export function OpsLayout() {
         <HistoryPopup open={historyOpen} onClose={() => setHistoryOpen(false)} />
         <StatsPopup open={statsOpen} onClose={() => setStatsOpen(false)} />
       </main>
-
-      {/* Status bar */}
-      <footer className="flex flex-none items-center gap-4 border-t border-border bg-sidebar px-4"
-              style={{ height: '24px' }}>
-        <span className="data-readout text-[10px] tabular-nums">
-          <span className="data-readout-dim">WS:&nbsp;</span>
-          <span style={{ color: wsStatus === 'connected' ? 'var(--color-cockpit-green)' : wsStatus === 'connecting' ? 'var(--color-cockpit-amber)' : 'var(--color-cockpit-red)' }}>
-            {wsStatus.toUpperCase()}
-          </span>
-        </span>
-        <span className="data-readout-dim text-[10px]">·</span>
-        <span className="data-readout text-[10px] tabular-nums">
-          <span className="data-readout-dim">TOKENS&nbsp;IN:&nbsp;</span>
-          <span>{totalIn > 0 ? fmtTokens(totalIn) : '--'}</span>
-          <span className="data-readout-dim">&nbsp;OUT:&nbsp;</span>
-          <span>{totalOut > 0 ? fmtTokens(totalOut) : '--'}</span>
-          <span className="data-readout-dim">&nbsp;TOTAL:&nbsp;</span>
-          <span>{totalTokens > 0 ? fmtTokens(totalTokens) : '--'}</span>
-        </span>
-        <span className="ml-auto data-readout-dim text-[10px] tabular-nums">
-          v1
-        </span>
-      </footer>
     </div>
   )
 }

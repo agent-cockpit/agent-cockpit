@@ -83,17 +83,15 @@ export function SessionDetailPanel() {
           </span>
         )}
         <span className="ml-auto flex items-center gap-3">
-          {session.totalTokens !== undefined && session.totalTokens > 0 && (
-            <span className="data-readout text-[10px] tabular-nums">
-              <span className="data-readout-dim">IN:&nbsp;</span>
-              <span>{fmtTokens(session.totalInputTokens ?? 0)}</span>
-              <span className="data-readout-dim">&nbsp;/&nbsp;OUT:&nbsp;</span>
-              <span>{fmtTokens(session.totalOutputTokens ?? 0)}</span>
-              {session.contextPercent !== undefined && (
-                <span className="data-readout-dim">&nbsp;({session.contextPercent.toFixed(0)}%&nbsp;ctx)</span>
-              )}
-            </span>
-          )}
+          <span className="data-readout text-[10px] tabular-nums">
+            <span className="data-readout-dim">IN:&nbsp;</span>
+            <span>{session.totalInputTokens ? fmtTokens(session.totalInputTokens) : '--'}</span>
+            <span className="data-readout-dim">&nbsp;/&nbsp;OUT:&nbsp;</span>
+            <span>{session.totalOutputTokens ? fmtTokens(session.totalOutputTokens) : '--'}</span>
+            {session.contextPercent !== undefined && (
+              <span className="data-readout-dim">&nbsp;({session.contextPercent.toFixed(0)}%&nbsp;ctx)</span>
+            )}
+          </span>
           <span className="data-readout text-[10px] tabular-nums">
             {new Date(session.startedAt).toLocaleString()}
           </span>

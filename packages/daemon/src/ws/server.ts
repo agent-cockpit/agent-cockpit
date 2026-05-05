@@ -106,42 +106,98 @@ function isWithinRoot(candidatePath: string, rootPath: string): boolean {
 const ptyTokenAccumulator = new Map<string, { input: number; output: number }>()
 // Rolling buffer per session so patterns split across PTY chunks are still matched
 const ptyDataBuffers = new Map<string, string>()
-const PTY_BUFFER_MAX = 8192
+const PTY_BUFFER_MAX = 16384
+
+function stripAnsi(raw: string): string {
+  return raw
+    .replace(/\x1b\[[0-9;?]*[A-Za-z]/g, '')           // CSI sequences (colors, cursor movement)
+    .replace(/\x1b\][^\x07\x1b]*(?:\x07|\x1b\\)/g, '') // OSC sequences (window title, hyperlinks)
+    .replace(/\x1b[@-_][^\x80-\xff]?/g, '')            // 2-char ESC sequences
+    .replace(/[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]/g, '') // other non-printable control chars
+}
+
+// Try to extract (input, output) token counts from a clean (no-ANSI) text block.
+// Covers every known Claude Code terminal output format.
+function extractTokenCounts(text: string): { input: number; output: number } | null {
+  const t = text.replace(/\r/g, '\n')
+
+  function parse(s: string): number { return parseInt(s.replace(/,/g, ''), 10) }
+  function ok(n: number): boolean { return Number.isFinite(n) && n >= 0 }
+
+  // ── Format 1: "Input tokens: 1,234" + "Output tokens: 567" ─────────────────
+  // Covers: "Input tokens: X", "input token: X", "Input Tokens: X"
+  {
+    const i = t.match(/[Ii]nput\s+[Tt]okens?[:\s]+([\d,]+)/)
+    const o = t.match(/[Oo]utput\s+[Tt]okens?[:\s]+([\d,]+)/)
+    if (i && o) {
+      const input = parse(i[1]!), output = parse(o[1]!)
+      if (ok(input) && ok(output)) return { input, output }
+    }
+  }
+
+  // ── Format 2: "X↑ Y↓" — arrow AFTER number (most common in Claude Code UI) ─
+  {
+    const m = t.match(/([\d,]+)\s*↑[^\S\n]*([\d,]+)\s*↓/)
+    if (m) {
+      const input = parse(m[1]!), output = parse(m[2]!)
+      if (ok(input) && ok(output)) return { input, output }
+    }
+  }
+
+  // ── Format 3: "↑X ↓Y" — arrow BEFORE number ────────────────────────────────
+  {
+    const m = t.match(/↑\s*([\d,]+)[^\S\n↓]*↓\s*([\d,]+)/)
+    if (m) {
+      const input = parse(m[1]!), output = parse(m[2]!)
+      if (ok(input) && ok(output)) return { input, output }
+    }
+  }
+
+  // ── Format 4: "1,234 in, 567 out" or "1,234 in / 567 out" ──────────────────
+  {
+    const m = t.match(/([\d,]+)\s+in\b[^a-z\n]*?([\d,]+)\s+out\b/)
+    if (m) {
+      const input = parse(m[1]!), output = parse(m[2]!)
+      // Sanity: at least one of them must be > 0
+      if (ok(input) && ok(output) && (input > 0 || output > 0)) return { input, output }
+    }
+  }
+
+  // ── Format 5: "Input: 1,234" + "Output: 567" (short labels) ────────────────
+  {
+    const i = t.match(/\bInput:\s*([\d,]+)/)
+    const o = t.match(/\bOutput:\s*([\d,]+)/)
+    if (i && o) {
+      const input = parse(i[1]!), output = parse(o[1]!)
+      // Require input > 50 to avoid matching unrelated "Input: 5" style lines
+      if (ok(input) && ok(output) && input > 50) return { input, output }
+    }
+  }
+
+  // ── Format 6: "(1,234 input, 567 output)" — inside parentheses ──────────────
+  {
+    const m = t.match(/\(\s*([\d,]+)\s+input[^,)]*,?\s*([\d,]+)\s+output/)
+    if (m) {
+      const input = parse(m[1]!), output = parse(m[2]!)
+      if (ok(input) && ok(output)) return { input, output }
+    }
+  }
+
+  return null
+}
 
 function parsePtyTokens(sessionId: string, newData: string): { input: number; output: number } | null {
   let buf = (ptyDataBuffers.get(sessionId) ?? '') + newData
   if (buf.length > PTY_BUFFER_MAX) buf = buf.slice(-PTY_BUFFER_MAX)
   ptyDataBuffers.set(sessionId, buf)
 
-  // Strip ANSI/VT escape sequences so regexes can match plain text
-  const clean = buf
-    .replace(/\x1b\[[0-9;?]*[a-zA-Z]/g, '')
-    .replace(/\x1b\][^\x07\x1b]*(?:\x07|\x1b\\)/g, '')
-    .replace(/\r/g, '\n')
-
-  // Pattern: "Input tokens: 1,234" and "Output tokens: 567"
-  const inMatch = clean.match(/[Ii]nput\s+[Tt]okens?[:\s]+([\d,]+)/)
-  const outMatch = clean.match(/[Oo]utput\s+[Tt]okens?[:\s]+([\d,]+)/)
-  if (inMatch && outMatch) {
-    const input = parseInt(inMatch[1].replace(/,/g, ''), 10)
-    const output = parseInt(outMatch[1].replace(/,/g, ''), 10)
-    if (input > 0 || output > 0) {
-      ptyDataBuffers.set(sessionId, '')
-      return { input, output }
-    }
+  const clean = stripAnsi(buf)
+  const result = extractTokenCounts(clean)
+  if (result) {
+    logger.info('pty-tokens', 'Token match from PTY output', { sessionId, ...result })
+    ptyDataBuffers.set(sessionId, '')
+    return result
   }
-
-  // Pattern: "↑1,234 ↓567" (arrow format used in some Claude Code versions)
-  const arrowMatch = clean.match(/↑([\d,]+)[^↓\n]*↓([\d,]+)/)
-  if (arrowMatch) {
-    const input = parseInt(arrowMatch[1].replace(/,/g, ''), 10)
-    const output = parseInt(arrowMatch[2].replace(/,/g, ''), 10)
-    if (input > 0 || output > 0) {
-      ptyDataBuffers.set(sessionId, '')
-      return { input, output }
-    }
-  }
-
   return null
 }
 
