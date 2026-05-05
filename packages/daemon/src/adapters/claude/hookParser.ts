@@ -32,6 +32,7 @@ export type HookPayload = {
     cache_read_input_tokens?: number;
     cache_creation_input_tokens?: number;
   };
+  
 };
 
 // Tools auto-approved without user review. Everything NOT in this set triggers an

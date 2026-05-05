@@ -12,6 +12,7 @@ import { PtyLauncher, type PtyRuntime } from '../adapters/claude/ptyLauncher.js'
 import { markSessionStarted } from '../adapters/claude/hookServer.js';
 import { CodexAdapter } from '../adapters/codex/codexAdapter.js';
 import { getApprovalsBySession } from '../approvals/approvalStore.js';
+import { approvalQueue } from '../approvals/approvalQueue.js';
 import { deleteSessionRecords, getAllSessions, getEventsBySession, getSessionStats, getSessionSummary, getUsageStats, persistEvent, searchAll, type SessionSummary } from '../db/queries.js';
 import { eventBus } from '../eventBus.js';
 import { logger } from '../logger.js';
@@ -101,6 +102,49 @@ function isWithinRoot(candidatePath: string, rootPath: string): boolean {
   return relative === '' || (!relative.startsWith('..') && !path.isAbsolute(relative));
 }
 
+// Per-session cumulative token counts parsed from PTY terminal output
+const ptyTokenAccumulator = new Map<string, { input: number; output: number }>()
+// Rolling buffer per session so patterns split across PTY chunks are still matched
+const ptyDataBuffers = new Map<string, string>()
+const PTY_BUFFER_MAX = 8192
+
+function parsePtyTokens(sessionId: string, newData: string): { input: number; output: number } | null {
+  let buf = (ptyDataBuffers.get(sessionId) ?? '') + newData
+  if (buf.length > PTY_BUFFER_MAX) buf = buf.slice(-PTY_BUFFER_MAX)
+  ptyDataBuffers.set(sessionId, buf)
+
+  // Strip ANSI/VT escape sequences so regexes can match plain text
+  const clean = buf
+    .replace(/\x1b\[[0-9;?]*[a-zA-Z]/g, '')
+    .replace(/\x1b\][^\x07\x1b]*(?:\x07|\x1b\\)/g, '')
+    .replace(/\r/g, '\n')
+
+  // Pattern: "Input tokens: 1,234" and "Output tokens: 567"
+  const inMatch = clean.match(/[Ii]nput\s+[Tt]okens?[:\s]+([\d,]+)/)
+  const outMatch = clean.match(/[Oo]utput\s+[Tt]okens?[:\s]+([\d,]+)/)
+  if (inMatch && outMatch) {
+    const input = parseInt(inMatch[1].replace(/,/g, ''), 10)
+    const output = parseInt(outMatch[1].replace(/,/g, ''), 10)
+    if (input > 0 || output > 0) {
+      ptyDataBuffers.set(sessionId, '')
+      return { input, output }
+    }
+  }
+
+  // Pattern: "↑1,234 ↓567" (arrow format used in some Claude Code versions)
+  const arrowMatch = clean.match(/↑([\d,]+)[^↓\n]*↓([\d,]+)/)
+  if (arrowMatch) {
+    const input = parseInt(arrowMatch[1].replace(/,/g, ''), 10)
+    const output = parseInt(arrowMatch[2].replace(/,/g, ''), 10)
+    if (input > 0 || output > 0) {
+      ptyDataBuffers.set(sessionId, '')
+      return { input, output }
+    }
+  }
+
+  return null
+}
+
 function handleLaunchSession(
   req: http.IncomingMessage,
   res: http.ServerResponse,
@@ -159,10 +203,30 @@ function handleLaunchSession(
           const ptyRuntime = await ptyLaunch.launch(
             sessionId,
             workspacePath,
-            (data) => broadcastRaw(JSON.stringify({ type: 'pty_output', sessionId, data })),
+            (data) => {
+              broadcastRaw(JSON.stringify({ type: 'pty_output', sessionId, data }));
+              const parsed = parsePtyTokens(sessionId, data);
+              if (parsed) {
+                const prev = ptyTokenAccumulator.get(sessionId) ?? { input: 0, output: 0 };
+                const acc = { input: prev.input + parsed.input, output: prev.output + parsed.output };
+                ptyTokenAccumulator.set(sessionId, acc);
+                eventBus.emit('event', {
+                  schemaVersion: 1,
+                  sessionId,
+                  type: 'session_usage',
+                  provider: 'claude',
+                  timestamp: new Date().toISOString(),
+                  inputTokens: acc.input,
+                  outputTokens: acc.output,
+                  totalTokens: acc.input + acc.output,
+                } as NormalizedEvent);
+              }
+            },
             () => {
               ptyRegistry.delete(sessionId);
               runtimeRegistry.unregister(sessionId);
+              ptyTokenAccumulator.delete(sessionId);
+              ptyDataBuffers.delete(sessionId);
               eventBus.emit('event', {
                 schemaVersion: 1,
                 sessionId,
@@ -676,6 +740,12 @@ export function createWsServer(
       },
       ptyRegistry: {
         get: (sessionId) => ptyRegistry.get(sessionId),
+      },
+      autoApproveForSession: (sessionId) => {
+        const pendingIds = approvalQueue.getPendingForSession(sessionId);
+        if (pendingIds.length > 0) {
+          approvalQueue.decide(pendingIds[0]!, 'approve', db);
+        }
       },
     });
   });

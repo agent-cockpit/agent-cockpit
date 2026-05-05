@@ -108,6 +108,15 @@ export class ApprovalQueue {
     resolveCodexApproval(approvalId, decision);
   }
 
+  getPendingForSession(sessionId: string): string[] {
+    const ids: string[] = [];
+    for (const approvalId of pendingSet) {
+      const event = pendingEvents.get(approvalId);
+      if (event?.sessionId === sessionId) ids.push(approvalId);
+    }
+    return ids;
+  }
+
   handleTimeout(approvalId: string, db: Database.Database): void {
     const isLive = pendingSet.has(approvalId);
     if (!isLive) {
