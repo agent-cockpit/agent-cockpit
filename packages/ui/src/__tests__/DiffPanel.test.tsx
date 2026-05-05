@@ -161,7 +161,7 @@ describe('DiffPanel', () => {
 
     renderPanel(SESSION_ID)
 
-    expect(screen.getByText('No diff available')).toBeInTheDocument()
+    expect(screen.getByText('No diff available for this file.')).toBeInTheDocument()
   })
 
   it('lets the user switch files from the tree', () => {
@@ -238,9 +238,8 @@ describe('DiffPanel', () => {
 
     renderPanel(SESSION_ID)
 
-    expect(screen.getByText('No files changed')).toBeInTheDocument()
+    expect(screen.getByText('-- NO FILES CHANGED --')).toBeInTheDocument()
     expect(screen.queryByTestId('file-tree-row')).not.toBeInTheDocument()
-    expect(screen.getByText('-- SELECT FILE --')).toBeInTheDocument()
   })
 
   it('renders the summary banner with file count, status, and elapsed time', () => {

@@ -73,11 +73,7 @@ function deriveEntryFromToolCall(event: NormalizedEvent): Omit<FileEntry, 'lastS
       ? buildSyntheticDiff(filePath, changeType, null, content)
       : buildSyntheticDiff(filePath, changeType, oldString, newString)
 
-  return {
-    filePath,
-    changeType,
-    diff,
-  }
+  return { filePath, changeType, diff }
 }
 
 function deriveFileTree(events: NormalizedEvent[]): FileEntry[] {
@@ -95,30 +91,24 @@ function deriveFileTree(events: NormalizedEvent[]): FileEntry[] {
 
   events.forEach((event, index) => {
     if (event.type === 'file_change') {
-      upsertEntry({
-        filePath: event.filePath,
-        changeType: event.changeType,
-        diff: event.diff,
-      }, index)
+      upsertEntry({ filePath: event.filePath, changeType: event.changeType, diff: event.diff }, index)
       return
     }
-
     const toolEntry = deriveEntryFromToolCall(event)
-    if (toolEntry) {
-      upsertEntry(toolEntry, index)
-    }
+    if (toolEntry) upsertEntry(toolEntry, index)
   })
+
   return [...map.values()].sort((a, b) => b.lastSeenIndex - a.lastSeenIndex)
 }
 
 function formatElapsed(ms: number): string {
-  if (ms < 60000) {
-    return `${Math.floor(ms / 1000)}s`
-  }
+  if (ms < 60000) return `${Math.floor(ms / 1000)}s`
   const minutes = Math.floor(ms / 60000)
   const seconds = Math.floor((ms % 60000) / 1000)
   return `${minutes}m ${seconds}s`
 }
+
+// ─── Diff renderer ─────────────────────────────────────────────────────────────
 
 function DiffView({ diff }: { diff: string }) {
   const lines = diff.split('\n')
@@ -127,22 +117,14 @@ function DiffView({ diff }: { diff: string }) {
       {lines.map((line, i) => {
         if (line.startsWith('+') && !line.startsWith('+++')) {
           return (
-            <div
-              key={i}
-              data-testid="diff-line-add"
-              className="text-emerald-400 bg-emerald-900/20"
-            >
+            <div key={i} data-testid="diff-line-add" className="text-emerald-400 bg-emerald-900/20">
               {line}
             </div>
           )
         }
         if (line.startsWith('-') && !line.startsWith('---')) {
           return (
-            <div
-              key={i}
-              data-testid="diff-line-del"
-              className="text-rose-400 bg-rose-900/20"
-            >
+            <div key={i} data-testid="diff-line-del" className="text-rose-400 bg-rose-900/20">
               {line}
             </div>
           )
@@ -169,7 +151,6 @@ export function DiffPanel() {
   const session = useStore((s) => (sessionId ? s.sessions[sessionId] : undefined))
   const [selectedFilePath, setSelectedFilePath] = useState<string | null>(null)
 
-  // Derived values
   const fileTree = deriveFileTree(events)
   const filesTouched = fileTree.length
   const finalStatus = session?.status ?? 'unknown'
@@ -191,9 +172,7 @@ export function DiffPanel() {
     fetch(`${DAEMON_URL}/api/sessions/${sessionId}/events`)
       .then((r) => r.json())
       .then((evs: NormalizedEvent[]) => bulkApplyEvents(sessionId, evs))
-      .catch(() => {
-        /* silently ignore */
-      })
+      .catch(() => {})
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sessionId])
 
@@ -202,11 +181,9 @@ export function DiffPanel() {
       if (selectedFilePath !== null) setSelectedFilePath(null)
       return
     }
-
     const selectionStillExists = selectedFilePath
       ? fileTree.some((entry) => entry.filePath === selectedFilePath)
       : false
-
     if (!selectionStillExists) {
       setSelectedFilePath(fileTree[0]!.filePath)
     }
@@ -215,13 +192,22 @@ export function DiffPanel() {
   return (
     <div className="flex flex-col h-full">
       {/* Summary banner */}
-      <div className="flex items-center gap-4 px-4 py-2 border-b border-border bg-[var(--color-panel-surface)]">
+      <div className="flex items-center gap-4 px-4 py-2 border-b border-border bg-[var(--color-panel-surface)] shrink-0">
         <span className="data-readout text-[10px]">
           <span className="data-readout-dim">FILES:&nbsp;</span>
           <span className="tabular-nums">{String(filesTouched).padStart(2, '0')}</span>
         </span>
-        <span className="[font-family:var(--font-mono-data)] text-[10px] uppercase tracking-wide"
-              style={{ color: finalStatus === 'active' ? 'var(--color-cockpit-green)' : finalStatus === 'error' ? 'var(--color-cockpit-red)' : 'var(--color-cockpit-dim)' }}>
+        <span
+          className="[font-family:var(--font-mono-data)] text-[10px] uppercase tracking-wide"
+          style={{
+            color:
+              finalStatus === 'active'
+                ? 'var(--color-cockpit-green)'
+                : finalStatus === 'error'
+                  ? 'var(--color-cockpit-red)'
+                  : 'var(--color-cockpit-dim)',
+          }}
+        >
           {finalStatus}
         </span>
         {elapsedMs !== null && (
@@ -229,52 +215,81 @@ export function DiffPanel() {
         )}
       </div>
 
-      {/* Body: file tree + diff view */}
-      <div className="flex flex-1 overflow-hidden">
-        {/* File tree */}
-        <div className="w-64 border-r border-border overflow-y-auto bg-[var(--color-panel-surface)]">
-          {fileTree.length === 0 ? (
-            <div className="p-4 cockpit-label" style={{ color: 'var(--color-cockpit-dim)' }}>No files changed</div>
-          ) : (
-            fileTree.map((entry) => {
-              const changeColor =
-                entry.changeType === 'created' ? 'var(--color-cockpit-green)' :
-                entry.changeType === 'deleted' ? 'var(--color-cockpit-red)' :
-                'var(--color-cockpit-amber)'
-              return (
-                <div
-                  key={entry.filePath}
-                  data-testid="file-tree-row"
-                  onClick={() => setSelectedFilePath(entry.filePath)}
-                  className={`px-3 py-2 cursor-pointer transition-colors ${
-                    entry.filePath === selectedFilePath
-                      ? 'bg-[color-mix(in_srgb,var(--color-cockpit-accent)_10%,transparent)] border-l-2 border-l-[var(--color-cockpit-accent)]'
-                      : 'hover:bg-muted/30 border-l-2 border-l-transparent'
-                  }`}
-                >
-                  <div className="[font-family:var(--font-mono-data)] text-[10px] text-foreground">{entry.filePath.split('/').pop()}</div>
-                  <div className="data-readout-dim text-[10px] truncate">{entry.filePath}</div>
-                  <span className="[font-family:var(--font-mono-data)] text-[9px] uppercase" style={{ color: changeColor }}>
-                    {entry.changeType}
-                  </span>
-                </div>
-              )
-            })
-          )}
-        </div>
+      {/* File chips strip */}
+      {fileTree.length > 0 && (
+        <div className="flex items-center gap-1 px-2 py-1.5 border-b border-border bg-[var(--color-panel-surface)] overflow-x-auto shrink-0">
+          {fileTree.map((entry) => {
+            const changeColor =
+              entry.changeType === 'created'
+                ? 'var(--color-cockpit-green)'
+                : entry.changeType === 'deleted'
+                  ? 'var(--color-cockpit-red)'
+                  : 'var(--color-cockpit-amber)'
+            const isSelected = entry.filePath === selectedFilePath
+            const fileName = entry.filePath.split('/').pop() ?? entry.filePath
 
-        {/* Diff view */}
-        <div className="flex-1 overflow-auto">
-          {selectedEntry === null ? (
-            <div className="flex items-center justify-center h-full cockpit-label" style={{ color: 'var(--color-cockpit-dim)' }}>
-              -- SELECT FILE --
-            </div>
-          ) : selectedEntry.diff ? (
-            <DiffView diff={selectedEntry.diff} />
-          ) : (
-            <div className="p-4 cockpit-label" style={{ color: 'var(--color-cockpit-dim)' }}>No diff available</div>
-          )}
+            return (
+              <button
+                key={entry.filePath}
+                data-testid="file-tree-row"
+                onClick={() => setSelectedFilePath(entry.filePath)}
+                title={entry.filePath}
+                className={`flex items-center gap-1.5 px-2 py-1 shrink-0 border transition-colors [font-family:var(--font-mono-data)] text-[10px] ${
+                  isSelected
+                    ? 'border-[color-mix(in_srgb,var(--color-cockpit-accent)_60%,transparent)] bg-[color-mix(in_srgb,var(--color-cockpit-accent)_12%,transparent)] text-foreground'
+                    : 'border-border/50 text-muted-foreground hover:border-border hover:text-foreground'
+                }`}
+              >
+                <span className="text-[9px] uppercase font-semibold" style={{ color: changeColor }}>
+                  {entry.changeType === 'created' ? '+' : entry.changeType === 'deleted' ? '−' : '~'}
+                </span>
+                <span>{fileName}</span>
+              </button>
+            )
+          })}
         </div>
+      )}
+
+      {/* Selected file header */}
+      {selectedEntry && (
+        <div className="flex items-center gap-2 px-4 py-1.5 border-b border-border bg-[var(--color-panel-surface)]/50 shrink-0">
+          <span
+            className="[font-family:var(--font-mono-data)] text-[9px] uppercase font-semibold px-1 py-0.5 border"
+            style={{
+              color:
+                selectedEntry.changeType === 'created'
+                  ? 'var(--color-cockpit-green)'
+                  : selectedEntry.changeType === 'deleted'
+                    ? 'var(--color-cockpit-red)'
+                    : 'var(--color-cockpit-amber)',
+              borderColor: 'color-mix(in srgb, currentColor 40%, transparent)',
+            }}
+          >
+            {selectedEntry.changeType}
+          </span>
+          <span className="[font-family:var(--font-mono-data)] text-[11px] text-foreground truncate">
+            {selectedEntry.filePath}
+          </span>
+        </div>
+      )}
+
+      {/* Diff content */}
+      <div className="flex-1 overflow-auto">
+        {fileTree.length === 0 ? (
+          <div className="flex items-center justify-center h-full cockpit-label" style={{ color: 'var(--color-cockpit-dim)' }}>
+            -- NO FILES CHANGED --
+          </div>
+        ) : selectedEntry === null ? (
+          <div className="flex items-center justify-center h-full cockpit-label" style={{ color: 'var(--color-cockpit-dim)' }}>
+            -- SELECT FILE ABOVE --
+          </div>
+        ) : selectedEntry.diff ? (
+          <DiffView diff={selectedEntry.diff} />
+        ) : (
+          <div className="p-4 cockpit-label" style={{ color: 'var(--color-cockpit-dim)' }}>
+            No diff available for this file.
+          </div>
+        )}
       </div>
     </div>
   )

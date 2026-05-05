@@ -5,6 +5,12 @@ import type { PanelId } from '../../store/index.js'
 import { useStore } from '../../store/index.js'
 import { getProviderAccentStyle } from '../providerAccent.js'
 
+function fmtTokens(n: number): string {
+  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`
+  if (n >= 1_000) return `${(n / 1_000).toFixed(1)}K`
+  return String(n)
+}
+
 const TABS: { id: PanelId; label: string }[] = [
   { id: 'approvals', label: 'Approvals' },
   { id: 'timeline', label: 'Timeline' },
@@ -76,8 +82,21 @@ export function SessionDetailPanel() {
             {session.pendingApprovals} PENDING
           </span>
         )}
-        <span className="ml-auto data-readout text-[10px] tabular-nums">
-          {new Date(session.startedAt).toLocaleString()}
+        <span className="ml-auto flex items-center gap-3">
+          {session.totalTokens !== undefined && session.totalTokens > 0 && (
+            <span className="data-readout text-[10px] tabular-nums">
+              <span className="data-readout-dim">IN:&nbsp;</span>
+              <span>{fmtTokens(session.totalInputTokens ?? 0)}</span>
+              <span className="data-readout-dim">&nbsp;/&nbsp;OUT:&nbsp;</span>
+              <span>{fmtTokens(session.totalOutputTokens ?? 0)}</span>
+              {session.contextPercent !== undefined && (
+                <span className="data-readout-dim">&nbsp;({session.contextPercent.toFixed(0)}%&nbsp;ctx)</span>
+              )}
+            </span>
+          )}
+          <span className="data-readout text-[10px] tabular-nums">
+            {new Date(session.startedAt).toLocaleString()}
+          </span>
         </span>
       </div>
 
