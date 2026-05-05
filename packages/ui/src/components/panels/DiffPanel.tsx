@@ -226,7 +226,7 @@ export function DiffPanel() {
                   ? 'var(--color-cockpit-red)'
                   : 'var(--color-cockpit-amber)'
             const isSelected = entry.filePath === selectedFilePath
-            const fileName = entry.filePath.split('/').pop() ?? entry.filePath
+            const fileName = entry.filePath.split(/[/\\]/).pop() ?? entry.filePath
 
             return (
               <button

@@ -98,9 +98,11 @@ export class PtyLauncher {
         SessionEnd: [hookEntry()],
         PreToolUse: [hookEntry('')],
         PostToolUse: [hookEntry('')],
+        PermissionRequest: [hookEntry('')],
         SubagentStart: [hookEntry()],
         SubagentStop: [hookEntry()],
         Notification: [hookEntry()],
+        Stop: [hookEntry()],
       },
     };
 

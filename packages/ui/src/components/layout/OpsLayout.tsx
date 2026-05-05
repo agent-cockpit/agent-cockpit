@@ -95,19 +95,15 @@ export function OpsLayout() {
             {wsStatus.toUpperCase()}
           </span>
         </span>
-        {totalTokens > 0 && (
-          <>
-            <span className="data-readout-dim text-[10px]">·</span>
-            <span className="data-readout text-[10px] tabular-nums">
-              <span className="data-readout-dim">TOKENS&nbsp;IN:&nbsp;</span>
-              <span>{fmtTokens(totalIn)}</span>
-              <span className="data-readout-dim">&nbsp;OUT:&nbsp;</span>
-              <span>{fmtTokens(totalOut)}</span>
-              <span className="data-readout-dim">&nbsp;TOTAL:&nbsp;</span>
-              <span>{fmtTokens(totalTokens)}</span>
-            </span>
-          </>
-        )}
+        <span className="data-readout-dim text-[10px]">·</span>
+        <span className="data-readout text-[10px] tabular-nums">
+          <span className="data-readout-dim">TOKENS&nbsp;IN:&nbsp;</span>
+          <span>{totalIn > 0 ? fmtTokens(totalIn) : '--'}</span>
+          <span className="data-readout-dim">&nbsp;OUT:&nbsp;</span>
+          <span>{totalOut > 0 ? fmtTokens(totalOut) : '--'}</span>
+          <span className="data-readout-dim">&nbsp;TOTAL:&nbsp;</span>
+          <span>{totalTokens > 0 ? fmtTokens(totalTokens) : '--'}</span>
+        </span>
         <span className="ml-auto data-readout-dim text-[10px] tabular-nums">
           v1
         </span>

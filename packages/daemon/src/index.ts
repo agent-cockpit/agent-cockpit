@@ -82,7 +82,7 @@ hookServer.once('listening', () => {
   logger.info('daemon', 'Hook server listening', { port: HOOK_PORT });
 });
 
-const { wss, httpServer } = createWsServer(db, WS_PORT);
+const { wss, httpServer } = createWsServer(db, WS_PORT, HOOK_PORT);
 
 // Event pipeline: eventBus → persist → broadcast.
 // Must be wired before stale approval expiry so approval_resolved events are persisted.

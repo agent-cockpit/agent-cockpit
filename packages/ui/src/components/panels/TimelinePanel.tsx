@@ -148,7 +148,7 @@ function EventRow({ event }: { event: NormalizedEvent }) {
 
   let detail = ''
   if (event.type === 'tool_call') detail = event.toolName
-  else if (event.type === 'file_change') detail = `${event.changeType.toUpperCase()} ${event.filePath.split('/').pop() ?? event.filePath}`
+  else if (event.type === 'file_change') detail = `${event.changeType.toUpperCase()} ${event.filePath.split(/[/\\]/).pop() ?? event.filePath}`
   else if (event.type === 'approval_request') detail = `${event.actionType} (${event.riskLevel})`
   else if (event.type === 'approval_resolved') detail = event.decision
   else if (event.type === 'session_chat_message') detail = `${(event as { role: string }).role}: ${(event as { content: string }).content.slice(0, 60)}…`

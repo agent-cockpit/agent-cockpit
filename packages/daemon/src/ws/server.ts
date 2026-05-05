@@ -106,7 +106,7 @@ function handleLaunchSession(
   res: http.ServerResponse,
   db: Database.Database,
   runtimeRegistry: ManagedSessionRegistry,
-  extras: { broadcastRaw: (payload: string) => void; ptyRegistry: Map<string, PtyRuntime> },
+  extras: { broadcastRaw: (payload: string) => void; ptyRegistry: Map<string, PtyRuntime>; hookPort: number },
 ): void {
   let body = '';
   req.on('data', (chunk) => {
@@ -151,10 +151,9 @@ function handleLaunchSession(
         }
 
         const sessionId = crypto.randomUUID();
-        const hookPort = Number(process.env['COCKPIT_HOOK_PORT'] ?? '3002');
+        const { broadcastRaw, ptyRegistry, hookPort } = extras;
 
         if (provider === 'claude') {
-          const { broadcastRaw, ptyRegistry } = extras;
           const ptyLaunch = new PtyLauncher(hookPort, db);
           logger.info('launch', 'Launching claude PTY session', { sessionId, workspacePath, model });
           const ptyRuntime = await ptyLaunch.launch(
@@ -299,6 +298,7 @@ function serveStatic(req: http.IncomingMessage, res: http.ServerResponse): void 
 export function createWsServer(
   db: Database.Database,
   port: number,
+  hookPort: number,
 ): { wss: WebSocketServer; httpServer: ReturnType<typeof createServer>; runtimeRegistry: ManagedSessionRegistry } {
   const httpServer = createServer();
   const wss = new WebSocketServer({ noServer: true });
@@ -532,6 +532,7 @@ export function createWsServer(
       handleLaunchSession(req, res, db, runtimeRegistry, {
         broadcastRaw: (payload) => broadcast(wss, payload),
         ptyRegistry,
+        hookPort,
       });
       return;
     }

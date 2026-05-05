@@ -23,6 +23,15 @@ export type HookPayload = {
   requested_schema?: Record<string, unknown>;
   transcript_path?: string;
   permission_mode?: string;
+  // Stop hook fields
+  stop_hook_active?: boolean;
+  total_cost_usd?: number;
+  usage?: {
+    input_tokens?: number;
+    output_tokens?: number;
+    cache_read_input_tokens?: number;
+    cache_creation_input_tokens?: number;
+  };
 };
 
 // Tools auto-approved without user review. Everything NOT in this set triggers an
@@ -160,10 +169,54 @@ function extractChatText(value: unknown): string | null {
   return null;
 }
 
+// Per-session cumulative token counters for PTY Stop hook.
+const tokenAccumulator = new Map<string, { input: number; output: number; cached: number }>();
+
+function buildSyntheticDiff(
+  toolName: string,
+  toolInput: Record<string, unknown>,
+  filePath: string,
+): string | undefined {
+  if (toolName === 'Write') {
+    const content = typeof toolInput['content'] === 'string' ? toolInput['content'] : null;
+    if (!content) return undefined;
+    const lines = content.split('\n').slice(0, 300);
+    return [`--- /dev/null`, `+++ b/${filePath}`, '@@', ...lines.map((l) => `+${l}`)].join('\n');
+  }
+  if (toolName === 'Edit' || toolName === 'Update') {
+    const old = typeof toolInput['old_string'] === 'string' ? toolInput['old_string'] : null;
+    const nw = typeof toolInput['new_string'] === 'string' ? toolInput['new_string'] : null;
+    if (old === null || nw === null) return undefined;
+    return [
+      `--- a/${filePath}`, `+++ b/${filePath}`, '@@',
+      ...old.split('\n').map((l) => `-${l}`),
+      ...nw.split('\n').map((l) => `+${l}`),
+    ].join('\n');
+  }
+  if (toolName === 'MultiEdit') {
+    const edits = Array.isArray(toolInput['edits']) ? toolInput['edits'] : null;
+    if (!edits || edits.length === 0) return undefined;
+    const parts: string[] = [`--- a/${filePath}`, `+++ b/${filePath}`];
+    for (const edit of edits) {
+      if (!edit || typeof edit !== 'object') continue;
+      const e = edit as Record<string, unknown>;
+      const old = typeof e['old_string'] === 'string' ? e['old_string'] : null;
+      const nw = typeof e['new_string'] === 'string' ? e['new_string'] : null;
+      if (old !== null && nw !== null) {
+        parts.push('@@');
+        parts.push(...old.split('\n').map((l) => `-${l}`));
+        parts.push(...nw.split('\n').map((l) => `+${l}`));
+      }
+    }
+    return parts.join('\n');
+  }
+  return undefined;
+}
+
 function getFileChangeDetails(
   toolName: string,
   toolInput: Record<string, unknown>,
-): { filePath: string; changeType: 'created' | 'modified' | 'deleted' } | null {
+): { filePath: string; changeType: 'created' | 'modified' | 'deleted'; diff?: string } | null {
   if (toolName !== 'Write' && toolName !== 'Edit' && toolName !== 'Update' && toolName !== 'MultiEdit') {
     return null
   }
@@ -176,10 +229,10 @@ function getFileChangeDetails(
         : null
   if (!filePath) return null
 
-  return {
-    filePath,
-    changeType: toolName === 'Write' ? 'created' : 'modified',
-  }
+  const changeType: 'created' | 'modified' = toolName === 'Write' ? 'created' : 'modified';
+  const diff = buildSyntheticDiff(toolName, toolInput, filePath);
+
+  return { filePath, changeType, diff }
 }
 
 export function parseHookPayload(payload: HookPayload): {
@@ -342,6 +395,44 @@ export function parseHookPayload(payload: HookPayload): {
               : `MCP user input required (${serverName}, mode=${mode})`,
         },
         requiresApproval: true,
+      };
+    }
+
+    case 'Stop': {
+      const u = payload.usage;
+      if (u && (u.input_tokens || u.output_tokens)) {
+        const turnInput = u.input_tokens ?? 0;
+        const turnOutput = u.output_tokens ?? 0;
+        const turnCached = (u.cache_read_input_tokens ?? 0) + (u.cache_creation_input_tokens ?? 0);
+        // Accumulate across turns so the UI always shows session-total counts
+        const prev = tokenAccumulator.get(base.sessionId) ?? { input: 0, output: 0, cached: 0 };
+        const acc = {
+          input: prev.input + turnInput,
+          output: prev.output + turnOutput,
+          cached: prev.cached + turnCached,
+        };
+        tokenAccumulator.set(base.sessionId, acc);
+        return {
+          event: {
+            ...base,
+            type: 'session_usage',
+            provider: 'claude',
+            inputTokens: acc.input,
+            outputTokens: acc.output,
+            totalTokens: acc.input + acc.output,
+            cachedInputTokens: acc.cached,
+          },
+          requiresApproval: false,
+        };
+      }
+      return {
+        event: {
+          ...base,
+          type: 'tool_call',
+          toolName: 'Stop',
+          input: {},
+        },
+        requiresApproval: false,
       };
     }
 

@@ -297,7 +297,7 @@ export function InstancePopupHub({
     | undefined
   const character: CharacterType = liveSession?.character ?? 'astronaut'
   const workspacePath = liveSession?.workspacePath ?? historySession?.workspacePath
-  const projectName = workspacePath?.split('/').at(-1) ?? 'Session'
+  const projectName = workspacePath?.split(/[/\\]/).at(-1) ?? 'Session'
   const pendingApprovals = liveSession?.pendingApprovals ?? 0
   const statusKey = (liveSession?.status ?? historySession?.finalStatus ?? 'ended') as
     | 'active'
