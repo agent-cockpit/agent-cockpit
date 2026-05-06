@@ -171,3 +171,59 @@ describe('session_chat websocket dispatch', () => {
     db.close();
   });
 });
+
+describe('pty websocket dispatch', () => {
+  it('dispatches valid pty_resize payloads to the PTY runtime', () => {
+    const db = openDatabase(':memory:');
+    const sessionId = 'dddddddd-0000-0000-0000-000000000444';
+    const ws = new FakeWs() as unknown as WebSocket;
+    const resize = vi.fn();
+
+    handleConnection(ws, makeRequest(), db, {
+      ptyRegistry: {
+        get: () => ({ write: vi.fn(), resize }),
+      },
+    });
+
+    ws.emit('message', Buffer.from(JSON.stringify({
+      type: 'pty_resize',
+      sessionId,
+      cols: 120,
+      rows: 40,
+    })));
+
+    expect(resize).toHaveBeenCalledWith(120, 40);
+
+    db.close();
+  });
+
+  it('ignores invalid pty_resize payloads', () => {
+    const db = openDatabase(':memory:');
+    const sessionId = 'eeeeeeee-0000-0000-0000-000000000555';
+    const ws = new FakeWs() as unknown as WebSocket;
+    const resize = vi.fn();
+
+    handleConnection(ws, makeRequest(), db, {
+      ptyRegistry: {
+        get: () => ({ write: vi.fn(), resize }),
+      },
+    });
+
+    ws.emit('message', Buffer.from(JSON.stringify({
+      type: 'pty_resize',
+      sessionId,
+      cols: 120,
+      rows: 0,
+    })));
+    ws.emit('message', Buffer.from(JSON.stringify({
+      type: 'pty_resize',
+      sessionId,
+      cols: '120',
+      rows: 40,
+    })));
+
+    expect(resize).not.toHaveBeenCalled();
+
+    db.close();
+  });
+});
