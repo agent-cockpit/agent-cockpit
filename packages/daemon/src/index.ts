@@ -89,7 +89,7 @@ hookServer.once('listening', () => {
   logger.info('daemon', 'Hook server listening', { port: HOOK_PORT });
 });
 
-const { wss, httpServer } = createWsServer(db, WS_PORT, HOOK_PORT);
+const { wss, httpServer, resumeClaudeSession } = createWsServer(db, WS_PORT, HOOK_PORT);
 
 // Event pipeline: eventBus → persist → broadcast.
 // Must be wired before stale approval expiry so approval_resolved events are persisted.
@@ -193,6 +193,25 @@ for (const sessionId of orphaned) {
     provider: 'claude',
     timestamp: new Date().toISOString(),
   } as import('@agentcockpit/shared').NormalizedEvent);
+}
+
+// Resume active managed Claude sessions that survived the daemon restart.
+// Runs after orphaned session cleanup so only truly recent sessions are resumed.
+const resumableSessions = getAllSessions(db).filter(
+  (s) => s.finalStatus === 'active' && s.provider === 'claude' && s.capabilities.managedByDaemon,
+);
+if (resumableSessions.length > 0) {
+  logger.info('daemon', `Resuming ${resumableSessions.length} managed Claude session(s)`, {
+    sessionIds: resumableSessions.map((s) => s.sessionId),
+  });
+  for (const session of resumableSessions) {
+    resumeClaudeSession(session.sessionId, session.workspacePath).catch((err: unknown) => {
+      logger.warn('daemon', 'Failed to resume Claude session', {
+        sessionId: session.sessionId,
+        error: String(err),
+      });
+    });
+  }
 }
 
 // Graceful shutdown

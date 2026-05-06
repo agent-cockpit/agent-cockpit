@@ -75,12 +75,7 @@ export function HistoryPage({ onSessionOpen }: HistoryPageProps) {
     [deleteTargets, historySessions],
   )
 
-  const nonTerminableActiveTargets = useMemo(
-    () => activeDeleteTargets.filter((s) => s.capabilities?.canTerminateSession === false),
-    [activeDeleteTargets],
-  )
-
-  const canConfirmDelete = !isDeleting && deleteTargets.length > 0 && nonTerminableActiveTargets.length === 0
+  const canConfirmDelete = !isDeleting && deleteTargets.length > 0
   const canCompare = deleteSelectionIds.length === 2
   const isCompareOpen = compareSelectionIds.length === 2 && !!compareLeft && !!compareRight
 
@@ -370,12 +365,7 @@ export function HistoryPage({ onSessionOpen }: HistoryPageProps) {
               </p>
               {activeDeleteTargets.length > 0 && (
                 <p className="[font-family:var(--font-mono-data)] text-[11px] text-yellow-300" data-testid="delete-active-warning">
-                  {activeDeleteTargets.length} active session(s) will be terminated before deletion. Continue?
-                </p>
-              )}
-              {nonTerminableActiveTargets.length > 0 && (
-                <p className="[font-family:var(--font-mono-data)] text-[11px] text-red-300" data-testid="delete-active-blocked-warning">
-                  {nonTerminableActiveTargets.length} active session(s) cannot be terminated by daemon and cannot be deleted.
+                  {activeDeleteTargets.length} active session(s) will be terminated before deletion.
                 </p>
               )}
               {deleteError && (

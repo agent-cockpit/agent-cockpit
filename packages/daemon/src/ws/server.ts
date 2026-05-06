@@ -19,7 +19,7 @@ import { markSessionStarted } from '../adapters/claude/hookServer.js';
 import { CodexAdapter } from '../adapters/codex/codexAdapter.js';
 import { getApprovalsBySession } from '../approvals/approvalStore.js';
 import { approvalQueue } from '../approvals/approvalQueue.js';
-import { deleteSessionRecords, getAllSessions, getEventsBySession, getSessionStats, getSessionSummary, getUsageStats, persistEvent, searchAll, type SessionSummary } from '../db/queries.js';
+import { deleteSessionRecords, getAllSessions, getEventsBySession, getSessionStats, getSessionSummary, getUsageStats, isSessionRecordDeleted, persistEvent, searchAll, type SessionSummary } from '../db/queries.js';
 import { eventBus } from '../eventBus.js';
 import { logger } from '../logger.js';
 import { deleteNote, insertNote, listNotes } from '../memory/memoryNotes.js';
@@ -304,13 +304,15 @@ function handleLaunchSession(
               ptyTokenAccumulator.delete(sessionId);
               ptyTranscriptUsageSnapshots.delete(sessionId);
               ptyDataBuffers.delete(sessionId);
-              eventBus.emit('event', {
-                schemaVersion: 1,
-                sessionId,
-                type: 'session_end',
-                provider: 'claude',
-                timestamp: new Date().toISOString(),
-              } as NormalizedEvent);
+              if (!isSessionRecordDeleted(db, sessionId)) {
+                eventBus.emit('event', {
+                  schemaVersion: 1,
+                  sessionId,
+                  type: 'session_end',
+                  provider: 'claude',
+                  timestamp: new Date().toISOString(),
+                } as NormalizedEvent);
+              }
             },
             model,
             typeof cols === 'number' && cols > 0 ? cols : undefined,
@@ -440,7 +442,7 @@ export function createWsServer(
   db: Database.Database,
   port: number,
   hookPort: number,
-): { wss: WebSocketServer; httpServer: ReturnType<typeof createServer>; runtimeRegistry: ManagedSessionRegistry } {
+): { wss: WebSocketServer; httpServer: ReturnType<typeof createServer>; runtimeRegistry: ManagedSessionRegistry; resumeClaudeSession: (sessionId: string, workspacePath: string, model?: string) => Promise<void> } {
   const httpServer = createServer();
   const wss = new WebSocketServer({ noServer: true });
   const runtimeRegistry = createManagedSessionRegistry();
@@ -610,29 +612,17 @@ export function createWsServer(
                   continue;
                 }
 
-                const runtimeAwareSummary = applyRuntimeCapabilityState(summary, runtimeRegistry);
-                if (runtimeAwareSummary.capabilities.canTerminateSession !== true) {
-                  skipped.push({
-                    sessionId,
-                    reason: runtimeAwareSummary.capabilities.reason ?? 'Active session cannot be terminated by daemon.',
-                  });
-                  continue;
-                }
-
+                // Best-effort termination — never blocks deletion
                 const runtime = runtimeRegistry.get(sessionId);
-                if (!runtime?.terminateSession) {
-                  skipped.push({ sessionId, reason: 'Managed session runtime is not available for terminate.' });
-                  continue;
+                if (runtime?.terminateSession) {
+                  try {
+                    await Promise.resolve(runtime.terminateSession());
+                    terminatedSessionIds.push(sessionId);
+                  } catch {
+                    // Termination failed; proceed with force-delete
+                  }
                 }
-
-                try {
-                  await Promise.resolve(runtime.terminateSession());
-                  runtimeRegistry.unregister(sessionId);
-                  terminatedSessionIds.push(sessionId);
-                } catch (err) {
-                  skipped.push({ sessionId, reason: `Failed to terminate session: ${String(err)}` });
-                  continue;
-                }
+                runtimeRegistry.unregister(sessionId);
               }
 
               deleteSessionRecords(db, sessionId);
@@ -839,7 +829,68 @@ export function createWsServer(
     logger.info('ws', `WebSocket server listening`, { url: `ws://localhost:${port}` });
   });
 
-  return { wss, httpServer, runtimeRegistry };
+  async function resumeClaudeSession(sessionId: string, workspacePath: string, model?: string): Promise<void> {
+    if (runtimeRegistry.has(sessionId)) return;
+
+    const ptyLaunch = new PtyLauncher(hookPort, db);
+    logger.info('resume', 'Resuming Claude PTY session', { sessionId, workspacePath });
+
+    const ptyRuntime = await ptyLaunch.launch(
+      sessionId,
+      workspacePath,
+      (data) => {
+        broadcast(wss, JSON.stringify({ type: 'pty_output', sessionId, data }));
+        if (emitClaudeTranscriptUsageIfChanged(sessionId, workspacePath)) return;
+        const parsed = parsePtyTokens(sessionId, data);
+        if (parsed) {
+          const prev = ptyTokenAccumulator.get(sessionId) ?? { input: 0, output: 0 };
+          const acc = { input: prev.input + parsed.input, output: prev.output + parsed.output };
+          ptyTokenAccumulator.set(sessionId, acc);
+          eventBus.emit('event', {
+            schemaVersion: 1,
+            sessionId,
+            type: 'session_usage',
+            provider: 'claude',
+            timestamp: new Date().toISOString(),
+            inputTokens: acc.input,
+            outputTokens: acc.output,
+            totalTokens: acc.input + acc.output,
+          } as NormalizedEvent);
+        }
+      },
+      () => {
+        ptyRegistry.delete(sessionId);
+        runtimeRegistry.unregister(sessionId);
+        ptyTokenAccumulator.delete(sessionId);
+        ptyTranscriptUsageSnapshots.delete(sessionId);
+        ptyDataBuffers.delete(sessionId);
+        if (!isSessionRecordDeleted(db, sessionId)) {
+          eventBus.emit('event', {
+            schemaVersion: 1,
+            sessionId,
+            type: 'session_end',
+            provider: 'claude',
+            timestamp: new Date().toISOString(),
+          } as NormalizedEvent);
+        }
+      },
+      model,
+      80,
+      24,
+      true,
+    );
+
+    ptyRegistry.set(sessionId, ptyRuntime);
+    runtimeRegistry.register(sessionId, {
+      provider: 'claude',
+      sendMessage: (msg) => { ptyRuntime.write(msg + '\n'); return Promise.resolve(); },
+      terminateSession: () => ptyRuntime.kill(),
+    });
+
+    logger.info('resume', 'Claude PTY session resumed', { sessionId });
+  }
+
+  return { wss, httpServer, runtimeRegistry, resumeClaudeSession };
 }
 
 export function broadcast(wss: WebSocketServer, payload: string, db?: Database.Database): void {

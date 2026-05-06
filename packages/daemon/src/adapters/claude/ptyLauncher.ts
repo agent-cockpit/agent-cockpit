@@ -80,6 +80,7 @@ export class PtyLauncher {
     model?: string,
     cols = 80,
     rows = 24,
+    resume = false,
   ): Promise<PtyRuntime> {
     const HOOK_TIMEOUT_S = 60;
     const HOOK_TIMEOUT_MS = (HOOK_TIMEOUT_S - 5) * 1000;
@@ -125,11 +126,13 @@ export class PtyLauncher {
       throw new Error('claude binary not found on PATH');
     }
 
-    const claudeArgs = [
-      '--session-id', sessionId,
-      '--settings', settingsPath,
-      ...(model ? ['--model', model] : []),
-    ];
+    const claudeArgs = resume
+      ? ['--resume', sessionId, '--settings', settingsPath]
+      : [
+          '--session-id', sessionId,
+          '--settings', settingsPath,
+          ...(model ? ['--model', model] : []),
+        ];
 
     const isWindows = process.platform === 'win32';
 
