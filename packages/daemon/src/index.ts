@@ -4,6 +4,8 @@ import {
   getStartedSessionIds,
   backfillSessionStarts,
   getOrphanedSessionIds,
+  getAllSessions,
+  getLatestSessionUsageSnapshot,
   shouldPersistEvent,
   cleanupDuplicateRecords,
 } from './db/queries.js';
@@ -16,6 +18,11 @@ import { eventBus } from './eventBus.js';
 import { logger } from './logger.js';
 import { ingestExternalCodexCliSessions } from './adapters/codex/externalSessionIngest.js'
 import { ingestExternalClaudeSessions } from './adapters/claude/externalSessionIngest.js';
+import {
+  areClaudeUsageSnapshotsEqual,
+  readClaudeTranscriptUsage,
+  toClaudeTranscriptUsageEvent,
+} from './adapters/claude/transcriptUsage.js';
 import type { WebSocketServer } from 'ws';
 import type Database from 'better-sqlite3';
 import type http from 'node:http';
@@ -141,8 +148,25 @@ function importExternalClaudeSessions(): void {
     if (imported > 0) {
       logger.info('claude-external', 'Imported external Claude sessions', { imported });
     }
+    syncClaudeTranscriptUsage();
   } catch (err) {
     logger.warn('claude-external', 'Failed to import external Claude sessions', { error: String(err) });
+  }
+}
+
+function syncClaudeTranscriptUsage(): void {
+  const sessions = getAllSessions(db)
+  for (const session of sessions) {
+    if (session.provider !== 'claude' || session.finalStatus !== 'active') continue
+    if (!session.workspacePath) continue
+
+    const usage = readClaudeTranscriptUsage(session.sessionId, session.workspacePath)
+    if (!usage) continue
+
+    const previous = getLatestSessionUsageSnapshot(db, session.sessionId)
+    if (areClaudeUsageSnapshotsEqual(previous, usage)) continue
+
+    eventBus.emit('event', toClaudeTranscriptUsageEvent(session.sessionId, usage))
   }
 }
 

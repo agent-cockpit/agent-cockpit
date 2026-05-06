@@ -575,6 +575,62 @@ export interface SessionStats {
   duration: number | null
 }
 
+export interface LatestSessionUsageSnapshot {
+  model?: string
+  inputTokens: number
+  outputTokens: number
+  totalTokens: number
+  cachedInputTokens: number
+  contextUsedTokens?: number
+  contextWindowTokens?: number
+  contextPercent?: number
+}
+
+export function getLatestSessionUsageSnapshot(
+  db: Database.Database,
+  sessionId: string,
+): LatestSessionUsageSnapshot | null {
+  const row = db.prepare<[string], {
+    inputTokens: number | null
+    outputTokens: number | null
+    totalTokens: number | null
+    cachedInputTokens: number | null
+    contextUsedTokens: number | null
+    contextWindowTokens: number | null
+    contextPercent: number | null
+    model: string | null
+  }>(`
+    SELECT
+      CAST(JSON_EXTRACT(payload, '$.inputTokens') AS INTEGER)          AS inputTokens,
+      CAST(JSON_EXTRACT(payload, '$.outputTokens') AS INTEGER)         AS outputTokens,
+      CAST(JSON_EXTRACT(payload, '$.totalTokens') AS INTEGER)          AS totalTokens,
+      CAST(JSON_EXTRACT(payload, '$.cachedInputTokens') AS INTEGER)    AS cachedInputTokens,
+      CAST(JSON_EXTRACT(payload, '$.contextUsedTokens') AS INTEGER)    AS contextUsedTokens,
+      CAST(JSON_EXTRACT(payload, '$.contextWindowTokens') AS INTEGER)  AS contextWindowTokens,
+      CAST(JSON_EXTRACT(payload, '$.contextPercent') AS REAL)          AS contextPercent,
+      JSON_EXTRACT(payload, '$.model')                                 AS model
+    FROM events
+    WHERE session_id = ? AND type = 'session_usage'
+    ORDER BY sequence_number DESC
+    LIMIT 1
+  `).get(sessionId)
+
+  if (!row) return null
+
+  const inputTokens = row.inputTokens ?? 0
+  const outputTokens = row.outputTokens ?? 0
+  return {
+    ...(row.model ? { model: row.model } : {}),
+    inputTokens,
+    outputTokens,
+    totalTokens: row.totalTokens ?? inputTokens + outputTokens,
+    cachedInputTokens: row.cachedInputTokens ?? 0,
+    ...(row.contextUsedTokens !== null ? { contextUsedTokens: row.contextUsedTokens } : {}),
+    ...(row.contextWindowTokens !== null ? { contextWindowTokens: row.contextWindowTokens } : {}),
+    ...(row.contextPercent !== null ? { contextPercent: row.contextPercent } : {}),
+  }
+}
+
 export function getSessionStats(db: Database.Database, sessionId: string): SessionStats {
   // Tokens — last session_usage event for this session
   const usageRow = db.prepare<[string], {
