@@ -17,6 +17,7 @@ export function SessionListPanel() {
   const selectedSessionId = useStore((s) => s.selectedSessionId)
   const activeSubagentParents = useStore((s) => s.activeSubagentParents)
   const setHistoryMode = useStore((s) => s.setHistoryMode)
+  const closeSessionPopup = useStore((s) => s.closeSessionPopup)
   const sessionsById = useStore((s) => s.sessions)
   const wsStatus = useStore((s) => s.wsStatus)
   const [launchOpen, setLaunchOpen] = useState(false)
@@ -82,6 +83,8 @@ export function SessionListPanel() {
         [confirmTerminateSessionId]: wsUnavailableReason,
       }))
       setTerminatingSessionId(null)
+    } else {
+      closeSessionPopup(confirmTerminateSessionId)
     }
     setConfirmTerminateSessionId(null)
   }
