@@ -11,8 +11,8 @@ export const AUDIO_SETTINGS_STORAGE_KEY = 'cockpit.audio.settings.v1'
 
 const DEFAULT_AUDIO_SETTINGS: AudioSettings = {
   muted: false,
-  musicVolume: 0.55,
-  sfxVolume: 0.2,
+  musicVolume: 0.4,
+  sfxVolume: 0.1,
 }
 
 const MUSIC_CROSSFADE_SEC = 8
@@ -20,8 +20,8 @@ const MIN_CROSSFADE_SEC = 0.4
 const MIN_NEXT_TRACK_DELAY_SEC = 0.6
 const DEFAULT_WALK_COOLDOWN_MS = 280
 const DEFAULT_RUN_COOLDOWN_MS = 170
-const FOOTSTEP_SAMPLE_BASE_GAIN = 0.52
-const RUN_SAMPLE_GAIN_MULTIPLIER = 1.35
+const FOOTSTEP_SAMPLE_BASE_GAIN = 0.1
+const RUN_SAMPLE_GAIN_MULTIPLIER = 0.8
 const IS_TEST_ENV = import.meta.env?.MODE === 'test'
 
 type MovementMode = 'walk' | 'run'
