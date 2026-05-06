@@ -424,6 +424,8 @@ export function InstancePopupHub({
     if (!queued) {
       setTerminateError(wsUnavailableReason)
       setIsTerminating(false)
+    } else {
+      onClose()
     }
     setConfirmTerminateOpen(false)
   }
