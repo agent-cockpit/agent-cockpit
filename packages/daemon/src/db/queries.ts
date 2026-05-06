@@ -875,14 +875,40 @@ export function getUsageStats(db: Database.Database): UsageStats {
   }
 }
 
+export function isSessionRecordDeleted(db: Database.Database, sessionId: string): boolean {
+  const row = db.prepare('SELECT 1 AS found FROM events WHERE session_id = ? LIMIT 1').get(sessionId)
+  return !row
+}
+
+export function isExternalSessionDeleted(db: Database.Database, externalId: string): boolean {
+  const row = db.prepare('SELECT 1 AS found FROM deleted_sessions WHERE external_session_id = ? LIMIT 1').get(externalId) as { found: number } | undefined
+  return !!row?.found
+}
+
 export function deleteSessionRecords(db: Database.Database, sessionId: string): void {
   const remove = db.transaction((id: string) => {
+    const claudeRow = db.prepare('SELECT claude_id FROM claude_sessions WHERE session_id = ?').get(id) as { claude_id: string } | undefined
+    const codexRow = db.prepare('SELECT thread_id FROM codex_sessions WHERE session_id = ?').get(id) as { thread_id: string } | undefined
+
     db.prepare('DELETE FROM search_fts WHERE session_id = ?').run(id);
     db.prepare('DELETE FROM always_allow_rules WHERE session_id = ?').run(id);
     db.prepare('DELETE FROM approvals WHERE session_id = ?').run(id);
     db.prepare('DELETE FROM events WHERE session_id = ?').run(id);
     db.prepare('DELETE FROM codex_sessions WHERE session_id = ?').run(id);
     db.prepare('DELETE FROM claude_sessions WHERE session_id = ?').run(id);
+
+    const now = new Date().toISOString()
+    // Claude managed: tombstone by claude_id (what the Claude poller checks)
+    if (claudeRow?.claude_id) {
+      db.prepare('INSERT OR IGNORE INTO deleted_sessions (external_session_id, deleted_at) VALUES (?, ?)').run(claudeRow.claude_id, now)
+    }
+    // Codex managed: tombstone by thread_id (what the Codex poller checks)
+    if (codexRow?.thread_id) {
+      db.prepare('INSERT OR IGNORE INTO deleted_sessions (external_session_id, deleted_at) VALUES (?, ?)').run(codexRow.thread_id, now)
+    }
+    // External Codex sessions: sessionId = thread ID from Codex DB (no codex_sessions row)
+    // Claude poller checks claude_id, not cockpit UUID, so this only affects the Codex poller
+    db.prepare('INSERT OR IGNORE INTO deleted_sessions (external_session_id, deleted_at) VALUES (?, ?)').run(id, now)
   });
 
   remove(sessionId);

@@ -19,7 +19,7 @@ import { markSessionStarted } from '../adapters/claude/hookServer.js';
 import { CodexAdapter } from '../adapters/codex/codexAdapter.js';
 import { getApprovalsBySession } from '../approvals/approvalStore.js';
 import { approvalQueue } from '../approvals/approvalQueue.js';
-import { deleteSessionRecords, getAllSessions, getEventsBySession, getSessionStats, getSessionSummary, getUsageStats, persistEvent, searchAll, type SessionSummary } from '../db/queries.js';
+import { deleteSessionRecords, getAllSessions, getEventsBySession, getSessionStats, getSessionSummary, getUsageStats, isSessionRecordDeleted, persistEvent, searchAll, type SessionSummary } from '../db/queries.js';
 import { eventBus } from '../eventBus.js';
 import { logger } from '../logger.js';
 import { deleteNote, insertNote, listNotes } from '../memory/memoryNotes.js';
@@ -304,13 +304,15 @@ function handleLaunchSession(
               ptyTokenAccumulator.delete(sessionId);
               ptyTranscriptUsageSnapshots.delete(sessionId);
               ptyDataBuffers.delete(sessionId);
-              eventBus.emit('event', {
-                schemaVersion: 1,
-                sessionId,
-                type: 'session_end',
-                provider: 'claude',
-                timestamp: new Date().toISOString(),
-              } as NormalizedEvent);
+              if (!isSessionRecordDeleted(db, sessionId)) {
+                eventBus.emit('event', {
+                  schemaVersion: 1,
+                  sessionId,
+                  type: 'session_end',
+                  provider: 'claude',
+                  timestamp: new Date().toISOString(),
+                } as NormalizedEvent);
+              }
             },
             model,
             typeof cols === 'number' && cols > 0 ? cols : undefined,
@@ -862,13 +864,15 @@ export function createWsServer(
         ptyTokenAccumulator.delete(sessionId);
         ptyTranscriptUsageSnapshots.delete(sessionId);
         ptyDataBuffers.delete(sessionId);
-        eventBus.emit('event', {
-          schemaVersion: 1,
-          sessionId,
-          type: 'session_end',
-          provider: 'claude',
-          timestamp: new Date().toISOString(),
-        } as NormalizedEvent);
+        if (!isSessionRecordDeleted(db, sessionId)) {
+          eventBus.emit('event', {
+            schemaVersion: 1,
+            sessionId,
+            type: 'session_end',
+            provider: 'claude',
+            timestamp: new Date().toISOString(),
+          } as NormalizedEvent);
+        }
       },
       model,
       80,

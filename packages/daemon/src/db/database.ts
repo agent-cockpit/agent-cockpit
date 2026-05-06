@@ -94,6 +94,11 @@ export function openDatabase(dbPath: string): Database.Database {
       session_id UNINDEXED,
       tokenize='unicode61'
     );
+
+    CREATE TABLE IF NOT EXISTS deleted_sessions (
+      external_session_id TEXT PRIMARY KEY,
+      deleted_at          TEXT NOT NULL
+    );
   `);
 
   // One-time backfill: index any rows that existed before Phase 8

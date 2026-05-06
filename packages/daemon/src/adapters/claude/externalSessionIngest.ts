@@ -3,7 +3,7 @@ import * as os from 'node:os'
 import * as path from 'node:path'
 import type Database from 'better-sqlite3'
 import type { NormalizedEvent } from '@agentcockpit/shared'
-import { EXTERNAL_SESSION_REASON, persistEvent } from '../../db/queries.js'
+import { EXTERNAL_SESSION_REASON, isExternalSessionDeleted, persistEvent } from '../../db/queries.js'
 import { getOrCreateSessionId } from './hookParser.js'
 
 interface ClaudeSessionFile {
@@ -110,11 +110,15 @@ export function ingestExternalClaudeSessions(
   let imported = 0
 
   for (const file of files) {
+    if (isExternalSessionDeleted(db, file.sessionId)) continue
+
     const cockpitId = getOrCreateSessionId(file.sessionId, file.cwd)
     const { hasStart, hasEnd, startedAsManaged } = getSessionStatus(db, cockpitId)
     const pidStatus = (options.probePid ?? probePid)(file.pid)
 
-    if (!hasStart) {
+    // Never import a session whose process is already dead — avoids ghost sessions
+    // appearing briefly on daemon restart or after DB cleanup, only to be closed next poll.
+    if (!hasStart && pidStatus !== 'dead') {
       const ts = file.startedAt ? new Date(file.startedAt).toISOString() : new Date().toISOString()
       emit({
         schemaVersion: 1,
