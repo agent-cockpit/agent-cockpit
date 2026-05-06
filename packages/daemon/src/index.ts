@@ -17,7 +17,7 @@ import { getAllPendingApprovals } from './approvals/approvalStore.js';
 import { eventBus } from './eventBus.js';
 import { logger } from './logger.js';
 import { ingestExternalCodexCliSessions } from './adapters/codex/externalSessionIngest.js'
-import { ingestExternalClaudeSessions } from './adapters/claude/externalSessionIngest.js';
+import { ingestExternalClaudeSessions, importAllExternalClaudeTranscripts } from './adapters/claude/externalSessionIngest.js';
 import {
   areClaudeUsageSnapshotsEqual,
   readClaudeTranscriptUsage,
@@ -148,6 +148,13 @@ function importExternalClaudeSessions(): void {
     if (imported > 0) {
       logger.info('claude-external', 'Imported external Claude sessions', { imported });
     }
+
+    // Import transcript history for any newly detected sessions (idempotent — skips already-imported)
+    const transcriptEvents = importAllExternalClaudeTranscripts(db);
+    if (transcriptEvents > 0) {
+      logger.info('claude-external', 'Imported transcript history from external Claude sessions', { events: transcriptEvents });
+    }
+
     syncClaudeTranscriptUsage();
   } catch (err) {
     logger.warn('claude-external', 'Failed to import external Claude sessions', { error: String(err) });

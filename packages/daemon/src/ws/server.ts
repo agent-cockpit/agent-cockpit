@@ -72,9 +72,7 @@ function applyRuntimeCapabilityState(
       },
     }
   }
-  if (!base.managedByDaemon) {
-    return summary
-  }
+  // Runtime registered means we have a live PTY for this session (even if it started externally)
   if (runtimeRegistry.has(summary.sessionId)) {
     return {
       ...summary,
@@ -85,6 +83,11 @@ function applyRuntimeCapabilityState(
       },
     }
   }
+  // External sessions with no PTY: approval-only, return as-is
+  if (!base.managedByDaemon) {
+    return summary
+  }
+  // Managed session whose PTY process isn't registered yet (e.g. failed resume)
   return {
     ...summary,
     capabilities: {
@@ -442,7 +445,7 @@ export function createWsServer(
   db: Database.Database,
   port: number,
   hookPort: number,
-): { wss: WebSocketServer; httpServer: ReturnType<typeof createServer>; runtimeRegistry: ManagedSessionRegistry; resumeClaudeSession: (sessionId: string, workspacePath: string, model?: string) => Promise<void> } {
+): { wss: WebSocketServer; httpServer: ReturnType<typeof createServer>; runtimeRegistry: ManagedSessionRegistry; resumeClaudeSession: (sessionId: string, workspacePath: string, model?: string, claudeSessionId?: string) => Promise<void> } {
   const httpServer = createServer();
   const wss = new WebSocketServer({ noServer: true });
   const runtimeRegistry = createManagedSessionRegistry();
@@ -814,6 +817,38 @@ export function createWsServer(
           approvalQueue.decide(pendingIds[0]!, 'approve', db);
         }
       },
+      adoptSession: async (sessionId: string) => {
+        if (runtimeRegistry.has(sessionId)) return; // already interactive
+
+        // Look up the original claude session ID from the DB mapping
+        const claudeRow = db
+          .prepare('SELECT claude_id FROM claude_sessions WHERE session_id = ?')
+          .get(sessionId) as { claude_id: string } | undefined;
+        const claudeId = claudeRow?.claude_id;
+
+        const summary = getSessionSummary(db, sessionId);
+        if (!summary?.workspacePath) return;
+
+        // Find and kill the original external process so --resume doesn't conflict
+        if (claudeId) {
+          const sessionsDir = path.join(os.homedir(), '.claude', 'sessions');
+          try {
+            for (const fname of fs.readdirSync(sessionsDir)) {
+              if (!fname.endsWith('.json')) continue;
+              const raw = fs.readFileSync(path.join(sessionsDir, fname), 'utf8');
+              const data = JSON.parse(raw) as { sessionId?: string; pid?: number };
+              if (data.sessionId === claudeId && typeof data.pid === 'number') {
+                try { process.kill(data.pid, 'SIGTERM'); } catch {}
+                break;
+              }
+            }
+          } catch {}
+          // Brief pause so the process releases the session before we resume
+          await new Promise<void>((resolve) => setTimeout(resolve, 1200));
+        }
+
+        await resumeClaudeSession(sessionId, summary.workspacePath, undefined, claudeId);
+      },
     });
   });
 
@@ -829,11 +864,11 @@ export function createWsServer(
     logger.info('ws', `WebSocket server listening`, { url: `ws://localhost:${port}` });
   });
 
-  async function resumeClaudeSession(sessionId: string, workspacePath: string, model?: string): Promise<void> {
+  async function resumeClaudeSession(sessionId: string, workspacePath: string, model?: string, claudeSessionId?: string): Promise<void> {
     if (runtimeRegistry.has(sessionId)) return;
 
     const ptyLaunch = new PtyLauncher(hookPort, db);
-    logger.info('resume', 'Resuming Claude PTY session', { sessionId, workspacePath });
+    logger.info('resume', 'Resuming Claude PTY session', { sessionId, workspacePath, claudeSessionId });
 
     const ptyRuntime = await ptyLaunch.launch(
       sessionId,
@@ -878,6 +913,7 @@ export function createWsServer(
       80,
       24,
       true,
+      claudeSessionId,
     );
 
     ptyRegistry.set(sessionId, ptyRuntime);

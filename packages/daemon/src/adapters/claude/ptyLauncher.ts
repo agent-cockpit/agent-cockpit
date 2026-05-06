@@ -81,6 +81,7 @@ export class PtyLauncher {
     cols = 80,
     rows = 24,
     resume = false,
+    claudeIdForResume?: string,
   ): Promise<PtyRuntime> {
     const HOOK_TIMEOUT_S = 60;
     const HOOK_TIMEOUT_MS = (HOOK_TIMEOUT_S - 5) * 1000;
@@ -127,7 +128,7 @@ export class PtyLauncher {
     }
 
     const claudeArgs = resume
-      ? ['--resume', sessionId, '--settings', settingsPath]
+      ? ['--resume', claudeIdForResume ?? sessionId, '--settings', settingsPath]
       : [
           '--session-id', sessionId,
           '--settings', settingsPath,

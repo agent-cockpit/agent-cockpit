@@ -27,6 +27,7 @@ interface ConnectionDeps {
     get: (sessionId: string) => PtyHandle | undefined
   }
   autoApproveForSession?: (sessionId: string) => void
+  adoptSession?: (sessionId: string) => Promise<void>
 }
 
 export function handleConnection(
@@ -331,6 +332,16 @@ export function handleConnection(
             `Failed to terminate session: ${String(err)}`,
           );
         });
+    }
+
+    if (m['type'] === 'session_adopt') {
+      const sessionId = m['sessionId'];
+      if (typeof sessionId !== 'string') return;
+      if (deps?.adoptSession) {
+        void deps.adoptSession(sessionId).catch((err: unknown) => {
+          logger.warn('ws', 'Session adoption failed', { sessionId, error: String(err) });
+        });
+      }
     }
   });
 
