@@ -8,6 +8,12 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { WebSocket, WebSocketServer } from 'ws';
 import { LaunchError } from '../adapters/claude/claudeLauncher.js';
+import {
+  areClaudeUsageSnapshotsEqual,
+  readClaudeTranscriptUsage,
+  toClaudeTranscriptUsageEvent,
+  type ClaudeTranscriptUsageSnapshot,
+} from '../adapters/claude/transcriptUsage.js';
 import { PtyLauncher, type PtyRuntime } from '../adapters/claude/ptyLauncher.js';
 import { markSessionStarted } from '../adapters/claude/hookServer.js';
 import { CodexAdapter } from '../adapters/codex/codexAdapter.js';
@@ -104,6 +110,7 @@ function isWithinRoot(candidatePath: string, rootPath: string): boolean {
 
 // Per-session cumulative token counts parsed from PTY terminal output
 const ptyTokenAccumulator = new Map<string, { input: number; output: number }>()
+const ptyTranscriptUsageSnapshots = new Map<string, ClaudeTranscriptUsageSnapshot>()
 // Rolling buffer per session so patterns split across PTY chunks are still matched
 const ptyDataBuffers = new Map<string, string>()
 const PTY_BUFFER_MAX = 16384
@@ -201,6 +208,18 @@ function parsePtyTokens(sessionId: string, newData: string): { input: number; ou
   return null
 }
 
+function emitClaudeTranscriptUsageIfChanged(sessionId: string, workspacePath: string): boolean {
+  const usage = readClaudeTranscriptUsage(sessionId, workspacePath)
+  if (!usage) return false
+
+  const previous = ptyTranscriptUsageSnapshots.get(sessionId)
+  if (areClaudeUsageSnapshotsEqual(previous, usage)) return true
+
+  ptyTranscriptUsageSnapshots.set(sessionId, usage)
+  eventBus.emit('event', toClaudeTranscriptUsageEvent(sessionId, usage))
+  return true
+}
+
 function handleLaunchSession(
   req: http.IncomingMessage,
   res: http.ServerResponse,
@@ -261,6 +280,7 @@ function handleLaunchSession(
             workspacePath,
             (data) => {
               broadcastRaw(JSON.stringify({ type: 'pty_output', sessionId, data }));
+              if (emitClaudeTranscriptUsageIfChanged(sessionId, workspacePath)) return;
               const parsed = parsePtyTokens(sessionId, data);
               if (parsed) {
                 const prev = ptyTokenAccumulator.get(sessionId) ?? { input: 0, output: 0 };
@@ -282,6 +302,7 @@ function handleLaunchSession(
               ptyRegistry.delete(sessionId);
               runtimeRegistry.unregister(sessionId);
               ptyTokenAccumulator.delete(sessionId);
+              ptyTranscriptUsageSnapshots.delete(sessionId);
               ptyDataBuffers.delete(sessionId);
               eventBus.emit('event', {
                 schemaVersion: 1,
