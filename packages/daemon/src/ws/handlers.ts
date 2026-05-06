@@ -28,6 +28,7 @@ interface ConnectionDeps {
   }
   autoApproveForSession?: (sessionId: string) => void
   adoptSession?: (sessionId: string) => Promise<void>
+  sendToExternalSession?: (sessionId: string, message: string) => Promise<void>
 }
 
 export function handleConnection(
@@ -204,7 +205,9 @@ export function handleConnection(
         contentLen: content.trim().length,
       });
 
-      if (!summary.capabilities.canSendMessage) {
+      // External sessions bypass the stored canSendMessage flag — they use sendToExternalSession
+      const isExternalSendable = !summary.capabilities.managedByDaemon && !!deps?.sendToExternalSession
+      if (!summary.capabilities.canSendMessage && !isExternalSendable) {
         logger.warn('ws', 'Chat send blocked', {
           sessionId,
           reason: summary.capabilities.reason,
@@ -219,6 +222,23 @@ export function handleConnection(
       }
 
       if (!runtime) {
+        if (isExternalSendable) {
+          // Emit user message immediately for UI feedback, then send via background claude -p
+          emit({
+            schemaVersion: 1,
+            sessionId,
+            timestamp: new Date().toISOString(),
+            type: 'session_chat_message',
+            provider,
+            role: 'user',
+            content: content.trim(),
+          })
+          void deps!.sendToExternalSession!(sessionId, content.trim()).catch((err: unknown) => {
+            logger.error('ws', 'External session send failed', { sessionId, error: String(err) })
+            emitChatError(sessionId, provider, 'CHAT_SEND_FAILED', `Failed to send: ${String(err)}`)
+          })
+          return
+        }
         logger.warn('ws', 'Chat runtime unavailable', { sessionId, provider });
         emitChatError(
           sessionId,

@@ -492,14 +492,12 @@ export function InstancePopupHub({
                     {pendingApprovals} Pending
                   </span>
                 )}
-                {liveSession?.status === 'active' && !liveSession.managedByDaemon && liveSession.canSendMessage !== true && effectiveSessionId && (
-                  <button
-                    type="button"
-                    onClick={() => sendWsMessage({ type: 'session_adopt', sessionId: effectiveSessionId })}
-                    className="inline-flex items-center border border-blue-400/55 bg-blue-500/20 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-[0.14em] [font-family:var(--font-mono-data)] text-blue-200 hover:bg-blue-500/30 cursor-pointer"
+                {liveSession && !liveSession.managedByDaemon && (
+                  <span
+                    className="inline-flex items-center border border-yellow-400/55 bg-yellow-500/15 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-[0.14em] [font-family:var(--font-mono-data)] text-yellow-300"
                   >
-                    Connect
-                  </button>
+                    External
+                  </span>
                 )}
               </div>
               <p className="mt-1 truncate [font-family:var(--font-mono-data)] text-[10px] text-[var(--color-cockpit-dim)]">

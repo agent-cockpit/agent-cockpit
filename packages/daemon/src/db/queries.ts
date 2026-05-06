@@ -197,7 +197,9 @@ export function getAllSessions(db: Database.Database): SessionSummary[] {
     const canSendMessage = canSendFromPayload ?? managedByDaemon
     const canTerminateSession = canTerminateFromPayload ?? managedByDaemon
     const reasonFromPayload = typeof r.capabilityReason === 'string' ? r.capabilityReason : undefined
-    const reason = reasonFromPayload ?? (!managedByDaemon ? EXTERNAL_SESSION_REASON : undefined)
+    // Only apply the external-session blocking reason if the session still has canSendMessage: false
+    // (legacy data or hook-detected external sessions that set it explicitly via reason payload)
+    const reason = reasonFromPayload ?? (!managedByDaemon && !canSendMessage ? EXTERNAL_SESSION_REASON : undefined)
 
     return {
       sessionId: r.sessionId,

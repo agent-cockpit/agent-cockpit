@@ -17,7 +17,7 @@ import { getAllPendingApprovals } from './approvals/approvalStore.js';
 import { eventBus } from './eventBus.js';
 import { logger } from './logger.js';
 import { ingestExternalCodexCliSessions } from './adapters/codex/externalSessionIngest.js'
-import { ingestExternalClaudeSessions, importAllExternalClaudeTranscripts } from './adapters/claude/externalSessionIngest.js';
+import { ingestExternalClaudeSessions, importAllExternalClaudeTranscripts, getAliveExternalClaudeSessions } from './adapters/claude/externalSessionIngest.js';
 import {
   areClaudeUsageSnapshotsEqual,
   readClaudeTranscriptUsage,
@@ -89,7 +89,11 @@ hookServer.once('listening', () => {
   logger.info('daemon', 'Hook server listening', { port: HOOK_PORT });
 });
 
-const { wss, httpServer, resumeClaudeSession } = createWsServer(db, WS_PORT, HOOK_PORT);
+const { wss, httpServer, resumeClaudeSession, runtimeRegistry } = createWsServer(db, WS_PORT, HOOK_PORT);
+
+// Tracks external sessions for which a cockpit PTY auto-resume has been attempted.
+// Prevents re-spawning on every poll iteration.
+const autoResumeAttempted = new Set<string>()
 
 // Event pipeline: eventBus → persist → broadcast.
 // Must be wired before stale approval expiry so approval_resolved events are persisted.
@@ -144,15 +148,49 @@ codexExternalPollTimer?.unref();
 
 function importExternalClaudeSessions(): void {
   try {
-    const imported = ingestExternalClaudeSessions(db, (event) => eventBus.emit('event', event));
+    const imported = ingestExternalClaudeSessions(db, (event) => eventBus.emit('event', event), {
+      isSessionManagedByCockpit: (cockpitId) => runtimeRegistry.has(cockpitId),
+    });
     if (imported > 0) {
       logger.info('claude-external', 'Imported external Claude sessions', { imported });
     }
 
-    // Import transcript history for any newly detected sessions (idempotent — skips already-imported)
-    const transcriptEvents = importAllExternalClaudeTranscripts(db);
+    // Import transcript history; incremental after first run (new records broadcast in real-time)
+    const transcriptEvents = importAllExternalClaudeTranscripts(db, (event) => eventBus.emit('event', event));
     if (transcriptEvents > 0) {
       logger.info('claude-external', 'Imported transcript history from external Claude sessions', { events: transcriptEvents });
+    }
+
+    // Auto-resume: migrate each alive external session into a cockpit PTY.
+    // Kill the external process first so claude --resume doesn't conflict, then resume after a
+    // short delay so the process has time to release the session file lock.
+    const aliveSessions = getAliveExternalClaudeSessions(db);
+    for (const session of aliveSessions) {
+      if (runtimeRegistry.has(session.cockpitId)) continue;
+      if (autoResumeAttempted.has(session.cockpitId)) continue;
+      autoResumeAttempted.add(session.cockpitId);
+
+      logger.info('claude-external', 'Migrating external Claude session into cockpit PTY', {
+        cockpitId: session.cockpitId,
+        claudeId: session.claudeSessionId,
+        pid: session.pid,
+      });
+
+      // Terminate the external process so the session is free for --resume
+      try { process.kill(session.pid, 'SIGTERM'); } catch { /* already dead */ }
+
+      const { cockpitId, workspacePath, claudeSessionId } = session;
+      void (async () => {
+        // Brief pause for the external process to exit and release session state
+        await new Promise<void>((resolve) => setTimeout(resolve, 1200));
+        resumeClaudeSession(cockpitId, workspacePath, undefined, claudeSessionId)
+          .catch((err: unknown) => {
+            logger.warn('claude-external', 'Auto-resume failed, will not retry this session', {
+              cockpitId,
+              error: String(err),
+            });
+          });
+      })();
     }
 
     syncClaudeTranscriptUsage();

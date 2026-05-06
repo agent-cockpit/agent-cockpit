@@ -1,5 +1,6 @@
 import type { NormalizedEvent } from '@agentcockpit/shared';
 import type Database from 'better-sqlite3';
+import { spawn } from 'node:child_process';
 import crypto from 'node:crypto';
 import fs from 'node:fs';
 import http, { createServer } from 'node:http';
@@ -8,6 +9,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { WebSocket, WebSocketServer } from 'ws';
 import { LaunchError } from '../adapters/claude/claudeLauncher.js';
+import { syncSessionTranscriptNow } from '../adapters/claude/externalSessionIngest.js';
 import {
   areClaudeUsageSnapshotsEqual,
   readClaudeTranscriptUsage,
@@ -83,8 +85,19 @@ function applyRuntimeCapabilityState(
       },
     }
   }
-  // External sessions with no PTY: approval-only, return as-is
+  // External sessions: allow chat send (routed via background claude -p), but no terminate
   if (!base.managedByDaemon) {
+    if (summary.finalStatus === 'active') {
+      return {
+        ...summary,
+        capabilities: {
+          ...base,
+          canSendMessage: true,
+          canTerminateSession: false,
+          reason: undefined,
+        },
+      }
+    }
     return summary
   }
   // Managed session whose PTY process isn't registered yet (e.g. failed resume)
@@ -817,6 +830,43 @@ export function createWsServer(
           approvalQueue.decide(pendingIds[0]!, 'approve', db);
         }
       },
+      sendToExternalSession: async (sessionId: string, message: string): Promise<void> => {
+        const claudeRow = db
+          .prepare('SELECT claude_id FROM claude_sessions WHERE session_id = ?')
+          .get(sessionId) as { claude_id: string } | undefined
+        if (!claudeRow?.claude_id) throw new Error('No Claude session ID found for external session')
+
+        const summary = getSessionSummary(db, sessionId)
+        if (!summary?.workspacePath) throw new Error('Session workspace not found')
+
+        const claudeId = claudeRow.claude_id
+        const { workspacePath } = summary
+
+        await new Promise<void>((resolve, reject) => {
+          const isWindows = process.platform === 'win32'
+          const child = spawn('claude', ['--resume', claudeId, '-p', message], {
+            cwd: workspacePath,
+            shell: isWindows,
+            stdio: 'pipe',
+          })
+          child.on('error', reject)
+          child.on('close', (code) => {
+            try {
+              const synced = syncSessionTranscriptNow(db, sessionId, claudeId, workspacePath, (event) => {
+                const saved = persistEvent(db, event)
+                broadcast(wss, JSON.stringify(saved), db)
+              })
+              if (synced > 0) {
+                logger.info('ws', 'Synced external session transcript after send', { sessionId, synced })
+              }
+            } catch (err) {
+              logger.warn('ws', 'JSONL sync after external send failed', { sessionId, error: String(err) })
+            }
+            if (code === 0 || code === null) resolve()
+            else reject(new Error(`claude exited with code ${code}`))
+          })
+        })
+      },
       adoptSession: async (sessionId: string) => {
         if (runtimeRegistry.has(sessionId)) return; // already interactive
 
@@ -863,6 +913,21 @@ export function createWsServer(
   httpServer.listen(port, () => {
     logger.info('ws', `WebSocket server listening`, { url: `ws://localhost:${port}` });
   });
+
+  function killExternalClaudeProcess(claudeId: string): void {
+    const sessionsDir = path.join(os.homedir(), '.claude', 'sessions');
+    try {
+      for (const fname of fs.readdirSync(sessionsDir)) {
+        if (!fname.endsWith('.json')) continue;
+        const raw = fs.readFileSync(path.join(sessionsDir, fname), 'utf8');
+        const data = JSON.parse(raw) as { sessionId?: string; pid?: number };
+        if (data.sessionId === claudeId && typeof data.pid === 'number') {
+          try { process.kill(data.pid, 'SIGTERM'); } catch {}
+          break;
+        }
+      }
+    } catch {}
+  }
 
   async function resumeClaudeSession(sessionId: string, workspacePath: string, model?: string, claudeSessionId?: string): Promise<void> {
     if (runtimeRegistry.has(sessionId)) return;
@@ -920,10 +985,33 @@ export function createWsServer(
     runtimeRegistry.register(sessionId, {
       provider: 'claude',
       sendMessage: (msg) => { ptyRuntime.write(msg + '\n'); return Promise.resolve(); },
-      terminateSession: () => ptyRuntime.kill(),
+      terminateSession: () => {
+        ptyRuntime.kill();
+        // If this was an external session, also kill the original external process
+        if (claudeSessionId && claudeSessionId !== sessionId) {
+          killExternalClaudeProcess(claudeSessionId);
+        }
+      },
     });
 
-    logger.info('resume', 'Claude PTY session resumed', { sessionId });
+    // For external sessions (claudeSessionId differs from sessionId), emit a capability update
+    // so the UI store enables the terminate button and switches to TerminalPanel (mode: 'pty').
+    if (claudeSessionId && claudeSessionId !== sessionId) {
+      eventBus.emit('event', {
+        schemaVersion: 1,
+        sessionId,
+        timestamp: new Date().toISOString(),
+        type: 'session_start',
+        provider: 'claude',
+        workspacePath,
+        managedByDaemon: false,
+        canSendMessage: true,
+        canTerminateSession: true,
+        mode: 'pty',
+      } as NormalizedEvent);
+    }
+
+    logger.info('resume', 'Claude PTY session resumed', { sessionId, claudeSessionId });
   }
 
   return { wss, httpServer, runtimeRegistry, resumeClaudeSession };

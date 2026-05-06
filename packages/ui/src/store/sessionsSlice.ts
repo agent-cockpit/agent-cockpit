@@ -20,23 +20,26 @@ export function applyEventToSessions(
   const now = event.timestamp
 
   switch (event.type) {
-    case 'session_start':
+    case 'session_start': {
+      const existing = sessions[event.sessionId]
       sessions[event.sessionId] = {
         sessionId: event.sessionId,
         provider: event.provider,
         workspacePath: event.workspacePath,
-        startedAt: event.timestamp,
+        // Preserve original startedAt when a capability-update session_start arrives
+        startedAt: existing?.startedAt ?? event.timestamp,
         status: 'active',
         lastEventAt: now,
-        pendingApprovals: 0,
+        pendingApprovals: existing?.pendingApprovals ?? 0,
         character: character ?? 'astronaut',
         managedByDaemon: event.managedByDaemon ?? (event.provider === 'codex'),
         canSendMessage: event.canSendMessage ?? (event.provider === 'codex'),
         canTerminateSession: event.canTerminateSession ?? (event.provider === 'codex'),
         reason: event.reason,
-        mode: event.mode,
+        mode: event.mode ?? existing?.mode,
       }
       break
+    }
 
     case 'session_end':
       if (sessions[event.sessionId]) {

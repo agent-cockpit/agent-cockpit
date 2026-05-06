@@ -3,9 +3,12 @@ import * as os from 'node:os'
 import * as path from 'node:path'
 import type Database from 'better-sqlite3'
 import type { NormalizedEvent } from '@agentcockpit/shared'
-import { EXTERNAL_SESSION_REASON, isExternalSessionDeleted, persistEvent } from '../../db/queries.js'
+import { isExternalSessionDeleted, persistEvent } from '../../db/queries.js'
 import { getOrCreateSessionId } from './hookParser.js'
-import { importTranscriptHistory } from './transcriptHistory.js'
+import { importTranscriptHistory, importTranscriptFrom, countTranscriptLines } from './transcriptHistory.js'
+
+// Tracks number of JSONL records processed per cockpit session ID (module-level, daemon lifetime)
+const transcriptLineTracker = new Map<string, number>()
 
 interface ClaudeSessionFile {
   pid: number
@@ -19,6 +22,7 @@ type PidProbeStatus = 'alive' | 'dead' | 'unknown'
 export interface ExternalClaudeIngestOptions {
   sessionsPath?: string
   probePid?: (pid: number) => PidProbeStatus
+  isSessionManagedByCockpit?: (cockpitId: string) => boolean
 }
 
 function resolveClaudeSessionsPath(explicitPath?: string): string {
@@ -98,6 +102,7 @@ export interface AliveExternalClaudeSession {
   cockpitId: string
   claudeSessionId: string
   workspacePath: string
+  pid: number
 }
 
 export function getAliveExternalClaudeSessions(
@@ -112,7 +117,10 @@ export function getAliveExternalClaudeSessions(
     const pidStatus = (options.probePid ?? probePid)(file.pid)
     if (pidStatus !== 'alive') continue
     const cockpitId = getOrCreateSessionId(file.sessionId, file.cwd)
-    result.push({ cockpitId, claudeSessionId: file.sessionId, workspacePath: file.cwd })
+    // Skip sessions already ended in the cockpit (prevents re-adoption after terminate)
+    const { hasEnd } = getSessionStatus(db, cockpitId)
+    if (hasEnd) continue
+    result.push({ cockpitId, claudeSessionId: file.sessionId, workspacePath: file.cwd, pid: file.pid })
   }
   return result
 }
@@ -142,7 +150,10 @@ export function ingestExternalClaudeSessions(
 
     // Never import a session whose process is already dead — avoids ghost sessions
     // appearing briefly on daemon restart or after DB cleanup, only to be closed next poll.
-    if (!hasStart && pidStatus !== 'dead') {
+    // Emit session_start for new external sessions; also re-emit for existing ones to update
+    // capabilities (e.g., old sessions stored with canSendMessage: false).
+    // shouldPersistEvent / hasEquivalentSessionStart deduplicates on subsequent polls.
+    if (pidStatus !== 'dead' && !hasEnd && (!hasStart || startedAsManaged === false)) {
       const ts = file.startedAt ? new Date(file.startedAt).toISOString() : new Date().toISOString()
       emit({
         schemaVersion: 1,
@@ -152,16 +163,18 @@ export function ingestExternalClaudeSessions(
         provider: 'claude',
         workspacePath: file.cwd,
         managedByDaemon: false,
-        canSendMessage: false,
+        canSendMessage: true,
         canTerminateSession: false,
-        reason: EXTERNAL_SESSION_REASON,
       } as NormalizedEvent)
-      imported++
+      if (!hasStart) imported++
     }
 
     // Only close external sessions when PID is definitively dead.
     // EPERM/unknown states can happen without process death on Linux.
-    const shouldCloseByPid = hasStart && !hasEnd && startedAsManaged !== true && pidStatus === 'dead'
+    // Skip if cockpit PTY has already taken over this session (we killed the external process
+    // intentionally during migration — the PTY exit handler will emit session_end when done).
+    const isManagedByCockpit = options.isSessionManagedByCockpit?.(cockpitId) ?? false
+    const shouldCloseByPid = hasStart && !hasEnd && startedAsManaged !== true && pidStatus === 'dead' && !isManagedByCockpit
     if (shouldCloseByPid) {
       emit({
         schemaVersion: 1,
@@ -176,10 +189,12 @@ export function ingestExternalClaudeSessions(
   return imported
 }
 
-// Imports transcript history (messages + tool calls) for all non-deleted external Claude sessions.
-// Safe to call multiple times: skips sessions that already have history events in the DB.
+// Imports transcript history for all external Claude sessions.
+// First call: does a one-time bulk import and sets the line tracker.
+// Subsequent calls: only emits new records via emitEvent (incremental real-time sync).
 export function importAllExternalClaudeTranscripts(
   db: Database.Database,
+  emitEvent?: (event: NormalizedEvent) => void,
   options: ExternalClaudeIngestOptions = {},
 ): number {
   const sessionsPath = resolveClaudeSessionsPath(options.sessionsPath)
@@ -188,7 +203,39 @@ export function importAllExternalClaudeTranscripts(
   for (const file of files) {
     if (isExternalSessionDeleted(db, file.sessionId)) continue
     const cockpitId = getOrCreateSessionId(file.sessionId, file.cwd)
-    total += importTranscriptHistory(db, cockpitId, file.sessionId, file.cwd)
+
+    if (!transcriptLineTracker.has(cockpitId)) {
+      // First detection: bulk import historical records (direct persist, no broadcast)
+      const imported = importTranscriptHistory(db, cockpitId, file.sessionId, file.cwd)
+      // Set tracker to current JSONL length so incremental starts from here
+      transcriptLineTracker.set(cockpitId, countTranscriptLines(file.sessionId, file.cwd))
+      total += imported
+    } else if (emitEvent) {
+      // Subsequent polls: emit only new lines via eventBus (broadcast to clients)
+      const fromLine = transcriptLineTracker.get(cockpitId)!
+      const newLineCount = countTranscriptLines(file.sessionId, file.cwd)
+      if (newLineCount > fromLine) {
+        total += importTranscriptFrom(db, cockpitId, file.sessionId, file.cwd, fromLine, emitEvent)
+        transcriptLineTracker.set(cockpitId, newLineCount)
+      }
+    }
   }
   return total
+}
+
+// Immediately sync a specific external session's transcript after a message is sent.
+// Called after the background claude -p process exits to pick up the assistant response.
+export function syncSessionTranscriptNow(
+  db: Database.Database,
+  cockpitId: string,
+  claudeId: string,
+  workspacePath: string,
+  emitEvent: (event: NormalizedEvent) => void,
+): number {
+  const fromLine = transcriptLineTracker.get(cockpitId) ?? 0
+  const newLineCount = countTranscriptLines(claudeId, workspacePath)
+  if (newLineCount <= fromLine) return 0
+  const emitted = importTranscriptFrom(db, cockpitId, claudeId, workspacePath, fromLine, emitEvent)
+  transcriptLineTracker.set(cockpitId, newLineCount)
+  return emitted
 }
