@@ -12,7 +12,7 @@ export const AUDIO_SETTINGS_STORAGE_KEY = 'cockpit.audio.settings.v1'
 const DEFAULT_AUDIO_SETTINGS: AudioSettings = {
   muted: false,
   musicVolume: 0.55,
-  sfxVolume: 0.8,
+  sfxVolume: 0.45,
 }
 
 const MUSIC_CROSSFADE_SEC = 8

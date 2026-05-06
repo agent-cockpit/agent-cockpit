@@ -610,29 +610,17 @@ export function createWsServer(
                   continue;
                 }
 
-                const runtimeAwareSummary = applyRuntimeCapabilityState(summary, runtimeRegistry);
-                if (runtimeAwareSummary.capabilities.canTerminateSession !== true) {
-                  skipped.push({
-                    sessionId,
-                    reason: runtimeAwareSummary.capabilities.reason ?? 'Active session cannot be terminated by daemon.',
-                  });
-                  continue;
-                }
-
+                // Best-effort termination — never blocks deletion
                 const runtime = runtimeRegistry.get(sessionId);
-                if (!runtime?.terminateSession) {
-                  skipped.push({ sessionId, reason: 'Managed session runtime is not available for terminate.' });
-                  continue;
+                if (runtime?.terminateSession) {
+                  try {
+                    await Promise.resolve(runtime.terminateSession());
+                    terminatedSessionIds.push(sessionId);
+                  } catch {
+                    // Termination failed; proceed with force-delete
+                  }
                 }
-
-                try {
-                  await Promise.resolve(runtime.terminateSession());
-                  runtimeRegistry.unregister(sessionId);
-                  terminatedSessionIds.push(sessionId);
-                } catch (err) {
-                  skipped.push({ sessionId, reason: `Failed to terminate session: ${String(err)}` });
-                  continue;
-                }
+                runtimeRegistry.unregister(sessionId);
               }
 
               deleteSessionRecords(db, sessionId);
