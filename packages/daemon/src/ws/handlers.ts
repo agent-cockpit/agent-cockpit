@@ -145,7 +145,15 @@ export function handleConnection(
       const sessionId = m['sessionId'];
       const cols = m['cols'];
       const rows = m['rows'];
-      if (typeof sessionId === 'string' && typeof cols === 'number' && typeof rows === 'number') {
+      if (
+        typeof sessionId === 'string' &&
+        typeof cols === 'number' &&
+        Number.isFinite(cols) &&
+        cols > 0 &&
+        typeof rows === 'number' &&
+        Number.isFinite(rows) &&
+        rows > 0
+      ) {
         deps?.ptyRegistry?.get(sessionId)?.resize(cols, rows);
       }
       return;
