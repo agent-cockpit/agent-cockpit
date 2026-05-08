@@ -56,6 +56,26 @@ export function resolveCodexApproval(
   }
 }
 
+/**
+ * Register an approval resolver for a PTY-based Codex session.
+ * Called by CodexPtyLauncher when an approval request arrives from the app-server proxy.
+ */
+export function registerCodexApprovalResolver(
+  approvalId: string,
+  resolver: (decision: 'approve' | 'deny' | 'always_allow') => void,
+): void {
+  codexApprovalResolvers.set(approvalId, resolver);
+}
+
+/**
+ * Remove a pending approval resolver without invoking it.
+ * Called by CodexPtyLauncher when the terminal user resolves the approval directly,
+ * so the Cockpit-side resolver doesn't fire a duplicate response.
+ */
+export function deregisterCodexApprovalResolver(approvalId: string): void {
+  codexApprovalResolvers.delete(approvalId);
+}
+
 // ---------------------------------------------------------------------------
 // CodexAdapter
 // ---------------------------------------------------------------------------
