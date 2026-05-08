@@ -4,7 +4,7 @@ import * as path from 'node:path'
 import BetterSqlite3 from 'better-sqlite3'
 import type Database from 'better-sqlite3'
 import type { NormalizedEvent } from '@agentcockpit/shared'
-import { EXTERNAL_SESSION_REASON, isExternalSessionDeleted, persistEvent } from '../../db/queries.js'
+import { EXTERNAL_SESSION_REASON, getManagedCodexWorkspacePaths, isExternalSessionDeleted, persistEvent } from '../../db/queries.js'
 
 type ExternalCodexThread = {
   sessionId: string
@@ -132,11 +132,13 @@ export function ingestExternalCodexCliSessions(
 
   const knownSessionStarts = getKnownSessionStarts(db)
   const managedThreadIds = getManagedCodexThreadIds(db)
+  const managedWorkspacePaths = getManagedCodexWorkspacePaths(db)
   let imported = 0
 
   for (const thread of externalThreads) {
     if (!isUuidLike(thread.sessionId)) continue
     if (managedThreadIds.has(thread.sessionId)) continue
+    if (managedWorkspacePaths.has(thread.workspacePath)) continue
     if (knownSessionStarts.has(thread.sessionId)) continue
     if (isExternalSessionDeleted(db, thread.sessionId)) continue
 

@@ -875,6 +875,27 @@ export function getUsageStats(db: Database.Database): UsageStats {
   }
 }
 
+export function getManagedCodexWorkspacePaths(db: Database.Database): Set<string> {
+  const rows = db.prepare(`
+    SELECT DISTINCT JSON_EXTRACT(e.payload, '$.workspacePath') AS workspacePath
+    FROM events e
+    WHERE e.type = 'session_start'
+      AND JSON_EXTRACT(e.payload, '$.provider') = 'codex'
+      AND JSON_EXTRACT(e.payload, '$.managedByDaemon') = 1
+      AND NOT EXISTS (
+        SELECT 1 FROM events WHERE session_id = e.session_id AND type = 'session_end'
+      )
+  `).all() as Array<{ workspacePath: string | null }>
+
+  const paths = new Set<string>()
+  for (const row of rows) {
+    if (row.workspacePath && row.workspacePath.length > 0) {
+      paths.add(row.workspacePath)
+    }
+  }
+  return paths
+}
+
 export function isSessionRecordDeleted(db: Database.Database, sessionId: string): boolean {
   const row = db.prepare('SELECT 1 AS found FROM events WHERE session_id = ? LIMIT 1').get(sessionId)
   return !row
