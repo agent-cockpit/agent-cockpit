@@ -64,6 +64,10 @@ function groupIntoTurns(events: NormalizedEvent[]): TurnGroup[] {
     currentEvents = []
   }
 
+  const hasUserMessages = events.some(
+    (e) => e.type === 'session_chat_message' && (e as { role: string }).role === 'user',
+  )
+
   for (const event of events) {
     // Session boundaries always start a new turn
     if (event.type === 'session_start' || event.type === 'session_end') {
@@ -73,10 +77,21 @@ function groupIntoTurns(events: NormalizedEvent[]): TurnGroup[] {
       continue
     }
 
-    // User message starts a new turn
+    // User message starts a new turn (Claude mode)
     if (event.type === 'session_chat_message' && (event as { role: string }).role === 'user') {
       flushTurn()
       currentEvents.push(event)
+      continue
+    }
+
+    // For Codex (no user messages): assistant message ends the current turn
+    if (
+      !hasUserMessages &&
+      event.type === 'session_chat_message' &&
+      (event as { role: string }).role === 'assistant'
+    ) {
+      currentEvents.push(event)
+      flushTurn()
       continue
     }
 
@@ -223,13 +238,18 @@ function TurnCard({ turn, turnNumber }: { turn: TurnGroup; turnNumber: number })
         </span>
 
         <div className="flex-1 min-w-0">
-          {/* User prompt preview */}
+          {/* Prompt / summary preview */}
           {turn.userPrompt && (
             <p className="text-[11px] text-foreground [font-family:var(--font-mono-data)] truncate mb-1">
               {turn.userPrompt}
             </p>
           )}
-          {!turn.userPrompt && turn.toolCalls > 0 && (
+          {!turn.userPrompt && turn.assistantSummary && (
+            <p className="text-[11px] [font-family:var(--font-mono-data)] truncate mb-1" style={{ color: 'var(--color-cockpit-dim)' }}>
+              {turn.assistantSummary}
+            </p>
+          )}
+          {!turn.userPrompt && !turn.assistantSummary && turn.toolCalls > 0 && (
             <p className="text-[11px] text-foreground [font-family:var(--font-mono-data)] mb-1">
               {turn.toolCalls} tool{turn.toolCalls > 1 ? 's' : ''} executed
             </p>
