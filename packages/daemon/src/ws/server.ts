@@ -1,6 +1,7 @@
 import type { NormalizedEvent } from '@agentcockpit/shared';
 import type Database from 'better-sqlite3';
 import crypto from 'node:crypto';
+import { execFileSync, spawnSync } from 'node:child_process';
 import fs from 'node:fs';
 import http, { createServer } from 'node:http';
 import os from 'node:os';
@@ -674,6 +675,42 @@ export function createWsServer(
       const events = getEventsBySession(db, sessionId);
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify(events));
+      return;
+    }
+
+    // GET /api/sessions/:id/git-diff?path=<filePath>
+    const gitDiffMatch = req.method === 'GET' && req.url?.match(/^\/api\/sessions\/([^/]+)\/git-diff(\?.*)?$/);
+    if (gitDiffMatch) {
+      const sessionId = gitDiffMatch[1]!;
+      const url = new URL(req.url!, 'http://localhost');
+      const filePath = url.searchParams.get('path') ?? '';
+      const workspacePath = getWorkspacePath(db, sessionId);
+      if (!workspacePath || !filePath) {
+        res.writeHead(404, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
+        res.end(JSON.stringify({ error: 'session or path not found' }));
+        return;
+      }
+      res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
+      // Try tracked diff first (modified/deleted files)
+      const trackedResult = spawnSync('git', ['-C', workspacePath, 'diff', 'HEAD', '--', filePath], {
+        encoding: 'utf8',
+        timeout: 5000,
+      });
+      if (trackedResult.stdout) {
+        res.end(JSON.stringify({ diff: trackedResult.stdout }));
+        return;
+      }
+      // Empty result: might be an untracked new file — diff against /dev/null
+      const absPath = path.isAbsolute(filePath) ? filePath : path.join(workspacePath, filePath);
+      if (fs.existsSync(absPath)) {
+        const untrackedResult = spawnSync('git', ['diff', '--no-index', '/dev/null', absPath], {
+          encoding: 'utf8',
+          timeout: 5000,
+        });
+        res.end(JSON.stringify({ diff: untrackedResult.stdout || null }));
+      } else {
+        res.end(JSON.stringify({ diff: null }));
+      }
       return;
     }
 
