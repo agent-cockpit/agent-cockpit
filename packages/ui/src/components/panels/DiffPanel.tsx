@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import type { NormalizedEvent } from '@agentcockpit/shared'
 import { useStore } from '../../store/index.js'
 import { EMPTY_EVENTS } from '../../store/eventsSlice.js'
@@ -150,6 +150,9 @@ export function DiffPanel() {
   const bulkApplyEvents = useStore((s) => s.bulkApplyEvents)
   const session = useStore((s) => (sessionId ? s.sessions[sessionId] : undefined))
   const [selectedFilePath, setSelectedFilePath] = useState<string | null>(null)
+  const [fetchedDiffs, setFetchedDiffs] = useState<Record<string, string | null>>({})
+  const [fetchingDiff, setFetchingDiff] = useState(false)
+  const fetchingPathsRef = useRef<Set<string>>(new Set())
 
   const fileTree = deriveFileTree(events)
   const filesTouched = fileTree.length
@@ -165,6 +168,7 @@ export function DiffPanel() {
         : null
   const elapsedMs = startTime !== null && endTime !== null ? endTime - startTime : null
   const selectedEntry = fileTree.find((f) => f.filePath === selectedFilePath) ?? null
+  const selectedDiff = selectedEntry?.diff ?? (selectedFilePath !== null ? fetchedDiffs[selectedFilePath] : undefined)
 
   useEffect(() => {
     if (!sessionId) return
@@ -188,6 +192,45 @@ export function DiffPanel() {
       setSelectedFilePath(fileTree[0]!.filePath)
     }
   }, [fileTree, selectedFilePath])
+
+  // Eagerly pre-fetch diffs for all files without inline diff data (Codex parity with Claude Code)
+  useEffect(() => {
+    if (!sessionId) return
+    fileTree.forEach((entry) => {
+      if (entry.diff) return
+      if (entry.filePath in fetchedDiffs) return
+      if (fetchingPathsRef.current.has(entry.filePath)) return
+      fetchingPathsRef.current.add(entry.filePath)
+      fetch(`${DAEMON_URL}/api/sessions/${sessionId}/git-diff?path=${encodeURIComponent(entry.filePath)}`)
+        .then((r) => r.json())
+        .then((data: { diff: string | null }) => {
+          setFetchedDiffs((prev) => ({ ...prev, [entry.filePath]: data.diff }))
+        })
+        .catch(() => {
+          fetchingPathsRef.current.delete(entry.filePath)
+          setFetchedDiffs((prev) => ({ ...prev, [entry.filePath]: null }))
+        })
+    })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sessionId, fileTree.length])
+
+  useEffect(() => {
+    if (!sessionId || !selectedFilePath) return
+    const entry = fileTree.find((f) => f.filePath === selectedFilePath)
+    if (entry?.diff) return
+    if (selectedFilePath in fetchedDiffs) return
+    setFetchingDiff(true)
+    fetch(`${DAEMON_URL}/api/sessions/${sessionId}/git-diff?path=${encodeURIComponent(selectedFilePath)}`)
+      .then((r) => r.json())
+      .then((data: { diff: string | null }) => {
+        setFetchedDiffs((prev) => ({ ...prev, [selectedFilePath]: data.diff }))
+      })
+      .catch(() => {
+        setFetchedDiffs((prev) => ({ ...prev, [selectedFilePath]: null }))
+      })
+      .finally(() => setFetchingDiff(false))
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sessionId, selectedFilePath])
 
   return (
     <div className="flex flex-col h-full">
@@ -283,8 +326,12 @@ export function DiffPanel() {
           <div className="flex items-center justify-center h-full cockpit-label" style={{ color: 'var(--color-cockpit-dim)' }}>
             -- SELECT FILE ABOVE --
           </div>
-        ) : selectedEntry.diff ? (
-          <DiffView diff={selectedEntry.diff} />
+        ) : fetchingDiff ? (
+          <div className="flex items-center justify-center h-full cockpit-label" style={{ color: 'var(--color-cockpit-dim)' }}>
+            -- LOADING DIFF --
+          </div>
+        ) : selectedDiff ? (
+          <DiffView diff={selectedDiff} />
         ) : (
           <div className="p-4 cockpit-label" style={{ color: 'var(--color-cockpit-dim)' }}>
             No diff available for this file.
