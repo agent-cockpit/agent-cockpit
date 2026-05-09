@@ -76,6 +76,7 @@ export class CodexPtyLauncher {
     db: Database.Database,
     cols = 80,
     rows = 24,
+    onEvent?: (event: import('@agentcockpit/shared').NormalizedEvent) => void,
   ): Promise<CodexPtyRuntime> {
     const proxyPort = await getFreePort();
 
@@ -168,6 +169,16 @@ export class CodexPtyLauncher {
           });
 
           approvalQueue.register(approvalId, event, db);
+        } else if (event && onEvent) {
+          onEvent(event);
+        }
+      }
+
+      // Notification (method, no id): parse and emit non-approval events (file_change, usage, chat, etc.)
+      if (hasMethod && !hasId && !hasResult && !hasError && onEvent) {
+        const event = parseCodexLine(trimmed, parserCtx);
+        if (event && event.type !== 'approval_request') {
+          onEvent(event);
         }
       }
 

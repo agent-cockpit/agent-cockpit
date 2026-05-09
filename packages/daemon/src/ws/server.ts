@@ -366,6 +366,7 @@ function handleLaunchSession(
             db,
             typeof cols === 'number' && cols > 0 ? cols : undefined,
             typeof rows === 'number' && rows > 0 ? rows : undefined,
+            (event) => { eventBus.emit('event', event); },
           );
           ptyRegistry.set(sessionId, codexPtyRuntime);
           runtimeRegistry.register(sessionId, {
