@@ -703,9 +703,11 @@ export function createWsServer(
       // Empty result: might be an untracked new file — diff against /dev/null
       const absPath = path.isAbsolute(filePath) ? filePath : path.join(workspacePath, filePath);
       if (fs.existsSync(absPath)) {
-        const untrackedResult = spawnSync('git', ['diff', '--no-index', '/dev/null', absPath], {
+        const relPath = path.relative(workspacePath, absPath);
+        const untrackedResult = spawnSync('git', ['diff', '--no-index', '/dev/null', relPath], {
           encoding: 'utf8',
           timeout: 5000,
+          cwd: workspacePath,
         });
         res.end(JSON.stringify({ diff: untrackedResult.stdout || null }));
       } else {
