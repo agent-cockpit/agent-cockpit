@@ -1,6 +1,7 @@
 import type { NormalizedEvent } from '@agentcockpit/shared';
 import type Database from 'better-sqlite3';
 import crypto from 'node:crypto';
+import { execFileSync, spawnSync } from 'node:child_process';
 import fs from 'node:fs';
 import http, { createServer } from 'node:http';
 import os from 'node:os';
@@ -16,7 +17,7 @@ import {
 } from '../adapters/claude/transcriptUsage.js';
 import { PtyLauncher, type PtyRuntime } from '../adapters/claude/ptyLauncher.js';
 import { markSessionStarted } from '../adapters/claude/hookServer.js';
-import { CodexAdapter } from '../adapters/codex/codexAdapter.js';
+import { CodexPtyLauncher, type CodexPtyRuntime } from '../adapters/codex/ptyLauncher.js';
 import { getApprovalsBySession } from '../approvals/approvalStore.js';
 import { approvalQueue } from '../approvals/approvalQueue.js';
 import { deleteSessionRecords, getAllSessions, getEventsBySession, getSessionStats, getSessionSummary, getUsageStats, isSessionRecordDeleted, persistEvent, searchAll, type SessionSummary } from '../db/queries.js';
@@ -341,36 +342,54 @@ function handleLaunchSession(
           res.writeHead(200, { 'Content-Type': 'application/json' });
           res.end(JSON.stringify({ sessionId, mode: 'pty' }));
         } else {
-          // Codex: spawn codex app-server as a child process
-          const adapter = new CodexAdapter(
+          // Codex: spawn codex interactive TUI in a PTY
+          const codexPtyLaunch = new CodexPtyLauncher();
+          logger.info('launch', 'Launching codex PTY session', { sessionId, workspacePath });
+          const codexPtyRuntime = await codexPtyLaunch.launch(
             sessionId,
             workspacePath,
-            db,
-            (event) => {
-              if (event.type === 'session_end') {
-                if (!runtimeRegistry.has(sessionId)) {
-                  return;
-                }
-                runtimeRegistry.unregister(sessionId);
-              }
-              eventBus.emit('event', event);
+            (data) => {
+              broadcastRaw(JSON.stringify({ type: 'pty_output', sessionId, data }));
             },
+            () => {
+              ptyRegistry.delete(sessionId);
+              runtimeRegistry.unregister(sessionId);
+              if (!isSessionRecordDeleted(db, sessionId)) {
+                eventBus.emit('event', {
+                  schemaVersion: 1,
+                  sessionId,
+                  type: 'session_end',
+                  provider: 'codex',
+                  timestamp: new Date().toISOString(),
+                } as NormalizedEvent);
+              }
+            },
+            db,
+            typeof cols === 'number' && cols > 0 ? cols : undefined,
+            typeof rows === 'number' && rows > 0 ? rows : undefined,
+            (event) => { eventBus.emit('event', event); },
           );
+          ptyRegistry.set(sessionId, codexPtyRuntime);
           runtimeRegistry.register(sessionId, {
             provider: 'codex',
-            sendMessage: (message) => adapter.sendChatMessage(message),
-            terminateSession: () => {
-              adapter.stop();
-              runtimeRegistry.unregister(sessionId);
-            },
+            sendMessage: (msg) => { codexPtyRuntime.write(msg + '\n'); return Promise.resolve(); },
+            terminateSession: () => codexPtyRuntime.kill(),
           });
-          logger.info('launch', 'Codex session spawned', { sessionId, workspacePath });
-          adapter.start().catch((err: unknown) => {
-            runtimeRegistry.unregister(sessionId);
-            logger.error('launch', 'CodexAdapter.start() failed', { sessionId, error: String(err) });
-          });
+          eventBus.emit('event', {
+            schemaVersion: 1,
+            sessionId,
+            type: 'session_start',
+            provider: 'codex',
+            timestamp: new Date().toISOString(),
+            workspacePath,
+            managedByDaemon: true,
+            canSendMessage: false,
+            canTerminateSession: true,
+            mode: 'pty',
+          } as NormalizedEvent);
+          logger.info('launch', 'Codex PTY session spawned', { sessionId });
           res.writeHead(200, { 'Content-Type': 'application/json' });
-          res.end(JSON.stringify({ sessionId, mode: 'initiated' }));
+          res.end(JSON.stringify({ sessionId, mode: 'pty' }));
         }
       } catch (err: unknown) {
         logger.error('launch', 'Session launch failed', { error: String(err) });
@@ -656,6 +675,44 @@ export function createWsServer(
       const events = getEventsBySession(db, sessionId);
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify(events));
+      return;
+    }
+
+    // GET /api/sessions/:id/git-diff?path=<filePath>
+    const gitDiffMatch = req.method === 'GET' && req.url?.match(/^\/api\/sessions\/([^/]+)\/git-diff(\?.*)?$/);
+    if (gitDiffMatch) {
+      const sessionId = gitDiffMatch[1]!;
+      const url = new URL(req.url!, 'http://localhost');
+      const filePath = url.searchParams.get('path') ?? '';
+      const workspacePath = getWorkspacePath(db, sessionId);
+      if (!workspacePath || !filePath) {
+        res.writeHead(404, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
+        res.end(JSON.stringify({ error: 'session or path not found' }));
+        return;
+      }
+      res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
+      // Try tracked diff first (modified/deleted files)
+      const trackedResult = spawnSync('git', ['-C', workspacePath, 'diff', 'HEAD', '--', filePath], {
+        encoding: 'utf8',
+        timeout: 5000,
+      });
+      if (trackedResult.stdout) {
+        res.end(JSON.stringify({ diff: trackedResult.stdout }));
+        return;
+      }
+      // Empty result: might be an untracked new file — diff against /dev/null
+      const absPath = path.isAbsolute(filePath) ? filePath : path.join(workspacePath, filePath);
+      if (fs.existsSync(absPath)) {
+        const relPath = path.relative(workspacePath, absPath);
+        const untrackedResult = spawnSync('git', ['diff', '--no-index', '/dev/null', relPath], {
+          encoding: 'utf8',
+          timeout: 5000,
+          cwd: workspacePath,
+        });
+        res.end(JSON.stringify({ diff: untrackedResult.stdout || null }));
+      } else {
+        res.end(JSON.stringify({ diff: null }));
+      }
       return;
     }
 

@@ -14,7 +14,16 @@
       "mcp__code-review-graph__semantic_search_nodes_tool",
       "Bash(grep -E \"\\\\.ts$\")",
       "Bash(rtk wc *)",
-      "Bash(rtk tsc *)"
+      "Bash(rtk tsc *)",
+      "Bash(git reset *)",
+      "Bash(codex --help)",
+      "Bash(codex app-server *)",
+      "Bash(rtk git *)",
+      "Bash(git add *)",
+      "Bash(git commit -m ' *)",
+      "Bash(git *)",
+      "Bash(grep -v \"\\\\.tsx$\")",
+      "Bash(rtk npm *)"
     ]
   },
   "enableAllProjectMcpServers": true,
