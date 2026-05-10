@@ -110,8 +110,19 @@ function formatElapsed(ms: number): string {
 
 // ─── Diff renderer ─────────────────────────────────────────────────────────────
 
+function isGitHeader(line: string): boolean {
+  return (
+    line.startsWith('diff --git') ||
+    line.startsWith('index ') ||
+    line.startsWith('new file mode') ||
+    line.startsWith('deleted file mode') ||
+    line.startsWith('--- ') ||
+    line.startsWith('+++ ')
+  )
+}
+
 function DiffView({ diff }: { diff: string }) {
-  const lines = diff.split('\n')
+  const lines = diff.split('\n').filter((line) => !isGitHeader(line))
   return (
     <pre className="text-xs [font-family:var(--font-mono-data)] overflow-x-auto p-3">
       {lines.map((line, i) => {
