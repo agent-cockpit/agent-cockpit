@@ -84,17 +84,6 @@ function groupIntoTurns(events: NormalizedEvent[]): TurnGroup[] {
       continue
     }
 
-    // For Codex (no user messages): assistant message ends the current turn
-    if (
-      !hasUserMessages &&
-      event.type === 'session_chat_message' &&
-      (event as { role: string }).role === 'assistant'
-    ) {
-      currentEvents.push(event)
-      flushTurn()
-      continue
-    }
-
     // Time gap > 2 min starts a new turn
     const prev = currentEvents[currentEvents.length - 1]
     if (prev) {
