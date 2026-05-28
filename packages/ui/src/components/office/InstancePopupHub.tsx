@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react'
 import { createPortal } from 'react-dom'
 import * as Dialog from '@radix-ui/react-dialog'
 import * as Tabs from '@radix-ui/react-tabs'
@@ -27,9 +27,17 @@ interface Props {
   onMinimize?: () => void
   onFocus?: () => void
   onSnapLayout?: (zone: SnapZone) => void
+  onHeaderPointerDown?: (event: ReactPointerEvent<HTMLDivElement>) => void
 }
 
-const SNAP_ZONE_LAYOUT: SnapZone[] = ['left', 'right', 'maximize', 'topleft', 'topright', 'bottomright']
+const SNAP_ZONE_LAYOUT: SnapZone[] = [
+  'left',
+  'right',
+  'topleft',
+  'topright',
+  'bottomleft',
+  'bottomright',
+]
 
 const SNAP_ZONE_LABELS: Record<SnapZone, string> = {
   left: 'Left', right: 'Right', maximize: 'Max',
@@ -302,6 +310,7 @@ export function InstancePopupHub({
   onMinimize,
   onFocus,
   onSnapLayout,
+  onHeaderPointerDown,
 }: Props) {
   const wsUnavailableReason = 'Daemon connection is not open. Reconnect and try again.'
   const selectedSessionId = useStore((s) => s.selectedSessionId)
@@ -486,10 +495,22 @@ export function InstancePopupHub({
     setConfirmTerminateOpen(false)
   }
 
+  function handleHeaderPointerDown(event: ReactPointerEvent<HTMLDivElement>): void {
+    if (!onHeaderPointerDown) return
+    const target = event.target instanceof HTMLElement ? event.target : null
+    if (target?.closest('button,a,input,textarea,select,[role="button"],[role="tab"]')) return
+    onHeaderPointerDown(event)
+  }
+
   function renderSurface() {
     return (
       <>
-        <div className="border-b border-border bg-[var(--color-panel-surface)] px-4 py-3 shrink-0">
+        <div
+          className={`border-b border-border bg-[var(--color-panel-surface)] px-4 py-3 shrink-0 ${
+            onHeaderPointerDown ? 'cursor-move select-none' : ''
+          }`}
+          onPointerDown={handleHeaderPointerDown}
+        >
           <div className="flex items-start gap-3">
             <div className="mt-0.5 inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-border/50 bg-muted/20 text-[12px] font-semibold [font-family:var(--font-mono-data)] text-muted-foreground">
               {avatarLoadFailed ? (
@@ -552,7 +573,7 @@ export function InstancePopupHub({
               </p>
             </div>
 
-            <div className="ml-auto flex shrink-0 items-start gap-1.5">
+            <div className="ml-auto flex shrink-0 items-start gap-1.5 cursor-default">
               {liveSession?.status === 'active' && liveSession.canTerminateSession === true && (
                 <button
                   type="button"
@@ -573,51 +594,61 @@ export function InstancePopupHub({
                 -
               </button>
               {inline && onSnapLayout && (
-                <div ref={snapBtnRef} className="relative">
+                <>
                   <button
                     type="button"
-                    aria-label="Snap layout"
+                    aria-label="Maximize popup"
                     className="h-7 w-7 border border-border/70 bg-background/50 text-[11px] [font-family:var(--font-mono-data)] text-muted-foreground hover:text-foreground hover:border-[var(--color-cockpit-cyan)] transition-colors"
-                    onClick={() => {
-                      const rect = snapBtnRef.current?.getBoundingClientRect()
-                      if (rect) setPickerAnchor({ right: window.innerWidth - rect.right, top: rect.bottom + 4 })
-                      setLayoutPickerOpen((v) => !v)
-                    }}
+                    onClick={() => onSnapLayout('maximize')}
                   >
-                    ⊞
+                    □
                   </button>
-                  {layoutPickerOpen && pickerAnchor && createPortal(
-                    <div
-                      ref={layoutPickerRef}
-                      style={{ position: 'fixed', right: pickerAnchor.right, top: pickerAnchor.top, zIndex: 9999 }}
-                      className="border border-[color-mix(in_srgb,var(--color-cockpit-cyan)_50%,var(--color-border))] bg-[var(--color-panel-surface)] p-2 shadow-2xl"
+                  <div ref={snapBtnRef} className="relative">
+                    <button
+                      type="button"
+                      aria-label="Snap layout"
+                      className="h-7 w-7 border border-border/70 bg-background/50 text-[11px] [font-family:var(--font-mono-data)] text-muted-foreground hover:text-foreground hover:border-[var(--color-cockpit-cyan)] transition-colors"
+                      onClick={() => {
+                        const rect = snapBtnRef.current?.getBoundingClientRect()
+                        if (rect) setPickerAnchor({ right: window.innerWidth - rect.right, top: rect.bottom + 4 })
+                        setLayoutPickerOpen((v) => !v)
+                      }}
                     >
-                      <p className="mb-1.5 select-none [font-family:var(--font-mono-data)] text-[8px] uppercase tracking-[0.18em] text-[var(--color-cockpit-dim)]">
-                        Snap Layout
-                      </p>
-                      <div className="grid grid-cols-3 gap-1">
-                        {SNAP_ZONE_LAYOUT.map((zone) => (
-                          <button
-                            key={zone}
-                            type="button"
-                            aria-label={`Snap ${zone}`}
-                            className="group relative h-12 w-16 border border-border/50 bg-muted/10 transition-colors hover:border-[var(--color-cockpit-cyan)] hover:bg-[color-mix(in_srgb,var(--color-cockpit-cyan)_6%,transparent)]"
-                            onClick={() => {
-                              onSnapLayout(zone)
-                              setLayoutPickerOpen(false)
-                            }}
-                          >
-                            <SnapZonePreview zone={zone} />
-                            <span className="absolute inset-x-0 bottom-0.5 text-center [font-family:var(--font-mono-data)] text-[7px] uppercase tracking-[0.1em] text-[var(--color-cockpit-dim)] group-hover:text-[var(--color-cockpit-cyan)] leading-none">
-                              {SNAP_ZONE_LABELS[zone]}
-                            </span>
-                          </button>
-                        ))}
-                      </div>
-                    </div>,
-                    document.body,
-                  )}
-                </div>
+                      ⊞
+                    </button>
+                    {layoutPickerOpen && pickerAnchor && createPortal(
+                      <div
+                        ref={layoutPickerRef}
+                        style={{ position: 'fixed', right: pickerAnchor.right, top: pickerAnchor.top, zIndex: 9999 }}
+                        className="border border-[color-mix(in_srgb,var(--color-cockpit-cyan)_50%,var(--color-border))] bg-[var(--color-panel-surface)] p-2 shadow-2xl"
+                      >
+                        <p className="mb-1.5 select-none [font-family:var(--font-mono-data)] text-[8px] uppercase tracking-[0.18em] text-[var(--color-cockpit-dim)]">
+                          Snap Layout
+                        </p>
+                        <div className="grid grid-cols-3 gap-1">
+                          {SNAP_ZONE_LAYOUT.map((zone) => (
+                            <button
+                              key={zone}
+                              type="button"
+                              aria-label={`Snap ${zone}`}
+                              className="group relative h-12 w-16 border border-border/50 bg-muted/10 transition-colors hover:border-[var(--color-cockpit-cyan)] hover:bg-[color-mix(in_srgb,var(--color-cockpit-cyan)_6%,transparent)]"
+                              onClick={() => {
+                                onSnapLayout(zone)
+                                setLayoutPickerOpen(false)
+                              }}
+                            >
+                              <SnapZonePreview zone={zone} />
+                              <span className="absolute inset-x-0 bottom-0.5 text-center [font-family:var(--font-mono-data)] text-[7px] uppercase tracking-[0.1em] text-[var(--color-cockpit-dim)] group-hover:text-[var(--color-cockpit-cyan)] leading-none">
+                                {SNAP_ZONE_LABELS[zone]}
+                              </span>
+                            </button>
+                          ))}
+                        </div>
+                      </div>,
+                      document.body,
+                    )}
+                  </div>
+                </>
               )}
               {inline ? (
                 <button
@@ -732,7 +763,7 @@ export function InstancePopupHub({
     if (!open) return null
     return (
       <div
-        className="h-full w-full flex flex-col overflow-hidden border border-[color-mix(in_srgb,var(--color-cockpit-accent)_40%,var(--color-border))] bg-background shadow-[0_0_50px_color-mix(in_srgb,var(--color-cockpit-accent)_14%,transparent),0_26px_70px_rgba(0,0,0,0.72)]"
+        className="h-full w-full flex flex-col overflow-hidden rounded-2xl border border-[color-mix(in_srgb,var(--color-cockpit-accent)_40%,var(--color-border))] bg-background shadow-[0_0_50px_color-mix(in_srgb,var(--color-cockpit-accent)_14%,transparent),0_26px_70px_rgba(0,0,0,0.72)]"
         aria-label={`Session: ${projectName}`}
         style={provider ? getProviderAccentStyle(provider) : undefined}
         onMouseDownCapture={onFocus}

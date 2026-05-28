@@ -116,6 +116,48 @@ describe('InstancePopupHub', () => {
     expect(screen.getByText('my-project')).toBeInTheDocument()
   })
 
+  it('uses the inline header as a drag handle', () => {
+    const onHeaderPointerDown = vi.fn()
+    render(
+      <InstancePopupHub
+        inline
+        open={true}
+        onClose={vi.fn()}
+        onHeaderPointerDown={onHeaderPointerDown}
+      />,
+    )
+
+    fireEvent.pointerDown(screen.getByText('my-project'), {
+      button: 0,
+      pointerId: 1,
+      clientX: 20,
+      clientY: 30,
+    })
+
+    expect(onHeaderPointerDown).toHaveBeenCalledTimes(1)
+  })
+
+  it('does not start header drag from inline header controls', () => {
+    const onHeaderPointerDown = vi.fn()
+    render(
+      <InstancePopupHub
+        inline
+        open={true}
+        onClose={vi.fn()}
+        onHeaderPointerDown={onHeaderPointerDown}
+      />,
+    )
+
+    fireEvent.pointerDown(screen.getByLabelText('Close'), {
+      button: 0,
+      pointerId: 1,
+      clientX: 20,
+      clientY: 30,
+    })
+
+    expect(onHeaderPointerDown).not.toHaveBeenCalled()
+  })
+
   it('calls onClose when close button clicked', () => {
     const onClose = vi.fn()
     render(<InstancePopupHub open={true} onClose={onClose} />)
@@ -189,11 +231,45 @@ describe('InstancePopupHub', () => {
 
     fireEvent.mouseDown(leftOption)
     expect(leftOption).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /snap maximize/i })).not.toBeInTheDocument()
 
     fireEvent.click(leftOption)
 
     expect(onSnapLayout).toHaveBeenCalledWith('left')
     expect(screen.queryByRole('button', { name: /snap left/i })).not.toBeInTheDocument()
+  })
+
+  it('uses a dedicated maximize button outside the snap picker', () => {
+    const onSnapLayout = vi.fn()
+    render(
+      <InstancePopupHub
+        inline
+        open={true}
+        onClose={vi.fn()}
+        onSnapLayout={onSnapLayout}
+      />,
+    )
+
+    fireEvent.click(screen.getByRole('button', { name: /maximize popup/i }))
+
+    expect(onSnapLayout).toHaveBeenCalledWith('maximize')
+  })
+
+  it('offers the bottom-left snap layout option', () => {
+    const onSnapLayout = vi.fn()
+    render(
+      <InstancePopupHub
+        inline
+        open={true}
+        onClose={vi.fn()}
+        onSnapLayout={onSnapLayout}
+      />,
+    )
+
+    fireEvent.click(screen.getByRole('button', { name: /snap layout/i }))
+    fireEvent.click(screen.getByRole('button', { name: /snap bottomleft/i }))
+
+    expect(onSnapLayout).toHaveBeenCalledWith('bottomleft')
   })
 
   it('renders footer usage metrics from session_usage events', () => {

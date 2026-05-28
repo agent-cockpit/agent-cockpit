@@ -15,19 +15,26 @@ function ContextValue({ value }: { value: string }) {
   const list = tryParseList(value)
   if (list !== null) {
     if (list.length === 0) {
-      return <p className="mt-1.5 text-[10px] text-white/30 font-mono italic">empty list</p>
+      return <p className="mt-1.5 data-readout-dim text-[10px] italic">empty list</p>
     }
     return (
       <div className="mt-1.5 flex flex-wrap gap-1">
         {list.map((item, i) => (
-          <span key={i} className="text-[10px] font-mono px-1.5 py-0.5 rounded-full bg-white/10 text-white/70 border border-white/10">
+          <span
+            key={i}
+            className="[font-family:var(--font-mono-data)] text-[10px] px-1.5 py-0.5 border border-[color-mix(in_srgb,var(--color-cockpit-accent)_30%,transparent)] bg-[color-mix(in_srgb,var(--color-cockpit-accent)_8%,transparent)] text-[var(--color-cockpit-accent)]"
+          >
             {item}
           </span>
         ))}
       </div>
     )
   }
-  return <pre className="mt-1.5 text-xs text-white/70 font-mono whitespace-pre-wrap break-all">{value}</pre>
+  return (
+    <pre className="mt-1.5 [font-family:var(--font-mono-data)] text-xs text-muted-foreground whitespace-pre-wrap break-all">
+      {value}
+    </pre>
+  )
 }
 
 export function SharedContextPanel() {
@@ -90,14 +97,14 @@ export function SharedContextPanel() {
 
   return (
     <div className="flex flex-col h-full overflow-hidden">
-      <div className="flex items-center justify-between px-4 py-3 border-b border-white/10">
+      <div className="flex items-center justify-between px-4 py-3 border-b border-border/60 shrink-0 bg-[var(--color-panel-surface)]">
         <div>
-          <h2 className="text-sm font-semibold text-white">Shared Context</h2>
-          <p className="text-xs text-white/40 mt-0.5">Visible to all agent sessions via MCP</p>
+          <h2 className="cockpit-label">Shared Context</h2>
+          <p className="data-readout-dim text-[10px] mt-0.5">Visible to all agent sessions via MCP</p>
         </div>
         <button
           onClick={() => setAdding(true)}
-          className="text-xs px-2.5 py-1 rounded bg-white/10 hover:bg-white/20 text-white/70 hover:text-white transition-colors"
+          className="cockpit-btn text-[10px] px-2.5 py-1"
         >
           + Add
         </button>
@@ -105,16 +112,16 @@ export function SharedContextPanel() {
 
       <div className="flex-1 overflow-y-auto p-4 space-y-2">
         {adding && (
-          <div className="rounded-lg border border-white/20 bg-white/5 p-3 space-y-2">
+          <div className="border border-[color-mix(in_srgb,var(--color-cockpit-accent)_35%,var(--color-border))] bg-[color-mix(in_srgb,var(--color-cockpit-accent)_4%,transparent)] p-3 space-y-2">
             <input
-              className="w-full text-xs bg-white/10 rounded px-2 py-1.5 text-white placeholder-white/30 outline-none focus:ring-1 focus:ring-white/30"
+              className="w-full [font-family:var(--font-mono-data)] text-xs border border-border/80 bg-background/50 text-foreground px-2 py-1.5 outline-none focus:border-[color-mix(in_srgb,var(--color-cockpit-accent)_60%,transparent)]"
               placeholder="Key"
               value={newKey}
               onChange={(e) => setNewKey(e.target.value)}
               autoFocus
             />
             <textarea
-              className="w-full text-xs bg-white/10 rounded px-2 py-1.5 text-white placeholder-white/30 outline-none focus:ring-1 focus:ring-white/30 resize-none"
+              className="w-full [font-family:var(--font-mono-data)] text-xs border border-border/80 bg-background/50 text-foreground px-2 py-1.5 outline-none focus:border-[color-mix(in_srgb,var(--color-cockpit-accent)_60%,transparent)] resize-none"
               placeholder="Value"
               rows={3}
               value={newValue}
@@ -124,13 +131,14 @@ export function SharedContextPanel() {
               <button
                 onClick={() => void handleAdd()}
                 disabled={saving || !newKey.trim() || !newValue.trim()}
-                className="text-xs px-3 py-1 rounded bg-blue-500/80 hover:bg-blue-500 text-white disabled:opacity-40 transition-colors"
+                className="cockpit-btn text-[10px] px-3 py-1 disabled:opacity-40"
+                style={{ color: 'var(--color-cockpit-green)', borderColor: 'color-mix(in srgb, var(--color-cockpit-green) 50%, transparent)' }}
               >
                 Save
               </button>
               <button
                 onClick={() => { setAdding(false); setNewKey(''); setNewValue('') }}
-                className="text-xs px-3 py-1 rounded bg-white/10 hover:bg-white/20 text-white/60 transition-colors"
+                className="cockpit-btn text-[10px] px-3 py-1"
               >
                 Cancel
               </button>
@@ -139,36 +147,38 @@ export function SharedContextPanel() {
         )}
 
         {entries.length === 0 && !adding && (
-          <div className="text-center py-8 text-white/30 text-xs">
+          <div className="text-center py-8 data-readout-dim text-xs">
             No shared context entries yet.<br />
-            Agents can write here using <code className="font-mono">context_set</code>.
+            Agents can write here using <code className="[font-family:var(--font-mono-data)] text-[var(--color-cockpit-accent)]">context_set</code>.
           </div>
         )}
 
         {entries.map(([key, entry]) => (
-          <div key={key} className="rounded-lg border border-white/10 bg-white/5 p-3">
+          <div key={key} className="border border-border/60 bg-[var(--color-panel-surface)] p-3">
             <div className="flex items-start justify-between gap-2">
               <div className="flex-1 min-w-0">
-                <span className="text-xs font-mono font-semibold text-blue-300 break-all">{key}</span>
+                <span className="[font-family:var(--font-mono-data)] text-xs font-semibold text-[var(--color-cockpit-accent)] break-all">
+                  {key}
+                </span>
                 {entry.updatedBySessionId && (
-                  <span className="ml-2 text-[10px] text-white/30 font-mono">
+                  <span className="ml-2 [font-family:var(--font-mono-data)] text-[10px] text-[var(--color-cockpit-dim)]">
                     by {entry.updatedBySessionId.slice(0, 8)}…
                   </span>
                 )}
-                <span className="ml-2 text-[10px] text-white/25">
+                <span className="ml-2 [font-family:var(--font-mono-data)] text-[10px] text-[var(--color-cockpit-dim)]">
                   {new Date(entry.updatedAt).toLocaleTimeString()}
                 </span>
               </div>
               <div className="flex gap-1 shrink-0">
                 <button
                   onClick={() => { setEditingKey(key); setEditValue(entry.value) }}
-                  className="text-[10px] px-1.5 py-0.5 rounded bg-white/10 hover:bg-white/20 text-white/50 hover:text-white transition-colors"
+                  className="[font-family:var(--font-mono-data)] text-[10px] px-1.5 py-0.5 border border-border/60 bg-transparent text-muted-foreground hover:text-foreground hover:border-border transition-colors"
                 >
                   Edit
                 </button>
                 <button
                   onClick={() => void handleDelete(key)}
-                  className="text-[10px] px-1.5 py-0.5 rounded bg-white/10 hover:bg-cockpit-red/40 text-white/50 hover:text-cockpit-red transition-colors"
+                  className="[font-family:var(--font-mono-data)] text-[10px] px-1.5 py-0.5 border border-cockpit-red/40 bg-transparent text-cockpit-red/60 hover:text-cockpit-red hover:bg-cockpit-red/10 transition-colors"
                 >
                   ✕
                 </button>
@@ -178,7 +188,7 @@ export function SharedContextPanel() {
             {editingKey === key ? (
               <div className="mt-2 space-y-1.5">
                 <textarea
-                  className="w-full text-xs bg-white/10 rounded px-2 py-1.5 text-white outline-none focus:ring-1 focus:ring-white/30 resize-none font-mono"
+                  className="w-full [font-family:var(--font-mono-data)] text-xs border border-border/80 bg-background/50 text-foreground px-2 py-1.5 outline-none focus:border-[color-mix(in_srgb,var(--color-cockpit-accent)_60%,transparent)] resize-none"
                   rows={4}
                   value={editValue}
                   onChange={(e) => setEditValue(e.target.value)}
@@ -188,13 +198,14 @@ export function SharedContextPanel() {
                   <button
                     onClick={() => void handleSave(key, editValue)}
                     disabled={saving}
-                    className="text-xs px-3 py-1 rounded bg-blue-500/80 hover:bg-blue-500 text-white disabled:opacity-40 transition-colors"
+                    className="cockpit-btn text-[10px] px-3 py-1 disabled:opacity-40"
+                    style={{ color: 'var(--color-cockpit-green)', borderColor: 'color-mix(in srgb, var(--color-cockpit-green) 50%, transparent)' }}
                   >
                     Save
                   </button>
                   <button
                     onClick={() => setEditingKey(null)}
-                    className="text-xs px-3 py-1 rounded bg-white/10 hover:bg-white/20 text-white/60 transition-colors"
+                    className="cockpit-btn text-[10px] px-3 py-1"
                   >
                     Cancel
                   </button>

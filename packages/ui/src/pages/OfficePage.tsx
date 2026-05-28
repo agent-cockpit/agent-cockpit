@@ -1,6 +1,6 @@
 // DnD removed in Phase 15-03. Positions are owned by gameState.npcs. Zone assignment in Phase 17.
 
-import { useRef, useEffect, useState } from 'react'
+import { useRef, useEffect, useState, type PointerEvent as ReactPointerEvent } from 'react'
 import { useStore } from '../store/index.js'
 import type { SnapZone } from '../store/index.js'
 import { useActiveSessions } from '../store/selectors.js'
@@ -926,6 +926,17 @@ export function OfficePage() {
       startHeight: popup.height,
       snapTarget: null,
     }
+  }
+
+  function startPopupMoveFromHeader(
+    sessionId: string,
+    event: ReactPointerEvent<HTMLDivElement>,
+  ): void {
+    if (event.button !== 0) return
+    const target = event.target instanceof HTMLElement ? event.target : null
+    if (target?.closest('button,a,input,textarea,select,[role="button"],[role="tab"]')) return
+    event.preventDefault()
+    startPopupGesture('move', sessionId, event.pointerId, event.clientX, event.clientY)
   }
 
   function positionInteractButton(sessionId: string | null): void {
@@ -2005,7 +2016,7 @@ export function OfficePage() {
             return (
               <div
                 key={sessionId}
-                className="pointer-events-auto absolute overflow-hidden"
+                className="pointer-events-auto absolute overflow-hidden rounded-2xl"
                 style={{
                   left: popup.x,
                   top: popup.y,
@@ -2016,14 +2027,6 @@ export function OfficePage() {
                 onMouseDown={() => bringSessionPopupToFront(sessionId)}
                 data-testid={`popup-window-${sessionId}`}
               >
-                {/* drag handle — top strip */}
-                <div
-                  className="absolute inset-x-0 top-0 z-40 h-2 cursor-move"
-                  onPointerDown={(event) => {
-                    event.preventDefault()
-                    startPopupGesture('move', sessionId, event.pointerId, event.clientX, event.clientY)
-                  }}
-                />
                 <InstancePopupHub
                   inline
                   open={true}
@@ -2034,6 +2037,7 @@ export function OfficePage() {
                   onMinimize={() => minimizeSessionPopup(sessionId)}
                   onFocus={() => bringSessionPopupToFront(sessionId)}
                   onSnapLayout={snapLayout}
+                  onHeaderPointerDown={(event) => startPopupMoveFromHeader(sessionId, event)}
                 />
                 {/* resize handles — edges */}
                 <div className="absolute inset-x-2 bottom-0 h-1.5 cursor-s-resize z-40"
