@@ -134,6 +134,7 @@ export interface SessionRecord {
 
 export type PanelId = 'approvals' | 'timeline' | 'diff' | 'memory' | 'artifacts'
 export type PopupTabId = PanelId | 'chat'
+export type SnapZone = 'left' | 'right' | 'maximize' | 'topleft' | 'topright' | 'bottomleft' | 'bottomright'
 
 export interface SessionPopupWindow {
   sessionId: string
@@ -143,6 +144,7 @@ export interface SessionPopupWindow {
   height: number
   minimized: boolean
   preferredTab: PopupTabId | null
+  snapZone: SnapZone | null
 }
 
 export interface SessionPopupWindowPatch {
@@ -150,6 +152,7 @@ export interface SessionPopupWindowPatch {
   y?: number
   width?: number
   height?: number
+  snapZone?: SnapZone | null
 }
 
 interface SessionsSlice {
@@ -259,6 +262,7 @@ function defaultPopupWindow(
     height: POPUP_DEFAULT_HEIGHT,
     minimized: false,
     preferredTab,
+    snapZone: null,
   }
 }
 
@@ -511,6 +515,7 @@ export const useStore = create<AppStore>()(
               y: patch.y ?? existing.y,
               width: patch.width ?? existing.width,
               height: patch.height ?? existing.height,
+              snapZone: patch.snapZone !== undefined ? patch.snapZone : existing.snapZone,
             },
           },
         }

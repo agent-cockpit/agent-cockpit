@@ -173,6 +173,29 @@ describe('InstancePopupHub', () => {
     expect(tabsRoot.getAttribute('data-value')).toBe('approvals')
   })
 
+  it('keeps the portaled snap picker open long enough to apply a layout option', () => {
+    const onSnapLayout = vi.fn()
+    render(
+      <InstancePopupHub
+        inline
+        open={true}
+        onClose={vi.fn()}
+        onSnapLayout={onSnapLayout}
+      />,
+    )
+
+    fireEvent.click(screen.getByRole('button', { name: /snap layout/i }))
+    const leftOption = screen.getByRole('button', { name: /snap left/i })
+
+    fireEvent.mouseDown(leftOption)
+    expect(leftOption).toBeInTheDocument()
+
+    fireEvent.click(leftOption)
+
+    expect(onSnapLayout).toHaveBeenCalledWith('left')
+    expect(screen.queryByRole('button', { name: /snap left/i })).not.toBeInTheDocument()
+  })
+
   it('renders footer usage metrics from session_usage events', () => {
     mockStore.events = {
       'session-123': [

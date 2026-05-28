@@ -2,6 +2,7 @@
 
 import { useRef, useEffect, useState } from 'react'
 import { useStore } from '../store/index.js'
+import type { SnapZone } from '../store/index.js'
 import { useActiveSessions } from '../store/selectors.js'
 import { sendWsMessage } from '../hooks/useSessionEvents.js'
 import { audioSystem } from '../audio/audioSystem.js'
@@ -220,6 +221,53 @@ function writeStoredPlayerState(state: StoredPlayerState): void {
   } catch {
     // Ignore storage failures and keep in-memory player state authoritative.
   }
+}
+
+const SNAP_EDGE_PX = 80
+const SNAP_TOP_PX = 48
+
+type ResizeDir = 'se' | 'sw' | 'ne' | 'nw' | 'n' | 's' | 'e' | 'w'
+
+interface SnapGhostRect {
+  zone: SnapZone
+  x: number
+  y: number
+  width: number
+  height: number
+}
+
+function computeSnapRect(
+  zone: SnapZone,
+  hostW: number,
+  hostH: number,
+  margin: number,
+  dockReserve: number,
+): { x: number; y: number; width: number; height: number } {
+  const fullH = hostH - margin - dockReserve
+  const halfW = Math.floor((hostW - 3 * margin) / 2)
+  const halfH = Math.floor((fullH - margin) / 2)
+  const col2x = margin + halfW + margin
+  switch (zone) {
+    case 'left':        return { x: margin, y: margin, width: halfW, height: fullH }
+    case 'right':       return { x: col2x, y: margin, width: halfW, height: fullH }
+    case 'maximize':    return { x: margin, y: margin, width: hostW - 2 * margin, height: fullH }
+    case 'topleft':     return { x: margin, y: margin, width: halfW, height: halfH }
+    case 'topright':    return { x: col2x, y: margin, width: halfW, height: halfH }
+    case 'bottomleft':  return { x: margin, y: margin + halfH + margin, width: halfW, height: halfH }
+    case 'bottomright': return { x: col2x, y: margin + halfH + margin, width: halfW, height: halfH }
+  }
+}
+
+function detectSnapZone(px: number, py: number, hostW: number, hostH: number): SnapZone | null {
+  const nearL = px < SNAP_EDGE_PX
+  const nearR = px > hostW - SNAP_EDGE_PX
+  const nearT = py < SNAP_TOP_PX
+  if (nearT && nearL) return 'topleft'
+  if (nearT && nearR) return 'topright'
+  if (nearT) return 'maximize'
+  if (nearL) return 'left'
+  if (nearR) return 'right'
+  return null
 }
 
 function isTextInputFocused(active: Element | null): boolean {
@@ -745,6 +793,7 @@ export function OfficePage() {
   const [closetOpen, setClosetOpen] = useState(false)
   const [ejectDialogOpen, setEjectDialogOpen] = useState(false)
   const [ejectProcessing, setEjectProcessing] = useState(false)
+  const [snapGhost, setSnapGhost] = useState<SnapGhostRect | null>(null)
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const containerRef = useRef<HTMLDivElement>(null)
   const imageCacheRef = useRef<Map<string, HTMLImageElement>>(new Map())
@@ -779,7 +828,7 @@ export function OfficePage() {
   const playerTeleportFlashFramesRef = useRef<number>(0)
   const popupGestureRef = useRef<{
     pointerId: number
-    mode: 'move' | 'resize'
+    mode: 'move' | `resize-${ResizeDir}`
     sessionId: string
     startClientX: number
     startClientY: number
@@ -787,6 +836,7 @@ export function OfficePage() {
     startY: number
     startWidth: number
     startHeight: number
+    snapTarget: SnapGhostRect | null
   } | null>(null)
 
   const orderedPopupSessionIds = popupWindowOrder.filter((id) => !!popupWindows[id])
@@ -855,7 +905,7 @@ export function OfficePage() {
   }
 
   function startPopupGesture(
-    mode: 'move' | 'resize',
+    mode: 'move' | `resize-${ResizeDir}`,
     sessionId: string,
     pointerId: number,
     clientX: number,
@@ -874,6 +924,7 @@ export function OfficePage() {
       startY: popup.y,
       startWidth: popup.width,
       startHeight: popup.height,
+      snapTarget: null,
     }
   }
 
@@ -1009,24 +1060,47 @@ export function OfficePage() {
         const x = Math.min(maxX, Math.max(POPUP_MARGIN, gesture.startX + dx))
         const y = Math.min(maxY, Math.max(POPUP_MARGIN, gesture.startY + dy))
         setSessionPopupRect(gesture.sessionId, { x, y })
+
+        const relX = event.clientX - (hostBounds?.left ?? 0)
+        const relY = event.clientY - (hostBounds?.top ?? 0)
+        const zone = detectSnapZone(relX, relY, hostWidth, hostHeight)
+        const target = zone
+          ? { zone, ...computeSnapRect(zone, hostWidth, hostHeight, POPUP_MARGIN, POPUP_DOCK_RESERVE) }
+          : null
+        gesture.snapTarget = target
+        setSnapGhost(target)
         return
       }
 
-      const width = Math.min(
-        Math.max(POPUP_MIN_WIDTH, gesture.startWidth + dx),
-        Math.max(POPUP_MIN_WIDTH, hostWidth - gesture.startX - POPUP_MARGIN),
-      )
-      const height = Math.min(
-        Math.max(POPUP_MIN_HEIGHT, gesture.startHeight + dy),
-        Math.max(POPUP_MIN_HEIGHT, hostHeight - gesture.startY - POPUP_DOCK_RESERVE),
-      )
-      setSessionPopupRect(gesture.sessionId, { width, height })
+      const dir = gesture.mode.slice(7) as ResizeDir
+      let x = gesture.startX
+      let y = gesture.startY
+      let w = gesture.startWidth
+      let h = gesture.startHeight
+      if (dir.includes('e')) w = Math.min(Math.max(POPUP_MIN_WIDTH, w + dx), hostWidth - x - POPUP_MARGIN)
+      if (dir.includes('w')) {
+        const nx = Math.min(Math.max(POPUP_MARGIN, x + dx), x + w - POPUP_MIN_WIDTH)
+        w = x + w - nx
+        x = nx
+      }
+      if (dir.includes('s')) h = Math.min(Math.max(POPUP_MIN_HEIGHT, h + dy), hostHeight - y - POPUP_DOCK_RESERVE)
+      if (dir.includes('n')) {
+        const ny = Math.min(Math.max(POPUP_MARGIN, y + dy), y + h - POPUP_MIN_HEIGHT)
+        h = y + h - ny
+        y = ny
+      }
+      setSessionPopupRect(gesture.sessionId, { x, y, width: w, height: h })
     }
 
     function handlePointerUp(event: PointerEvent): void {
       const gesture = popupGestureRef.current
       if (!gesture) return
       if (event.pointerId !== gesture.pointerId) return
+      if (gesture.mode === 'move' && gesture.snapTarget) {
+        const { zone, x, y, width, height } = gesture.snapTarget
+        setSessionPopupRect(gesture.sessionId, { x, y, width, height, snapZone: zone })
+      }
+      setSnapGhost(null)
       popupGestureRef.current = null
     }
 
@@ -1892,10 +1966,42 @@ export function OfficePage() {
           </div>
         </div>
         <div className="pointer-events-none absolute inset-0 z-30">
+          {snapGhost && (
+            <div
+              className="pointer-events-none absolute cockpit-frame-full"
+              style={{
+                left: snapGhost.x,
+                top: snapGhost.y,
+                width: snapGhost.width,
+                height: snapGhost.height,
+                zIndex: 65,
+                border: '2px dashed var(--color-cockpit-cyan)',
+                background: 'color-mix(in srgb, var(--color-cockpit-cyan) 6%, transparent)',
+                boxShadow: '0 0 24px color-mix(in srgb, var(--color-cockpit-cyan) 18%, transparent)',
+                transition: 'left 0.1s ease, top 0.1s ease, width 0.1s ease, height 0.1s ease',
+              }}
+            >
+              <span className="cockpit-corner cockpit-corner-tl" aria-hidden />
+              <span className="cockpit-corner cockpit-corner-tr" aria-hidden />
+              <span className="cockpit-corner cockpit-corner-bl" aria-hidden />
+              <span className="cockpit-corner cockpit-corner-br" aria-hidden />
+            </div>
+          )}
           {orderedPopupSessionIds.map((sessionId, orderIndex) => {
             const popup = popupWindows[sessionId]
             if (!popup || popup.minimized) return null
             const zIndex = 70 + orderIndex
+            const snapLayout = (zone: SnapZone) => {
+              const hb = containerRef.current?.getBoundingClientRect()
+              const rect = computeSnapRect(
+                zone,
+                hb?.width ?? window.innerWidth,
+                hb?.height ?? window.innerHeight,
+                POPUP_MARGIN,
+                POPUP_DOCK_RESERVE,
+              )
+              setSessionPopupRect(sessionId, { ...rect, snapZone: zone })
+            }
             return (
               <div
                 key={sessionId}
@@ -1910,17 +2016,12 @@ export function OfficePage() {
                 onMouseDown={() => bringSessionPopupToFront(sessionId)}
                 data-testid={`popup-window-${sessionId}`}
               >
+                {/* drag handle — top strip */}
                 <div
                   className="absolute inset-x-0 top-0 z-40 h-2 cursor-move"
                   onPointerDown={(event) => {
                     event.preventDefault()
-                    startPopupGesture(
-                      'move',
-                      sessionId,
-                      event.pointerId,
-                      event.clientX,
-                      event.clientY,
-                    )
+                    startPopupGesture('move', sessionId, event.pointerId, event.clientX, event.clientY)
                   }}
                 />
                 <InstancePopupHub
@@ -1932,25 +2033,33 @@ export function OfficePage() {
                   onClose={() => closeSessionPopup(sessionId)}
                   onMinimize={() => minimizeSessionPopup(sessionId)}
                   onFocus={() => bringSessionPopupToFront(sessionId)}
+                  onSnapLayout={snapLayout}
                 />
-                <button
-                  type="button"
-                  className="absolute bottom-0 right-0 z-40 h-5 w-5 cursor-nwse-resize border-l border-t border-border/70 bg-[color-mix(in_srgb,var(--color-cockpit-accent)_10%,transparent)] text-[10px] text-muted-foreground"
+                {/* resize handles — edges */}
+                <div className="absolute inset-x-2 bottom-0 h-1.5 cursor-s-resize z-40"
+                  onPointerDown={(e) => { e.preventDefault(); e.stopPropagation(); startPopupGesture('resize-s', sessionId, e.pointerId, e.clientX, e.clientY) }} />
+                <div className="absolute inset-y-2 left-0 w-1.5 cursor-w-resize z-40"
+                  onPointerDown={(e) => { e.preventDefault(); e.stopPropagation(); startPopupGesture('resize-w', sessionId, e.pointerId, e.clientX, e.clientY) }} />
+                <div className="absolute inset-y-2 right-0 w-1.5 cursor-e-resize z-40"
+                  onPointerDown={(e) => { e.preventDefault(); e.stopPropagation(); startPopupGesture('resize-e', sessionId, e.pointerId, e.clientX, e.clientY) }} />
+                {/* resize handles — corners */}
+                <div className="absolute top-0 left-0 h-3 w-3 cursor-nw-resize z-41"
+                  onPointerDown={(e) => { e.preventDefault(); e.stopPropagation(); startPopupGesture('resize-nw', sessionId, e.pointerId, e.clientX, e.clientY) }} />
+                <div className="absolute top-0 right-0 h-3 w-3 cursor-ne-resize z-41"
+                  onPointerDown={(e) => { e.preventDefault(); e.stopPropagation(); startPopupGesture('resize-ne', sessionId, e.pointerId, e.clientX, e.clientY) }} />
+                <div className="absolute bottom-0 left-0 h-3 w-3 cursor-sw-resize z-41"
+                  onPointerDown={(e) => { e.preventDefault(); e.stopPropagation(); startPopupGesture('resize-sw', sessionId, e.pointerId, e.clientX, e.clientY) }} />
+                <div
+                  className="absolute bottom-0 right-0 z-41 h-5 w-5 cursor-nwse-resize border-l border-t border-border/70 bg-[color-mix(in_srgb,var(--color-cockpit-accent)_10%,transparent)] text-[10px] text-muted-foreground flex items-center justify-center"
                   aria-label={`Resize popup ${popupLabel(sessionId)}`}
                   onPointerDown={(event) => {
                     event.preventDefault()
                     event.stopPropagation()
-                    startPopupGesture(
-                      'resize',
-                      sessionId,
-                      event.pointerId,
-                      event.clientX,
-                      event.clientY,
-                    )
+                    startPopupGesture('resize-se', sessionId, event.pointerId, event.clientX, event.clientY)
                   }}
                 >
                   ◢
-                </button>
+                </div>
               </div>
             )
           })}

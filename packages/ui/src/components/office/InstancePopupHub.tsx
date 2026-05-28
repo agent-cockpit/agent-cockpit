@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import * as Dialog from '@radix-ui/react-dialog'
 import * as Tabs from '@radix-ui/react-tabs'
 import { useStore } from '../../store/index.js'
-import type { PopupTabId } from '../../store/index.js'
+import type { PopupTabId, SnapZone } from '../../store/index.js'
 import { sendWsMessage } from '../../hooks/useSessionEvents.js'
 import { ApprovalInbox } from '../panels/ApprovalInbox.js'
 import { ChatPanel } from '../panels/ChatPanel.js'
@@ -25,6 +26,41 @@ interface Props {
   onPreferredTabConsumed?: () => void
   onMinimize?: () => void
   onFocus?: () => void
+  onSnapLayout?: (zone: SnapZone) => void
+}
+
+const SNAP_ZONE_LAYOUT: SnapZone[] = ['left', 'right', 'maximize', 'topleft', 'topright', 'bottomright']
+
+const SNAP_ZONE_LABELS: Record<SnapZone, string> = {
+  left: 'Left', right: 'Right', maximize: 'Max',
+  topleft: '↖', topright: '↗', bottomleft: '↙', bottomright: '↘',
+}
+
+type SnapFill = { left: string; top: string; width: string; height: string }
+
+const SNAP_ZONE_FILL: Record<SnapZone, SnapFill> = {
+  left:        { left: '0',   top: '0',   width: '50%',  height: '100%' },
+  right:       { left: '50%', top: '0',   width: '50%',  height: '100%' },
+  maximize:    { left: '0',   top: '0',   width: '100%', height: '100%' },
+  topleft:     { left: '0',   top: '0',   width: '50%',  height: '50%'  },
+  topright:    { left: '50%', top: '0',   width: '50%',  height: '50%'  },
+  bottomleft:  { left: '0',   top: '50%', width: '50%',  height: '50%'  },
+  bottomright: { left: '50%', top: '50%', width: '50%',  height: '50%'  },
+}
+
+function SnapZonePreview({ zone }: { zone: SnapZone }) {
+  return (
+    <div className="absolute inset-1.5 border border-border/30 overflow-hidden">
+      <div
+        className="absolute"
+        style={{
+          ...SNAP_ZONE_FILL[zone],
+          background: 'var(--color-cockpit-cyan)',
+          opacity: 0.45,
+        }}
+      />
+    </div>
+  )
 }
 
 const TAB_IDS = ['approvals', 'chat', 'timeline', 'diff', 'memory', 'artifacts'] as const
@@ -265,6 +301,7 @@ export function InstancePopupHub({
   onPreferredTabConsumed,
   onMinimize,
   onFocus,
+  onSnapLayout,
 }: Props) {
   const wsUnavailableReason = 'Daemon connection is not open. Reconnect and try again.'
   const selectedSessionId = useStore((s) => s.selectedSessionId)
@@ -285,6 +322,10 @@ export function InstancePopupHub({
 
   const [activeTab, setActiveTab] = useState<TabId>('approvals')
   const [isTerminating, setIsTerminating] = useState(false)
+  const [layoutPickerOpen, setLayoutPickerOpen] = useState(false)
+  const [pickerAnchor, setPickerAnchor] = useState<{ right: number; top: number } | null>(null)
+  const snapBtnRef = useRef<HTMLDivElement>(null)
+  const layoutPickerRef = useRef<HTMLDivElement>(null)
   const [terminateError, setTerminateError] = useState<string | null>(null)
   const [confirmTerminateOpen, setConfirmTerminateOpen] = useState(false)
   const [nowMs, setNowMs] = useState(() => Date.now())
@@ -389,6 +430,21 @@ export function InstancePopupHub({
     }, 1000)
     return () => window.clearInterval(timer)
   }, [open])
+
+  useEffect(() => {
+    if (!layoutPickerOpen) return
+    function handleOutside(e: MouseEvent) {
+      const target = e.target as Node
+      if (
+        !snapBtnRef.current?.contains(target) &&
+        !layoutPickerRef.current?.contains(target)
+      ) {
+        setLayoutPickerOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', handleOutside)
+    return () => document.removeEventListener('mousedown', handleOutside)
+  }, [layoutPickerOpen])
 
   function handleTerminate(): void {
     if (!liveSession || !effectiveSessionId) return
@@ -516,6 +572,53 @@ export function InstancePopupHub({
               >
                 -
               </button>
+              {inline && onSnapLayout && (
+                <div ref={snapBtnRef} className="relative">
+                  <button
+                    type="button"
+                    aria-label="Snap layout"
+                    className="h-7 w-7 border border-border/70 bg-background/50 text-[11px] [font-family:var(--font-mono-data)] text-muted-foreground hover:text-foreground hover:border-[var(--color-cockpit-cyan)] transition-colors"
+                    onClick={() => {
+                      const rect = snapBtnRef.current?.getBoundingClientRect()
+                      if (rect) setPickerAnchor({ right: window.innerWidth - rect.right, top: rect.bottom + 4 })
+                      setLayoutPickerOpen((v) => !v)
+                    }}
+                  >
+                    ⊞
+                  </button>
+                  {layoutPickerOpen && pickerAnchor && createPortal(
+                    <div
+                      ref={layoutPickerRef}
+                      style={{ position: 'fixed', right: pickerAnchor.right, top: pickerAnchor.top, zIndex: 9999 }}
+                      className="border border-[color-mix(in_srgb,var(--color-cockpit-cyan)_50%,var(--color-border))] bg-[var(--color-panel-surface)] p-2 shadow-2xl"
+                    >
+                      <p className="mb-1.5 select-none [font-family:var(--font-mono-data)] text-[8px] uppercase tracking-[0.18em] text-[var(--color-cockpit-dim)]">
+                        Snap Layout
+                      </p>
+                      <div className="grid grid-cols-3 gap-1">
+                        {SNAP_ZONE_LAYOUT.map((zone) => (
+                          <button
+                            key={zone}
+                            type="button"
+                            aria-label={`Snap ${zone}`}
+                            className="group relative h-12 w-16 border border-border/50 bg-muted/10 transition-colors hover:border-[var(--color-cockpit-cyan)] hover:bg-[color-mix(in_srgb,var(--color-cockpit-cyan)_6%,transparent)]"
+                            onClick={() => {
+                              onSnapLayout(zone)
+                              setLayoutPickerOpen(false)
+                            }}
+                          >
+                            <SnapZonePreview zone={zone} />
+                            <span className="absolute inset-x-0 bottom-0.5 text-center [font-family:var(--font-mono-data)] text-[7px] uppercase tracking-[0.1em] text-[var(--color-cockpit-dim)] group-hover:text-[var(--color-cockpit-cyan)] leading-none">
+                              {SNAP_ZONE_LABELS[zone]}
+                            </span>
+                          </button>
+                        ))}
+                      </div>
+                    </div>,
+                    document.body,
+                  )}
+                </div>
+              )}
               {inline ? (
                 <button
                   type="button"
