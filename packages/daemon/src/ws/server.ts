@@ -20,7 +20,8 @@ import { markSessionStarted } from '../adapters/claude/hookServer.js';
 import { CodexPtyLauncher, type CodexPtyRuntime } from '../adapters/codex/ptyLauncher.js';
 import { getApprovalsBySession } from '../approvals/approvalStore.js';
 import { approvalQueue } from '../approvals/approvalQueue.js';
-import { deleteSessionRecords, getAllSessions, getEventsBySession, getSessionStats, getSessionSummary, getUsageStats, isSessionRecordDeleted, persistEvent, searchAll, type SessionSummary } from '../db/queries.js';
+import { deleteSessionRecords, getAllSessions, getAllSharedContext, upsertSharedContext, deleteSharedContext, pushToSharedList, popFromSharedList, getEventsBySession, getSessionStats, getSessionSummary, getUsageStats, isSessionRecordDeleted, persistEvent, searchAll, type SessionSummary } from '../db/queries.js';
+import { handleMcpRequest, notifyTurnComplete } from '../mcp/server.js';
 import { eventBus } from '../eventBus.js';
 import { logger } from '../logger.js';
 import { deleteNote, insertNote, listNotes } from '../memory/memoryNotes.js';
@@ -115,6 +116,9 @@ const ptyTranscriptUsageSnapshots = new Map<string, ClaudeTranscriptUsageSnapsho
 // Rolling buffer per session so patterns split across PTY chunks are still matched
 const ptyDataBuffers = new Map<string, string>()
 const PTY_BUFFER_MAX = 16384
+// Response buffer for agent_message_wait: array of ANSI-stripped chunks per session
+const ptyResponseBuffers = new Map<string, string[]>()
+const PTY_RESPONSE_BUFFER_MAX_CHUNKS = 500
 
 function stripAnsi(raw: string): string {
   return raw
@@ -226,7 +230,7 @@ function handleLaunchSession(
   res: http.ServerResponse,
   db: Database.Database,
   runtimeRegistry: ManagedSessionRegistry,
-  extras: { broadcastRaw: (payload: string) => void; ptyRegistry: Map<string, PtyRuntime>; hookPort: number },
+  extras: { broadcastRaw: (payload: string) => void; ptyRegistry: Map<string, PtyRuntime>; hookPort: number; apiPort: number },
 ): void {
   let body = '';
   req.on('data', (chunk) => {
@@ -248,6 +252,8 @@ function handleLaunchSession(
           model,
           cols,
           rows,
+          parentSessionId,
+          systemPrompt,
         } = JSON.parse(body) as {
           provider?: string;
           workspacePath?: string;
@@ -256,6 +262,8 @@ function handleLaunchSession(
           model?: string;
           cols?: number;
           rows?: number;
+          parentSessionId?: string;
+          systemPrompt?: string;
         };
         if (!provider || !workspacePath) {
           res.writeHead(400, { 'Content-Type': 'application/json' });
@@ -271,16 +279,23 @@ function handleLaunchSession(
         }
 
         const sessionId = crypto.randomUUID();
-        const { broadcastRaw, ptyRegistry, hookPort } = extras;
+        const { broadcastRaw, ptyRegistry, hookPort, apiPort } = extras;
 
         if (provider === 'claude') {
-          const ptyLaunch = new PtyLauncher(hookPort, db);
+          const ptyLaunch = new PtyLauncher(hookPort, db, apiPort);
           logger.info('launch', 'Launching claude PTY session', { sessionId, workspacePath, model });
+          ptyResponseBuffers.set(sessionId, []);
           const ptyRuntime = await ptyLaunch.launch(
             sessionId,
             workspacePath,
             (data) => {
               broadcastRaw(JSON.stringify({ type: 'pty_output', sessionId, data }));
+              // Append stripped chunk to response buffer for agent_message_wait
+              const chunks = ptyResponseBuffers.get(sessionId);
+              if (chunks !== undefined) {
+                chunks.push(stripAnsi(data));
+                if (chunks.length > PTY_RESPONSE_BUFFER_MAX_CHUNKS) chunks.splice(0, chunks.length - PTY_RESPONSE_BUFFER_MAX_CHUNKS);
+              }
               if (emitClaudeTranscriptUsageIfChanged(sessionId, workspacePath)) return;
               const parsed = parsePtyTokens(sessionId, data);
               if (parsed) {
@@ -305,6 +320,7 @@ function handleLaunchSession(
               ptyTokenAccumulator.delete(sessionId);
               ptyTranscriptUsageSnapshots.delete(sessionId);
               ptyDataBuffers.delete(sessionId);
+              ptyResponseBuffers.delete(sessionId);
               if (!isSessionRecordDeleted(db, sessionId)) {
                 eventBus.emit('event', {
                   schemaVersion: 1,
@@ -318,6 +334,8 @@ function handleLaunchSession(
             model,
             typeof cols === 'number' && cols > 0 ? cols : undefined,
             typeof rows === 'number' && rows > 0 ? rows : undefined,
+            false,
+            systemPrompt,
           );
           ptyRegistry.set(sessionId, ptyRuntime);
           runtimeRegistry.register(sessionId, {
@@ -337,6 +355,7 @@ function handleLaunchSession(
             canSendMessage: false,
             canTerminateSession: true,
             mode: 'pty',
+            ...(parentSessionId ? { parentSessionId } : {}),
           } as NormalizedEvent);
           logger.info('launch', 'Claude PTY session spawned', { sessionId });
           res.writeHead(200, { 'Content-Type': 'application/json' });
@@ -721,6 +740,7 @@ export function createWsServer(
         broadcastRaw: (payload) => broadcast(wss, payload),
         ptyRegistry,
         hookPort,
+        apiPort: port,
       });
       return;
     }
@@ -829,7 +849,134 @@ export function createWsServer(
       return;
     }
 
+    // POST /mcp/:sessionId — MCP server for agent tool calls
+    const mcpMatch = req.method === 'POST' && req.url?.match(/^\/mcp\/([^/?]+)/);
+    if (mcpMatch) {
+      const callerSessionId = decodeURIComponent(mcpMatch[1]!);
+      handleMcpRequest(callerSessionId, req, res, {
+        db,
+        runtimeRegistry,
+        ptyDataBuffers: ptyResponseBuffers,
+        apiPort: port,
+        broadcastEvent: (event) => eventBus.emit('event', event),
+      });
+      return;
+    }
+
+    // GET /api/context — shared context
+    if (req.method === 'GET' && req.url === '/api/context') {
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify(getAllSharedContext(db)));
+      return;
+    }
+
+    // PUT /api/context/:key
+    const ctxPutMatch = req.method === 'PUT' && req.url?.match(/^\/api\/context\/([^/?]+)$/);
+    if (ctxPutMatch) {
+      const key = decodeURIComponent(ctxPutMatch[1]!);
+      let body = '';
+      req.on('data', (c) => { body += c; });
+      req.on('end', () => {
+        try {
+          const { value, sessionId: writerSessionId } = JSON.parse(body) as { value: string; sessionId?: string };
+          if (typeof value !== 'string') { res.writeHead(400, { 'Content-Type': 'application/json' }); res.end(JSON.stringify({ error: 'value required' })); return; }
+          upsertSharedContext(db, key, value, writerSessionId);
+          const event = { schemaVersion: 1 as const, sessionId: writerSessionId ?? 'ui', type: 'shared_context_update' as const, key, value, updatedBySessionId: writerSessionId, timestamp: new Date().toISOString() };
+          eventBus.emit('event', event as NormalizedEvent);
+          res.writeHead(200, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ ok: true }));
+        } catch { res.writeHead(400, { 'Content-Type': 'application/json' }); res.end(JSON.stringify({ error: 'invalid body' })); }
+      });
+      return;
+    }
+
+    // DELETE /api/context/:key
+    const ctxDelMatch = req.method === 'DELETE' && req.url?.match(/^\/api\/context\/([^/?]+)$/);
+    if (ctxDelMatch) {
+      const key = decodeURIComponent(ctxDelMatch[1]!);
+      deleteSharedContext(db, key);
+      const event = { schemaVersion: 1 as const, sessionId: 'ui', type: 'shared_context_update' as const, key, value: null, timestamp: new Date().toISOString() };
+      eventBus.emit('event', event as NormalizedEvent);
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ ok: true }));
+      return;
+    }
+
+    // POST /api/context/:key/push
+    const ctxPushMatch = req.method === 'POST' && req.url?.match(/^\/api\/context\/([^/?]+)\/push$/);
+    if (ctxPushMatch) {
+      const key = decodeURIComponent(ctxPushMatch[1]!);
+      let body = '';
+      req.on('data', (c) => { body += c; });
+      req.on('end', () => {
+        try {
+          const { value } = JSON.parse(body) as { value: string };
+          if (typeof value !== 'string') { res.writeHead(400, { 'Content-Type': 'application/json' }); res.end(JSON.stringify({ error: 'value required' })); return; }
+          const remaining = pushToSharedList(db, key, value);
+          const event = { schemaVersion: 1 as const, sessionId: 'ui', type: 'shared_context_update' as const, key, value: JSON.stringify(remaining), timestamp: new Date().toISOString() };
+          eventBus.emit('event', event as NormalizedEvent);
+          res.writeHead(200, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ ok: true, length: remaining.length }));
+        } catch { res.writeHead(400, { 'Content-Type': 'application/json' }); res.end(JSON.stringify({ error: 'invalid body' })); }
+      });
+      return;
+    }
+
+    // POST /api/context/:key/pop
+    const ctxPopMatch = req.method === 'POST' && req.url?.match(/^\/api\/context\/([^/?]+)\/pop$/);
+    if (ctxPopMatch) {
+      const key = decodeURIComponent(ctxPopMatch[1]!);
+      const { item, remaining } = popFromSharedList(db, key);
+      if (item !== null) {
+        const event = { schemaVersion: 1 as const, sessionId: 'ui', type: 'shared_context_update' as const, key, value: JSON.stringify(remaining), timestamp: new Date().toISOString() };
+        eventBus.emit('event', event as NormalizedEvent);
+      }
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ item }));
+      return;
+    }
+
+    // POST /api/sessions/:id/agent-message
+    const agentMsgMatch = req.method === 'POST' && req.url?.match(/^\/api\/sessions\/([^/]+)\/agent-message$/);
+    if (agentMsgMatch) {
+      const targetSessionId = agentMsgMatch[1]!;
+      let body = '';
+      req.on('data', (c) => { body += c; });
+      req.on('end', () => {
+        void (async () => {
+          try {
+            const { content, fromSessionId } = JSON.parse(body) as { content: string; fromSessionId?: string };
+            if (!content) { res.writeHead(400, { 'Content-Type': 'application/json' }); res.end(JSON.stringify({ error: 'content required' })); return; }
+            const runtime = runtimeRegistry.get(targetSessionId);
+            if (!runtime) { res.writeHead(404, { 'Content-Type': 'application/json' }); res.end(JSON.stringify({ error: 'session not found or not active' })); return; }
+            await runtime.sendMessage(content);
+            const messageId = crypto.randomUUID();
+            eventBus.emit('event', {
+              schemaVersion: 1,
+              sessionId: fromSessionId ?? targetSessionId,
+              type: 'inter_agent_message',
+              fromSessionId: fromSessionId ?? 'unknown',
+              toSessionId: targetSessionId,
+              content,
+              messageId,
+              timestamp: new Date().toISOString(),
+            } as NormalizedEvent);
+            res.writeHead(200, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ ok: true, messageId }));
+          } catch { res.writeHead(500, { 'Content-Type': 'application/json' }); res.end(JSON.stringify({ error: 'internal error' })); }
+        })();
+      });
+      return;
+    }
+
     serveStatic(req, res);
+  });
+
+  // Resolve pending agent_message_wait calls when a session completes its turn
+  eventBus.on('event', (event) => {
+    if (event.type === 'session_turn_complete') {
+      notifyTurnComplete(event.sessionId, ptyResponseBuffers);
+    }
   });
 
   httpServer.on('upgrade', (request, socket, head) => {

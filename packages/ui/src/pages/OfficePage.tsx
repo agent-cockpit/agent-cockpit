@@ -1481,6 +1481,28 @@ export function OfficePage() {
           1,
         )
 
+        // Layer 1.5: parent-child session connectors (drawn under sprites)
+        ctx.save()
+        ctx.strokeStyle = 'oklch(0.65 0.15 290 / 0.45)'
+        ctx.lineWidth = 1
+        ctx.setLineDash([4, 6])
+        Object.values(liveSessions ?? {}).forEach((session) => {
+          if (!session.parentSessionId) return
+          const childPos = gameState.npcs[session.sessionId]
+          const parentPos = gameState.npcs[session.parentSessionId]
+          if (!childPos || !parentPos) return
+          const cx1 = parentPos.x - gameState.camera.x + 32
+          const cy1 = parentPos.y - gameState.camera.y + 32
+          const cx2 = childPos.x - gameState.camera.x + 32
+          const cy2 = childPos.y - gameState.camera.y + 32
+          ctx.beginPath()
+          ctx.moveTo(cx1, cy1)
+          ctx.lineTo(cx2, cy2)
+          ctx.stroke()
+        })
+        ctx.setLineDash([])
+        ctx.restore()
+
         // Layer 2: depth-sorted character sprites. For this top-down scene,
         // larger Y (feet lower on screen) should render in front.
         const spriteQueue: Array<{ depth: number; priority: number; draw: () => void }> = []

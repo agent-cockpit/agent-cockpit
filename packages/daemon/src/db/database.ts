@@ -99,6 +99,13 @@ export function openDatabase(dbPath: string): Database.Database {
       external_session_id TEXT PRIMARY KEY,
       deleted_at          TEXT NOT NULL
     );
+
+    CREATE TABLE IF NOT EXISTS shared_context (
+      key        TEXT PRIMARY KEY,
+      value      TEXT NOT NULL,
+      session_id TEXT,
+      updated_at TEXT NOT NULL
+    );
   `);
 
   // One-time backfill: index any rows that existed before Phase 8

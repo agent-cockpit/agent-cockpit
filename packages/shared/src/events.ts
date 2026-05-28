@@ -20,6 +20,7 @@ export const SessionStartEvent = BaseEvent.extend({
   canTerminateSession: z.boolean().optional(),
   reason: z.string().optional(),
   mode: z.enum(['stream-json', 'pty']).optional(),
+  parentSessionId: z.string().uuid().optional(),
 });
 
 export const SessionEndEvent = BaseEvent.extend({
@@ -115,6 +116,29 @@ export const ProviderParseErrorEvent = BaseEvent.extend({
   errorMessage: z.string(),
 });
 
+// ─── Shared context events ────────────────────────────────────────────────────
+
+export const SharedContextUpdateEvent = BaseEvent.extend({
+  type: z.literal('shared_context_update'),
+  key: z.string(),
+  value: z.string().nullable(), // null = deleted
+  updatedBySessionId: z.string().optional(),
+});
+
+// ─── Inter-agent messaging ────────────────────────────────────────────────────
+
+export const InterAgentMessageEvent = BaseEvent.extend({
+  type: z.literal('inter_agent_message'),
+  fromSessionId: z.string().uuid(),
+  toSessionId: z.string().uuid(),
+  content: z.string(),
+  messageId: z.string().uuid(),
+});
+
+export const SessionTurnCompleteEvent = BaseEvent.extend({
+  type: z.literal('session_turn_complete'),
+});
+
 // ─── Session chat events ─────────────────────────────────────────────────────
 
 export const SessionChatMessageEvent = BaseEvent.extend({
@@ -153,6 +177,9 @@ export const NormalizedEventSchema = z.discriminatedUnion('type', [
   ProviderParseErrorEvent,
   SessionChatMessageEvent,
   SessionChatErrorEvent,
+  SharedContextUpdateEvent,
+  InterAgentMessageEvent,
+  SessionTurnCompleteEvent,
 ]);
 
 export type NormalizedEvent = z.infer<typeof NormalizedEventSchema>;

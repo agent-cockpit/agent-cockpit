@@ -906,6 +906,66 @@ export function isExternalSessionDeleted(db: Database.Database, externalId: stri
   return !!row?.found
 }
 
+// ─── Shared context ───────────────────────────────────────────────────────────
+
+export interface SharedContextEntry {
+  key: string;
+  value: string;
+  sessionId: string | null;
+  updatedAt: string;
+}
+
+export function getAllSharedContext(db: Database.Database): SharedContextEntry[] {
+  return db.prepare('SELECT key, value, session_id as sessionId, updated_at as updatedAt FROM shared_context ORDER BY updated_at DESC').all() as SharedContextEntry[];
+}
+
+export function getSharedContextEntry(db: Database.Database, key: string): SharedContextEntry | null {
+  return db.prepare('SELECT key, value, session_id as sessionId, updated_at as updatedAt FROM shared_context WHERE key = ?').get(key) as SharedContextEntry | null;
+}
+
+export function upsertSharedContext(db: Database.Database, key: string, value: string, sessionId?: string): void {
+  db.prepare(
+    'INSERT INTO shared_context (key, value, session_id, updated_at) VALUES (?, ?, ?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value, session_id = excluded.session_id, updated_at = excluded.updated_at'
+  ).run(key, value, sessionId ?? null, new Date().toISOString());
+}
+
+export function deleteSharedContext(db: Database.Database, key: string): void {
+  db.prepare('DELETE FROM shared_context WHERE key = ?').run(key);
+}
+
+export function pushToSharedList(
+  db: Database.Database,
+  key: string,
+  value: string,
+  sessionId?: string,
+): string[] {
+  return db.transaction(() => {
+    const entry = getSharedContextEntry(db, key);
+    const list: string[] = entry ? (JSON.parse(entry.value) as string[]) : [];
+    list.push(value);
+    upsertSharedContext(db, key, JSON.stringify(list), sessionId);
+    return list;
+  })();
+}
+
+export function popFromSharedList(
+  db: Database.Database,
+  key: string,
+  sessionId?: string,
+): { item: string | null; remaining: string[] } {
+  return db.transaction(() => {
+    const entry = getSharedContextEntry(db, key);
+    if (!entry) return { item: null, remaining: [] };
+    const list: string[] = JSON.parse(entry.value) as string[];
+    if (list.length === 0) return { item: null, remaining: [] };
+    const item = list.shift()!;
+    upsertSharedContext(db, key, JSON.stringify(list), sessionId);
+    return { item, remaining: list };
+  })();
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+
 export function deleteSessionRecords(db: Database.Database, sessionId: string): void {
   const remove = db.transaction((id: string) => {
     const claudeRow = db.prepare('SELECT claude_id FROM claude_sessions WHERE session_id = ?').get(id) as { claude_id: string } | undefined

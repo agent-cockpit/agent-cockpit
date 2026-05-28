@@ -68,6 +68,7 @@ export class PtyLauncher {
   constructor(
     private readonly hookPort: number,
     db: Database.Database | null = null,
+    private readonly apiPort: number = 54321,
   ) {
     this.db = db;
   }
@@ -81,6 +82,7 @@ export class PtyLauncher {
     cols = 80,
     rows = 24,
     resume = false,
+    systemPrompt?: string,
   ): Promise<PtyRuntime> {
     const HOOK_TIMEOUT_S = 60;
     const HOOK_TIMEOUT_MS = (HOOK_TIMEOUT_S - 5) * 1000;
@@ -96,6 +98,7 @@ export class PtyLauncher {
       hooks: [{ type: 'command', command: hookCmd, timeout: HOOK_TIMEOUT_S }],
     });
 
+    const apiHost = process.env['COCKPIT_HOOK_HOST'] ?? '127.0.0.1';
     const settings = {
       hooks: {
         SessionStart: [{ hooks: [{ type: 'command', command: hookCmd, timeout: HOOK_TIMEOUT_S }] }],
@@ -107,6 +110,12 @@ export class PtyLauncher {
         SubagentStop: [hookEntry()],
         Notification: [hookEntry()],
         Stop: [hookEntry()],
+      },
+      mcpServers: {
+        'agent-cockpit': {
+          type: 'http',
+          url: `http://${apiHost}:${this.apiPort}/mcp/${sessionId}`,
+        },
       },
     };
 
@@ -126,11 +135,28 @@ export class PtyLauncher {
       throw new Error('claude binary not found on PATH');
     }
 
+    const coordinationPrompt = [
+      `You are running inside Agent Cockpit (session ID: ${sessionId}).`,
+      `You have access to the "agent-cockpit" MCP server with coordination tools.`,
+      `COORDINATION RULES:`,
+      `1. On start: call context_get() to read everything other agents have written — never redo work that is already there.`,
+      `2. Share findings, designs, or decisions: call context_set with key="${sessionId}:<topic>" (e.g. "${sessionId}:db-schema", "${sessionId}:findings"). The session ID prefix means your entries never overwrite another agent's.`,
+      `3. Delegate subtasks automatically: when you identify work that can be done in parallel or is outside your current focus, call delegate_task(workspacePath, task) instead of doing it yourself sequentially. delegate_task spawns a child agent, gives it the task, waits for its response, and returns the result — all in one call.`,
+      `4. For shared task queues: context_push(key, task) adds a task, context_pop(key) atomically claims one (returns null when empty).`,
+      `5. Write to shared context early and often. Other agents may be waiting on your findings.`,
+      `6. Prefer parallel delegation over sequential execution whenever subtasks are independent.`,
+    ].join(' ');
+
+    const effectiveSystemPrompt = systemPrompt
+      ? `${coordinationPrompt}\n\n${systemPrompt}`
+      : coordinationPrompt;
+
     const claudeArgs = resume
       ? ['--resume', sessionId, '--settings', settingsPath]
       : [
           '--session-id', sessionId,
           '--settings', settingsPath,
+          '--append-system-prompt', effectiveSystemPrompt,
           ...(model ? ['--model', model] : []),
         ];
 

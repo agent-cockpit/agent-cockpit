@@ -347,6 +347,15 @@ function handleRequest(
     } else {
       if (!suppressEvent) {
         onEvent(event);
+        // Emit session_turn_complete whenever Claude's Stop hook fires — signals turn is done
+        if (payload.hook_event_name === 'Stop') {
+          onEvent({
+            schemaVersion: 1,
+            sessionId: event.sessionId,
+            type: 'session_turn_complete',
+            timestamp: new Date().toISOString(),
+          } as NormalizedEvent);
+        }
       }
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({}));

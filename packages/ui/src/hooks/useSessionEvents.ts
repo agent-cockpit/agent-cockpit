@@ -1,7 +1,7 @@
 import { useEffect } from 'react'
 import type { NormalizedEvent } from '@agentcockpit/shared'
 import { useStore } from '../store/index.js'
-import { WS_URL } from '../lib/daemonUrl.js'
+import { DAEMON_URL, WS_URL } from '../lib/daemonUrl.js'
 import { ptyBus } from '../lib/ptyBus.js'
 const MAX_RETRIES = 12
 
@@ -115,6 +115,15 @@ export function connectDaemon(): void {
       if (isCatchupCompleteMessage(payload)) {
         console.log('[WS] catchup complete:', payload.latestSequenceNumber)
         flushReplayBuffer(payload.latestSequenceNumber)
+        // Hydrate shared context from DB (not in event stream)
+        void fetch(`${DAEMON_URL}/api/context`)
+          .then((r) => r.json())
+          .then((entries: Array<{ key: string; value: string; sessionId: string | null; updatedAt: string }>) => {
+            useStore.getState().setSharedContext(
+              entries.map((e) => ({ key: e.key, value: e.value, updatedBySessionId: e.sessionId ?? undefined, updatedAt: e.updatedAt }))
+            )
+          })
+          .catch(() => { /* non-fatal */ })
         return
       }
 

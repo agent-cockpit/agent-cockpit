@@ -130,6 +130,9 @@ const EVENT_TYPE_LABELS: Record<string, string> = {
   session_chat_message: 'Chat',
   session_chat_error: 'Chat Error',
   session_usage: 'Usage',
+  shared_context_update: 'Context Updated',
+  inter_agent_message: 'Agent Message',
+  session_turn_complete: 'Turn Complete',
 }
 
 function eventAccentColor(type: string): string {
@@ -141,6 +144,9 @@ function eventAccentColor(type: string): string {
     case 'session_chat_error': return 'var(--color-cockpit-red)'
     case 'session_start':
     case 'session_end': return 'var(--color-cockpit-dim)'
+    case 'shared_context_update': return 'var(--color-cockpit-green)'
+    case 'inter_agent_message': return 'oklch(0.75 0.18 290)'
+    case 'session_turn_complete': return 'var(--color-cockpit-dim)'
     default: return 'var(--color-cockpit-accent)'
   }
 }
@@ -161,6 +167,12 @@ function EventRow({ event }: { event: NormalizedEvent }) {
   else if (event.type === 'session_usage') {
     const e = event as { inputTokens: number; outputTokens: number }
     detail = `in ${e.inputTokens} · out ${e.outputTokens}`
+  } else if (event.type === 'shared_context_update') {
+    const e = event as { key: string; value: string | null }
+    detail = e.value === null ? `deleted: ${e.key}` : `${e.key} = ${e.value.slice(0, 40)}`
+  } else if (event.type === 'inter_agent_message') {
+    const e = event as { fromSessionId: string; toSessionId: string; content: string }
+    detail = `→ ${e.toSessionId.slice(0, 8)}… "${e.content.slice(0, 40)}"`
   }
 
   return (

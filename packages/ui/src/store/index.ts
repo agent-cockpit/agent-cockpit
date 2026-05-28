@@ -125,6 +125,7 @@ export interface SessionRecord {
   canTerminateSession?: boolean
   reason?: string
   mode?: 'stream-json' | 'pty'
+  parentSessionId?: string
   totalInputTokens?: number
   totalOutputTokens?: number
   totalTokens?: number
@@ -206,7 +207,18 @@ interface HistorySlice {
   toggleCompareSelection: (id: string) => void
 }
 
-export type AppStore = SessionsSlice & UiSlice & WsSlice & EventsSlice & HistorySlice & ApprovalsSlice
+export interface SharedContextEntry {
+  value: string
+  updatedBySessionId?: string
+  updatedAt: string
+}
+
+interface SharedContextSlice {
+  sharedContext: Record<string, SharedContextEntry>
+  setSharedContext: (entries: (SharedContextEntry & { key: string })[]) => void
+}
+
+export type AppStore = SessionsSlice & UiSlice & WsSlice & EventsSlice & HistorySlice & ApprovalsSlice & SharedContextSlice
 
 const POPUP_DEFAULT_WIDTH = 980
 const POPUP_DEFAULT_HEIGHT = 640
@@ -251,9 +263,9 @@ function defaultPopupWindow(
 }
 
 function reduceStoreWithEvent(
-  state: Pick<AppStore, 'sessions' | 'events' | 'pendingApprovalsBySession' | 'characterBag' | 'subagentSessionIds' | 'activeSubagentParents'>,
+  state: Pick<AppStore, 'sessions' | 'events' | 'pendingApprovalsBySession' | 'characterBag' | 'subagentSessionIds' | 'activeSubagentParents' | 'sharedContext'>,
   event: NormalizedEvent,
-): Pick<AppStore, 'sessions' | 'events' | 'pendingApprovalsBySession' | 'characterBag' | 'subagentSessionIds' | 'activeSubagentParents'> {
+): Pick<AppStore, 'sessions' | 'events' | 'pendingApprovalsBySession' | 'characterBag' | 'subagentSessionIds' | 'activeSubagentParents' | 'sharedContext'> {
   let characterBag = state.characterBag
   let character: CharacterType | undefined
   if (event.type === 'session_start') {
@@ -297,6 +309,20 @@ function reduceStoreWithEvent(
       activeSubagentParents[event.sessionId] = next
     }
   }
+  let sharedContext = state.sharedContext
+  if (event.type === 'shared_context_update') {
+    sharedContext = { ...sharedContext }
+    if (event.value === null) {
+      delete sharedContext[event.key]
+    } else {
+      sharedContext[event.key] = {
+        value: event.value,
+        updatedBySessionId: event.updatedBySessionId,
+        updatedAt: event.timestamp,
+      }
+    }
+  }
+
   return {
     sessions: sessionsPatch.sessions,
     events: eventsPatch.events,
@@ -304,6 +330,7 @@ function reduceStoreWithEvent(
     characterBag,
     subagentSessionIds,
     activeSubagentParents,
+    sharedContext,
   }
 }
 
@@ -315,18 +342,19 @@ export const useStore = create<AppStore>()(
     subagentSessionIds: new Set<string>(),
     activeSubagentParents: {},
     applyEvent: (event) =>
-      set((state) => reduceStoreWithEvent(state, event)),
+      set((state) => reduceStoreWithEvent(state, event) as Partial<AppStore>),
     applyEventsBatch: (events) =>
       set((state) => {
         if (events.length === 0) return {}
 
-        let nextState: Pick<AppStore, 'sessions' | 'events' | 'pendingApprovalsBySession' | 'characterBag' | 'subagentSessionIds' | 'activeSubagentParents'> = {
+        let nextState: Pick<AppStore, 'sessions' | 'events' | 'pendingApprovalsBySession' | 'characterBag' | 'subagentSessionIds' | 'activeSubagentParents' | 'sharedContext'> = {
           sessions: state.sessions,
           events: state.events,
           pendingApprovalsBySession: state.pendingApprovalsBySession,
           characterBag: state.characterBag,
           subagentSessionIds: state.subagentSessionIds,
           activeSubagentParents: state.activeSubagentParents,
+          sharedContext: state.sharedContext,
         }
 
         for (const event of events) {
@@ -600,5 +628,14 @@ export const useStore = create<AppStore>()(
         const next = current.length >= 2 ? [current[1]!, id] : [...current, id]
         return { compareSelectionIds: next }
       }),
+
+    // sharedContextSlice
+    sharedContext: {},
+    setSharedContext: (entries) =>
+      set(() => ({
+        sharedContext: Object.fromEntries(
+          entries.map(({ key, ...rest }) => [key, rest])
+        ),
+      })),
   }))
 )

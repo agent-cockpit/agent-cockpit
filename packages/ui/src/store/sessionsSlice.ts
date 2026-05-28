@@ -35,6 +35,7 @@ export function applyEventToSessions(
         canTerminateSession: event.canTerminateSession ?? (event.provider === 'codex'),
         reason: event.reason,
         mode: event.mode,
+        parentSessionId: event.parentSessionId,
       }
       break
 

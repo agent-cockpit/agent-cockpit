@@ -1,3 +1,4 @@
+import { createRequire } from 'node:module';
 import { openDatabase, initializeClaudeSessionCache } from './db/database.js';
 import {
   persistEvent,
@@ -47,6 +48,9 @@ function resolveDefaultDataDir(): string {
   if (xdgDataHome) return path.join(xdgDataHome, 'agent-cockpit');
   return path.join(homeDir, '.local', 'share', 'agent-cockpit');
 }
+
+const _require = createRequire(import.meta.url);
+const DAEMON_VERSION: string = (_require('../package.json') as { version: string }).version;
 
 const DB_PATH = process.env['COCKPIT_DB_PATH'] ?? path.join(resolveDefaultDataDir(), 'events.db');
 const WS_PORT = parseInt(process.env['COCKPIT_WS_PORT'] ?? '54321', 10);
@@ -239,4 +243,10 @@ process.on('SIGINT', () => shutdown(db, wss, hookServer));
 
 httpServer.once('listening', () => {
   logger.info('daemon', 'Started', { db: DB_PATH, wsPort: WS_PORT, hookPort: HOOK_PORT });
+  if (process.env['COCKPIT_NO_TELEMETRY'] !== '1') {
+    fetch(`https://agent-cockpit.dev/ping?v=${encodeURIComponent(DAEMON_VERSION)}&p=${encodeURIComponent(process.platform)}`, {
+      method: 'POST',
+      signal: AbortSignal.timeout(5000),
+    }).catch(() => {});
+  }
 });

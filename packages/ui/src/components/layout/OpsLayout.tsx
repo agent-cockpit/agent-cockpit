@@ -3,6 +3,7 @@ import { useState } from 'react'
 import { MapSidebar } from './MapSidebar.js'
 import { HistoryPopup } from '../office/HistoryPopup.js'
 import { StatsPopup } from '../office/StatsPopup.js'
+import { SharedContextPopup } from '../office/SharedContextPopup.js'
 import { scrollToSession } from '../../pages/OfficePage.js'
 import { useActiveSessions } from '../../store/selectors.js'
 import { useStore } from '../../store/index.js'
@@ -10,8 +11,10 @@ import { useStore } from '../../store/index.js'
 export function OpsLayout() {
   const activeSessions = useActiveSessions()
   const wsStatus = useStore((s) => s.wsStatus)
+  const sharedContextCount = useStore((s) => Object.keys(s.sharedContext).length)
   const [historyOpen, setHistoryOpen] = useState(false)
   const [statsOpen, setStatsOpen] = useState(false)
+  const [contextOpen, setContextOpen] = useState(false)
   const activeSessionCount = activeSessions.length
 
   return (
@@ -59,6 +62,12 @@ export function OpsLayout() {
               >
                 Stats
               </button>
+              <button
+                onClick={() => setContextOpen(true)}
+                className="cockpit-btn shrink-0"
+              >
+                Context{sharedContextCount > 0 ? ` (${sharedContextCount})` : ''}
+              </button>
             </div>
           </div>
         </div>
@@ -73,6 +82,7 @@ export function OpsLayout() {
         <Outlet />
         <HistoryPopup open={historyOpen} onClose={() => setHistoryOpen(false)} />
         <StatsPopup open={statsOpen} onClose={() => setStatsOpen(false)} />
+        <SharedContextPopup open={contextOpen} onClose={() => setContextOpen(false)} />
       </main>
     </div>
   )
