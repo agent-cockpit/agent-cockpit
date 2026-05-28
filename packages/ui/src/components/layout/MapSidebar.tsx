@@ -39,7 +39,7 @@ function FaceAvatar({ character }: { character: CharacterType }) {
       <span
         data-testid="face-avatar-fallback"
         aria-label={character}
-        className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-cyan-500/20 text-[10px] font-bold uppercase text-cyan-300"
+        className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-[color-mix(in_srgb,var(--color-cockpit-accent)_20%,transparent)] text-[10px] font-bold uppercase text-[var(--color-cockpit-accent)]"
       >
         {character[0].toUpperCase()}
       </span>
@@ -106,21 +106,13 @@ export function MapSidebar({ onFocusSession }: Props) {
                   onFocusSession(session.sessionId)
                   setSessionDetailOpen(true)
                 }}
-                className={`cockpit-frame-full relative shrink-0 rounded-none border px-2.5 py-1.5 text-left transition-all duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400/80 focus-visible:ring-offset-2 focus-visible:ring-offset-sidebar ${
+                className={`relative shrink-0 rounded-xl border px-2.5 py-1.5 text-left transition-all duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color-mix(in_srgb,var(--color-cockpit-accent)_80%,transparent)] focus-visible:ring-offset-2 focus-visible:ring-offset-sidebar ${
                   isSelected
-                    ? 'border-cyan-300/70 bg-cyan-500/10 shadow-[0_0_0_1px_rgba(34,211,238,0.15),inset_0_0_12px_rgba(34,211,238,0.04)]'
-                    : 'border-border/80 bg-background/30 hover:-translate-y-px hover:border-cyan-300/40 hover:bg-accent/40'
+                    ? 'border-[color-mix(in_srgb,var(--color-cockpit-accent)_50%,transparent)] bg-[color-mix(in_srgb,var(--color-cockpit-accent)_10%,transparent)] shadow-[0_0_0_1px_color-mix(in_srgb,var(--color-cockpit-accent)_8%,transparent)]'
+                    : 'border-border/60 bg-background/20 hover:-translate-y-px hover:border-[color-mix(in_srgb,var(--color-cockpit-accent)_35%,transparent)] hover:bg-accent/30'
                 }`}
                 style={{ width: '180px' }}
               >
-                {isSelected && (
-                  <>
-                    <span className="cockpit-corner cockpit-corner-tl" aria-hidden />
-                    <span className="cockpit-corner cockpit-corner-tr" aria-hidden />
-                    <span className="cockpit-corner cockpit-corner-bl" aria-hidden />
-                    <span className="cockpit-corner cockpit-corner-br" aria-hidden />
-                  </>
-                )}
                 <div className="flex items-center gap-2">
                   <FaceAvatar character={session.character} />
                   <div className="min-w-0 flex-1">
@@ -131,13 +123,11 @@ export function MapSidebar({ onFocusSession }: Props) {
                       {session.pendingApprovals > 0 && (
                         <span
                           data-testid="pending-approvals-pill"
-                          className="inline-flex min-w-4 shrink-0 items-center justify-center rounded-none border px-1 py-0 text-[10px] font-semibold ring-1 [font-family:var(--font-mono-data)]"
+                          className="inline-flex min-w-4 shrink-0 items-center justify-center rounded-md border px-1 py-0 text-[10px] font-semibold ring-1 [font-family:var(--font-mono-data)]"
                           style={{
                             borderColor: 'var(--color-approval-border)',
                             backgroundColor: 'var(--color-approval-bg)',
                             color: 'var(--color-approval-text)',
-                            boxShadow: '0 0 0 1px color-mix(in oklch, var(--color-approval-border) 60%, transparent)',
-                            textShadow: '0 0 6px rgba(251,191,36,0.6)',
                           }}
                         >
                           {session.pendingApprovals}

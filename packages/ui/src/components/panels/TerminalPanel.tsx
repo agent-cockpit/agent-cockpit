@@ -38,6 +38,6 @@ export function TerminalPanel() {
   }, [sessionId])
 
   return (
-    <div ref={containerRef} className="h-full w-full overflow-hidden bg-[#0d0d14]" />
+    <div ref={containerRef} className="h-full w-full overflow-hidden bg-background" />
   )
 }

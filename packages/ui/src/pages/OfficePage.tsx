@@ -1155,8 +1155,8 @@ export function OfficePage() {
           if (bgCtx) {
             bgCtx.imageSmoothingEnabled = false
             tilemapRenderer.blitMinimap(bgCtx, 0, 0, MINIMAP_MAP_W, MINIMAP_MAP_H)
-            // Dark blue tint for radar aesthetic
-            bgCtx.fillStyle = 'rgba(4, 10, 26, 0.52)'
+            // Dark violet tint for radar aesthetic
+            bgCtx.fillStyle = 'rgba(8, 6, 20, 0.54)'
             bgCtx.fillRect(0, 0, MINIMAP_MAP_W, MINIMAP_MAP_H)
             minimapBgRef.current = bg
           }
@@ -1959,7 +1959,7 @@ export function OfficePage() {
               className="pointer-events-auto absolute bottom-2 left-1/2 -translate-x-1/2"
               data-testid="popup-dock-bar"
             >
-              <div className="cockpit-frame-full flex max-w-[min(92vw,1120px)] items-center gap-2 overflow-x-auto border border-[color-mix(in_srgb,var(--color-cockpit-accent)_35%,var(--color-border))] bg-[linear-gradient(180deg,oklch(0.18_0.03_252)_0%,oklch(0.16_0.03_252)_100%)] px-3 py-1.5">
+              <div className="cockpit-frame-full flex max-w-[min(92vw,1120px)] items-center gap-2 overflow-x-auto border border-[color-mix(in_srgb,var(--color-cockpit-accent)_35%,var(--color-border))] bg-[var(--color-panel-surface)] px-3 py-1.5">
                 <span className="cockpit-corner cockpit-corner-tl" aria-hidden />
                 <span className="cockpit-corner cockpit-corner-tr" aria-hidden />
                 <span className="shrink-0 [font-family:var(--font-mono-data)] text-[9px] uppercase tracking-[0.16em] text-[var(--color-cockpit-dim)] pr-1 select-none">
@@ -1980,10 +1980,10 @@ export function OfficePage() {
                         type="button"
                         className={`flex items-center gap-1.5 border px-2 py-1 [font-family:var(--font-mono-data)] text-[10px] uppercase tracking-[0.12em] transition-colors ${
                           focused
-                            ? 'border-[#c87941] bg-[color-mix(in_srgb,#c87941_12%,transparent)] text-[#e8a96a]'
+                            ? 'border-[color-mix(in_srgb,var(--color-cockpit-amber)_70%,transparent)] bg-[color-mix(in_srgb,var(--color-cockpit-amber)_12%,transparent)] text-[var(--color-cockpit-amber)]'
                             : minimized
-                              ? 'border-[#6b6ab0] bg-[color-mix(in_srgb,#6b6ab0_10%,transparent)] text-muted-foreground hover:text-foreground hover:border-[#8b8ad0]'
-                              : 'border-[#6b6ab0] bg-[color-mix(in_srgb,#6b6ab0_10%,transparent)] text-foreground hover:border-[#8b8ad0]'
+                              ? 'border-[color-mix(in_srgb,var(--color-cockpit-accent)_45%,transparent)] bg-[color-mix(in_srgb,var(--color-cockpit-accent)_8%,transparent)] text-muted-foreground hover:text-foreground hover:border-[color-mix(in_srgb,var(--color-cockpit-accent)_65%,transparent)]'
+                              : 'border-[color-mix(in_srgb,var(--color-cockpit-accent)_45%,transparent)] bg-[color-mix(in_srgb,var(--color-cockpit-accent)_8%,transparent)] text-foreground hover:border-[color-mix(in_srgb,var(--color-cockpit-accent)_65%,transparent)]'
                         }`}
                         onClick={() => {
                           if (minimized) {

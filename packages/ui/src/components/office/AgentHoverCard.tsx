@@ -26,13 +26,9 @@ export function AgentHoverCard({ session, lastToolUsed, elapsedMs }: AgentHoverC
 
   return (
     <div
-      className="cockpit-frame-full agent-hover-card p-3 bg-background/95 border border-[color-mix(in_srgb,var(--color-cockpit-accent)_40%,transparent)] min-w-[180px] shadow-[0_0_16px_color-mix(in_srgb,var(--color-cockpit-accent)_15%,transparent)] backdrop-blur-sm"
+      className="rounded-xl agent-hover-card p-3 bg-background/95 border border-[color-mix(in_srgb,var(--color-cockpit-accent)_35%,transparent)] min-w-[180px] shadow-[0_8px_24px_rgba(0,0,0,0.4)] backdrop-blur-sm"
       style={getProviderAccentStyle(session.provider)}
     >
-      <span className="cockpit-corner cockpit-corner-tl" aria-hidden />
-      <span className="cockpit-corner cockpit-corner-tr" aria-hidden />
-      <span className="cockpit-corner cockpit-corner-bl" aria-hidden />
-      <span className="cockpit-corner cockpit-corner-br" aria-hidden />
 
       {/* Provider badge */}
       <span
@@ -59,7 +55,7 @@ export function AgentHoverCard({ session, lastToolUsed, elapsedMs }: AgentHoverC
 
       {/* Pending approvals */}
       {session.pendingApprovals > 0 && (
-        <div data-testid="pending-approvals" className="[font-family:var(--font-mono-data)] text-[10px] text-amber-300 mt-0.5">
+        <div data-testid="pending-approvals" className="[font-family:var(--font-mono-data)] text-[10px] text-cockpit-amber mt-0.5">
           {session.pendingApprovals} pending
         </div>
       )}

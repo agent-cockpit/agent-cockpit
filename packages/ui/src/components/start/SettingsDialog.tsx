@@ -29,22 +29,18 @@ export function SettingsDialog({ open, onClose }: Props) {
         <Dialog.Overlay className="fixed inset-0 bg-black/60 backdrop-blur-[1px] z-40" />
         <Dialog.Content
           className="fixed z-50 top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2
-                     w-[92vw] max-w-md bg-background rounded-none
+                     w-[92vw] max-w-md bg-background rounded-2xl
                      flex flex-col overflow-hidden border border-border/80
-                     shadow-[0_0_40px_rgba(34,211,238,0.12),0_20px_60px_rgba(0,0,0,0.7)]"
+                     shadow-[0_20px_60px_rgba(0,0,0,0.7)]"
           aria-label="Settings"
         >
-          <div className="cockpit-frame-full flex items-center gap-3 px-4 py-3 border-b border-border shrink-0 bg-[var(--color-panel-surface)]">
-            <span className="cockpit-corner cockpit-corner-tl" aria-hidden />
-            <span className="cockpit-corner cockpit-corner-tr" aria-hidden />
-            <span className="cockpit-corner cockpit-corner-bl" aria-hidden />
-            <span className="cockpit-corner cockpit-corner-br" aria-hidden />
+          <div className="flex items-center gap-3 px-4 py-3 border-b border-border shrink-0 bg-[var(--color-panel-surface)]">
             <Dialog.Title className="cockpit-label">SETTINGS</Dialog.Title>
             <Dialog.Close
-              className="ml-auto cockpit-label hover:text-foreground transition-colors px-2 py-1"
+              className="ml-auto text-muted-foreground hover:text-foreground transition-colors px-2 py-1 text-lg leading-none"
               aria-label="Close settings"
             >
-              [X]
+              ×
             </Dialog.Close>
           </div>
 
@@ -62,11 +58,9 @@ export function SettingsDialog({ open, onClose }: Props) {
             </section>
 
             <section
-              className="cockpit-frame-full border border-border/60 bg-[var(--color-panel-surface)] px-3 py-2"
+              className="rounded-xl border border-border/60 bg-[var(--color-panel-surface)] px-3 py-2"
               aria-label="Roadmap note"
             >
-              <span className="cockpit-corner cockpit-corner-tl" aria-hidden />
-              <span className="cockpit-corner cockpit-corner-br" aria-hidden />
               <p
                 className="data-readout-dim"
                 style={{ fontSize: '0.62rem', lineHeight: 1.5 }}

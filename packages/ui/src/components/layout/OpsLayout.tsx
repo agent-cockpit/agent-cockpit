@@ -25,51 +25,42 @@ export function OpsLayout() {
         style={{ height: '56px' }}
       >
         {/* Branding */}
-        <div className="flex flex-none items-center px-3">
-          <div className="cockpit-frame-full rounded-none border border-border/80 bg-[var(--color-panel-surface)] px-3 py-1.5">
-            <span className="cockpit-corner cockpit-corner-tl" aria-hidden />
-            <span className="cockpit-corner cockpit-corner-tr" aria-hidden />
-            <span className="cockpit-corner cockpit-corner-bl" aria-hidden />
-            <span className="cockpit-corner cockpit-corner-br" aria-hidden />
-            <div className="flex items-center gap-3">
-              <div className="min-w-0">
-                <p className="cockpit-label mb-0">Mission Control</p>
-                <h1
-                  className="[font-family:var(--font-sidebar-display)] text-[10px] font-semibold tracking-widest text-foreground uppercase leading-none"
-                  style={{ textShadow: '0 0 8px oklch(0.75 0.18 195 / 0.6)' }}
-                >
-                  Agent Cockpit
-                </h1>
-              </div>
-              <p className="data-readout text-[10px] shrink-0">
-                <span className="data-readout-dim">ACTIVE:&nbsp;</span>
-                <span
-                  className="tabular-nums"
-                  style={{ color: activeSessionCount > 0 ? 'var(--color-cockpit-green)' : 'var(--color-cockpit-dim)' }}
-                >
-                  {String(activeSessionCount).padStart(2, '0')}
-                </span>
-              </p>
-              <button
-                onClick={() => setHistoryOpen(true)}
-                className="cockpit-btn shrink-0"
-              >
-                History
-              </button>
-              <button
-                onClick={() => setStatsOpen(true)}
-                className="cockpit-btn shrink-0"
-              >
-                Stats
-              </button>
-              <button
-                onClick={() => setContextOpen(true)}
-                className="cockpit-btn shrink-0"
-              >
-                Context{sharedContextCount > 0 ? ` (${sharedContextCount})` : ''}
-              </button>
-            </div>
+        <div className="flex flex-none items-center gap-3 px-4 border-r border-border/50 shrink-0">
+          <div className="min-w-0">
+            <p className="cockpit-label mb-0">Mission Control</p>
+            <h1
+              className="[font-family:var(--font-sidebar-display)] text-[11px] font-semibold tracking-wider text-foreground uppercase leading-none"
+            >
+              Agent Cockpit
+            </h1>
           </div>
+          <p className="data-readout text-[10px] shrink-0">
+            <span className="data-readout-dim">ACTIVE:&nbsp;</span>
+            <span
+              className="tabular-nums"
+              style={{ color: activeSessionCount > 0 ? 'var(--color-cockpit-green)' : 'var(--color-cockpit-dim)' }}
+            >
+              {String(activeSessionCount).padStart(2, '0')}
+            </span>
+          </p>
+          <button
+            onClick={() => setHistoryOpen(true)}
+            className="cockpit-btn shrink-0"
+          >
+            History
+          </button>
+          <button
+            onClick={() => setStatsOpen(true)}
+            className="cockpit-btn shrink-0"
+          >
+            Stats
+          </button>
+          <button
+            onClick={() => setContextOpen(true)}
+            className="cockpit-btn shrink-0"
+          >
+            Context{sharedContextCount > 0 ? ` (${sharedContextCount})` : ''}
+          </button>
         </div>
 
         {/* Sessions */}

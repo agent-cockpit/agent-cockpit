@@ -113,13 +113,9 @@ export function LaunchSessionModal({ open, onClose }: LaunchSessionModalProps) {
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/60"
     >
       <div
-        className="cockpit-frame-full w-full max-w-md bg-background border border-border/80 p-6 shadow-[0_0_40px_color-mix(in_srgb,var(--color-cockpit-accent)_16%,transparent),0_20px_60px_rgba(0,0,0,0.6)]"
+        className="w-full max-w-md rounded-2xl bg-background border border-border/80 p-6 shadow-[0_20px_60px_rgba(0,0,0,0.6)]"
         style={getProviderAccentStyle(provider)}
       >
-        <span className="cockpit-corner cockpit-corner-tl" aria-hidden />
-        <span className="cockpit-corner cockpit-corner-tr" aria-hidden />
-        <span className="cockpit-corner cockpit-corner-bl" aria-hidden />
-        <span className="cockpit-corner cockpit-corner-br" aria-hidden />
 
         <div className="mb-5 flex items-center justify-between">
           <h2 className="cockpit-label">Launch Session</h2>
@@ -127,9 +123,9 @@ export function LaunchSessionModal({ open, onClose }: LaunchSessionModalProps) {
             type="button"
             onClick={handleClose}
             aria-label="Close"
-            className="cockpit-label hover:text-foreground transition-colors px-2 py-1"
+            className="text-muted-foreground hover:text-foreground transition-colors px-2 py-1 text-lg leading-none"
           >
-            [X]
+            ×
           </button>
         </div>
 
@@ -142,7 +138,7 @@ export function LaunchSessionModal({ open, onClose }: LaunchSessionModalProps) {
                 id="launch-provider"
                 value={provider}
                 onChange={(e) => setProvider(e.target.value as 'claude' | 'codex')}
-                className="block w-full rounded-none border border-border/80 bg-[var(--color-panel-surface)] px-3 py-2 [font-family:var(--font-mono-data)] text-xs text-foreground focus:outline-none focus:border-[color-mix(in_srgb,var(--color-cockpit-accent)_60%,transparent)]"
+                className="block w-full rounded-lg border border-border/60 bg-[var(--color-panel-surface)] px-3 py-2 [font-family:var(--font-mono-data)] text-xs text-foreground focus:outline-none focus:border-[color-mix(in_srgb,var(--color-cockpit-accent)_60%,transparent)]"
               >
                 <option value="claude">claude</option>
                 <option value="codex">codex</option>
@@ -161,7 +157,7 @@ export function LaunchSessionModal({ open, onClose }: LaunchSessionModalProps) {
                   onChange={(e) => { setWorkspacePath(e.target.value); setBrowseOpen(false) }}
                   placeholder="/path/to/project"
                   required
-                  className="block min-w-0 flex-1 rounded-none border border-border/80 bg-[var(--color-panel-surface)] px-3 py-2 [font-family:var(--font-mono-data)] text-xs text-foreground placeholder:text-[var(--color-cockpit-dim)] focus:outline-none focus:border-[color-mix(in_srgb,var(--color-cockpit-accent)_60%,transparent)]"
+                  className="block min-w-0 flex-1 rounded-lg border border-border/60 bg-[var(--color-panel-surface)] px-3 py-2 [font-family:var(--font-mono-data)] text-xs text-foreground placeholder:text-[var(--color-cockpit-dim)] focus:outline-none focus:border-[color-mix(in_srgb,var(--color-cockpit-accent)_60%,transparent)]"
                 />
                 <button
                   type="button"
@@ -174,7 +170,7 @@ export function LaunchSessionModal({ open, onClose }: LaunchSessionModalProps) {
               </div>
 
               {browseOpen && browse && (
-                <div className="mt-1 border border-[color-mix(in_srgb,var(--color-cockpit-accent)_30%,transparent)] bg-[var(--color-panel-surface)] max-h-48 overflow-y-auto">
+                <div className="mt-1 rounded-lg border border-[color-mix(in_srgb,var(--color-cockpit-accent)_30%,transparent)] bg-[var(--color-panel-surface)] max-h-48 overflow-y-auto">
                   {/* current path breadcrumb */}
                   <div className="flex items-center gap-1 border-b border-border/40 px-2 py-1">
                     {browse.parent !== null && (
@@ -228,7 +224,7 @@ export function LaunchSessionModal({ open, onClose }: LaunchSessionModalProps) {
                   id="launch-model"
                   value={model}
                   onChange={(e) => setModel(e.target.value)}
-                  className="block w-full rounded-none border border-border/80 bg-[var(--color-panel-surface)] px-3 py-2 [font-family:var(--font-mono-data)] text-xs text-foreground focus:outline-none focus:border-[color-mix(in_srgb,var(--color-cockpit-accent)_60%,transparent)]"
+                  className="block w-full rounded-lg border border-border/60 bg-[var(--color-panel-surface)] px-3 py-2 [font-family:var(--font-mono-data)] text-xs text-foreground focus:outline-none focus:border-[color-mix(in_srgb,var(--color-cockpit-accent)_60%,transparent)]"
                 >
                   <option value="claude-opus-4-7">claude-opus-4-7</option>
                   <option value="claude-sonnet-4-6">claude-sonnet-4-6</option>
@@ -246,7 +242,7 @@ export function LaunchSessionModal({ open, onClose }: LaunchSessionModalProps) {
                   id="launch-permission-mode"
                   value={permissionMode}
                   onChange={(e) => setPermissionMode(e.target.value as 'default' | 'dangerously_skip')}
-                  className="block w-full rounded-none border border-border/80 bg-[var(--color-panel-surface)] px-3 py-2 [font-family:var(--font-mono-data)] text-xs text-foreground focus:outline-none focus:border-[color-mix(in_srgb,var(--color-cockpit-accent)_60%,transparent)]"
+                  className="block w-full rounded-lg border border-border/60 bg-[var(--color-panel-surface)] px-3 py-2 [font-family:var(--font-mono-data)] text-xs text-foreground focus:outline-none focus:border-[color-mix(in_srgb,var(--color-cockpit-accent)_60%,transparent)]"
                 >
                   <option value="default">default (approval queue)</option>
                   <option value="dangerously_skip">dangerously skip permissions</option>

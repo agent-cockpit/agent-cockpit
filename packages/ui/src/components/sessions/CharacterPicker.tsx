@@ -26,7 +26,7 @@ export function CharacterPicker({ value, onChange, onConfirm }: CharacterPickerP
   const label = formatCharacterName(CHARACTER_TYPES[safeIndex])
 
   return (
-    <section className="cockpit-frame-full rounded-none border border-border/70 bg-[var(--color-panel-surface)] px-4 py-4">
+    <section className="rounded-xl border border-border/70 bg-[var(--color-panel-surface)] px-4 py-4">
       <div className="flex items-center justify-between gap-3">
         <p className="cockpit-label">Character Select</p>
         <span className="data-readout-dim text-[10px] uppercase tracking-[0.18em]">

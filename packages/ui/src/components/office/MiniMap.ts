@@ -26,17 +26,17 @@ const SPRITE_SRC_H = 64
 const AGENT_DOT  = 9   // radius (screen px) for NPC avatar circles
 const PLAYER_DOT = 10  // radius for player avatar circle
 
-// Cockpit color tokens
-const COLOR_BG         = 'rgba(5, 10, 22, 0.93)'
-const COLOR_BORDER     = 'rgba(50, 160, 200, 0.55)'
-const COLOR_BRACKET    = 'rgba(50, 200, 230, 0.80)'
-const COLOR_HDR_TEXT   = 'rgba(50, 200, 230, 0.75)'
-const COLOR_SEP        = 'rgba(50, 160, 200, 0.25)'
-const COLOR_VIEWPORT   = 'rgba(90, 200, 240, 0.18)'
-const COLOR_VIEWPORT_S = 'rgba(90, 200, 240, 0.55)'
-const COLOR_WANDER     = '#3ab4f5'
-const COLOR_ATTENTION  = '#ffaa1e'
-const COLOR_PAUSED     = '#666880'
+// Cockpit color tokens — violet/indigo palette
+const COLOR_BG         = 'rgba(10, 9, 18, 0.94)'
+const COLOR_BORDER     = 'rgba(139, 92, 246, 0.48)'
+const COLOR_BRACKET    = 'rgba(167, 139, 250, 0.82)'
+const COLOR_HDR_TEXT   = 'rgba(167, 139, 250, 0.78)'
+const COLOR_SEP        = 'rgba(139, 92, 246, 0.24)'
+const COLOR_VIEWPORT   = 'rgba(139, 92, 246, 0.14)'
+const COLOR_VIEWPORT_S = 'rgba(167, 139, 250, 0.52)'
+const COLOR_WANDER     = '#a78bfa'
+const COLOR_ATTENTION  = '#f59e0b'
+const COLOR_PAUSED     = '#52525e'
 const COLOR_PLAYER_RING = '#ffffff'
 
 interface MiniSession {

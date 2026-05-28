@@ -433,11 +433,9 @@ export function InstancePopupHub({
   function renderSurface() {
     return (
       <>
-        <div className="cockpit-frame-full border-b border-[color-mix(in_srgb,var(--color-cockpit-accent)_26%,var(--color-border))] bg-[linear-gradient(180deg,oklch(0.19_0.03_252)_0%,oklch(0.165_0.03_252)_100%)] px-4 py-3 shrink-0">
-          <span className="cockpit-corner cockpit-corner-tl" aria-hidden />
-          <span className="cockpit-corner cockpit-corner-tr" aria-hidden />
+        <div className="border-b border-border bg-[var(--color-panel-surface)] px-4 py-3 shrink-0">
           <div className="flex items-start gap-3">
-            <div className="mt-0.5 inline-flex h-9 w-9 shrink-0 items-center justify-center border border-[color-mix(in_srgb,var(--color-cockpit-accent)_55%,transparent)] bg-[color-mix(in_srgb,var(--color-cockpit-accent)_12%,transparent)] text-[12px] font-semibold [font-family:var(--font-mono-data)] text-[var(--color-cockpit-accent)]">
+            <div className="mt-0.5 inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-border/50 bg-muted/20 text-[12px] font-semibold [font-family:var(--font-mono-data)] text-muted-foreground">
               {avatarLoadFailed ? (
                 <span className="uppercase">{character[0]}</span>
               ) : (
@@ -466,7 +464,7 @@ export function InstancePopupHub({
                 )}
                 {provider && (
                   <span
-                    className={`px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-[0.12em] ${
+                    className={`rounded-md px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-[0.12em] ${
                       provider === 'claude' ? 'badge-provider-claude' : 'badge-provider-codex'
                     }`}
                   >
@@ -474,7 +472,7 @@ export function InstancePopupHub({
                   </span>
                 )}
                 <span
-                  className={`inline-flex items-center gap-1 border px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-[0.14em] [font-family:var(--font-mono-data)] ${statusStyle.textClass} ${statusStyle.borderClass} ${statusStyle.bgClass}`}
+                  className={`inline-flex items-center gap-1 rounded-md border px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-[0.14em] [font-family:var(--font-mono-data)] ${statusStyle.textClass} ${statusStyle.borderClass} ${statusStyle.bgClass}`}
                 >
                   <span className={`h-1.5 w-1.5 rounded-full ${statusStyle.dotClass}`} />
                   {statusStyle.label}
@@ -486,8 +484,8 @@ export function InstancePopupHub({
                 )}
                 {pendingApprovals > 0 && (
                   <span
-                    className="inline-flex items-center border border-amber-300/55 bg-amber-500/20 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-[0.14em] [font-family:var(--font-mono-data)] text-amber-200"
-                    style={{ textShadow: '0 0 5px rgba(251,191,36,0.45)' }}
+                    className="inline-flex items-center border border-cockpit-amber/55 bg-cockpit-amber/20 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-[0.14em] [font-family:var(--font-mono-data)] text-cockpit-amber"
+                    style={{ textShadow: '0 0 5px color-mix(in oklch, var(--color-cockpit-amber) 40%, transparent)' }}
                   >
                     {pendingApprovals} Pending
                   </span>
@@ -499,35 +497,37 @@ export function InstancePopupHub({
             </div>
 
             <div className="ml-auto flex shrink-0 items-start gap-1.5">
+              {liveSession?.status === 'active' && liveSession.canTerminateSession === true && (
+                <button
+                  type="button"
+                  onClick={handleTerminate}
+                  disabled={isTerminating}
+                  className="h-7 border border-cockpit-red/60 bg-cockpit-red/10 px-2 text-[10px] font-semibold uppercase tracking-[0.14em] [font-family:var(--font-mono-data)] text-cockpit-red hover:bg-cockpit-red/20 transition-colors disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  {isTerminating ? 'Terminating…' : 'Terminate'}
+                </button>
+              )}
               <button
                 type="button"
                 onClick={onMinimize}
                 disabled={!onMinimize}
                 aria-label="Minimize"
-                className="h-7 w-7 border border-border/70 bg-background/50 text-[10px] [font-family:var(--font-mono-data)] text-muted-foreground disabled:cursor-not-allowed disabled:opacity-55"
+                className="h-7 w-7 border border-border/70 bg-background/50 text-[10px] [font-family:var(--font-mono-data)] text-muted-foreground hover:text-foreground hover:border-border transition-colors disabled:cursor-not-allowed disabled:opacity-55"
               >
                 -
-              </button>
-              <button
-                type="button"
-                tabIndex={-1}
-                aria-hidden="true"
-                className="h-7 w-7 border border-border/70 bg-background/50 text-[9px] [font-family:var(--font-mono-data)] text-muted-foreground"
-              >
-                □
               </button>
               {inline ? (
                 <button
                   type="button"
                   onClick={onClose}
-                  className="h-7 w-7 border border-red-500/60 bg-red-500/10 text-[10px] [font-family:var(--font-mono-data)] text-red-300 hover:bg-red-500/20 transition-colors"
+                  className="h-7 w-7 border border-cockpit-red/60 bg-cockpit-red/10 text-[10px] [font-family:var(--font-mono-data)] text-cockpit-red hover:bg-cockpit-red/20 transition-colors"
                   aria-label="Close"
                 >
                   ×
                 </button>
               ) : (
                 <Dialog.Close
-                  className="h-7 w-7 border border-red-500/60 bg-red-500/10 text-[10px] [font-family:var(--font-mono-data)] text-red-300 hover:bg-red-500/20 transition-colors"
+                  className="h-7 w-7 border border-cockpit-red/60 bg-cockpit-red/10 text-[10px] [font-family:var(--font-mono-data)] text-cockpit-red hover:bg-cockpit-red/20 transition-colors"
                   aria-label="Close"
                 >
                   ×
@@ -535,18 +535,6 @@ export function InstancePopupHub({
               )}
             </div>
           </div>
-          {liveSession?.status === 'active' && liveSession.canTerminateSession === true && (
-            <div className="mt-2 flex justify-end">
-              <button
-                type="button"
-                onClick={handleTerminate}
-                disabled={isTerminating}
-                className="border border-red-500/60 bg-red-500/10 px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.14em] [font-family:var(--font-mono-data)] text-red-300 hover:bg-red-500/20 disabled:cursor-not-allowed disabled:opacity-50"
-              >
-                {isTerminating ? 'Terminating...' : 'Terminate'}
-              </button>
-            </div>
-          )}
           {liveSession?.status === 'active' && liveSession.canTerminateSession === false && (
             <p className="mt-2 text-[10px] [font-family:var(--font-mono-data)] text-muted-foreground">
               {liveSession.reason ?? 'Session termination is unavailable for this session.'}
@@ -554,7 +542,7 @@ export function InstancePopupHub({
           )}
         </div>
         {terminateError && (
-          <div className="border-b border-red-500/45 bg-red-500/10 px-4 py-2 text-xs [font-family:var(--font-mono-data)] text-red-300">
+          <div className="border-b border-cockpit-red/45 bg-cockpit-red/10 px-4 py-2 text-xs [font-family:var(--font-mono-data)] text-cockpit-red">
             {terminateError}
           </div>
         )}
@@ -563,16 +551,16 @@ export function InstancePopupHub({
           onValueChange={(value) => setActiveTab(value as TabId)}
           className="flex flex-col flex-1 min-h-0 overflow-hidden"
         >
-          <Tabs.List className="flex shrink-0 items-center gap-1 border-b border-[color-mix(in_srgb,var(--color-cockpit-accent)_28%,var(--color-border))] bg-[color-mix(in_srgb,var(--color-cockpit-accent)_6%,transparent)] px-4">
+          <Tabs.List className="flex shrink-0 border-b border-border px-4">
             {TAB_IDS.map((id) => (
               <Tabs.Trigger
                 key={id}
                 value={id}
-                className="cockpit-tab -mb-px border-b-2 border-transparent px-3 py-2 data-[state=active]:border-b-[color:var(--color-cockpit-accent)] data-[state=active]:bg-[color-mix(in_srgb,var(--color-cockpit-accent)_10%,transparent)] data-[state=active]:text-[color:var(--color-cockpit-accent)] data-[state=active]:[text-shadow:0_0_2px_var(--color-cockpit-accent)]"
+                className="cockpit-tab -mb-px"
               >
                 <span>{TAB_LABELS[id]}</span>
                 {id === 'approvals' && pendingApprovals > 0 ? (
-                  <span className="ml-1 inline-flex min-w-4 items-center justify-center border border-amber-300/55 bg-amber-500/20 px-1 py-0 text-[9px] leading-none text-amber-200">
+                  <span className="ml-1 inline-flex min-w-4 items-center justify-center border border-cockpit-amber/55 bg-cockpit-amber/20 px-1 py-0 text-[9px] leading-none text-cockpit-amber">
                     {pendingApprovals}
                   </span>
                 ) : null}
@@ -609,7 +597,7 @@ export function InstancePopupHub({
                 wsStatus === 'connected'
                   ? 'text-[var(--color-cockpit-green)]'
                   : wsStatus === 'connecting'
-                    ? 'text-amber-300'
+                    ? 'text-cockpit-amber'
                     : 'text-[var(--color-cockpit-red)]'
               }
             >
@@ -641,7 +629,7 @@ export function InstancePopupHub({
     if (!open) return null
     return (
       <div
-        className="h-full w-full flex flex-col overflow-hidden border border-[color-mix(in_srgb,var(--color-cockpit-accent)_40%,var(--color-border))] bg-[linear-gradient(180deg,oklch(0.155_0.028_252)_0%,oklch(0.145_0.03_255)_100%)] shadow-[0_0_50px_color-mix(in_srgb,var(--color-cockpit-accent)_14%,transparent),0_26px_70px_rgba(0,0,0,0.72)]"
+        className="h-full w-full flex flex-col overflow-hidden border border-[color-mix(in_srgb,var(--color-cockpit-accent)_40%,var(--color-border))] bg-background shadow-[0_0_50px_color-mix(in_srgb,var(--color-cockpit-accent)_14%,transparent),0_26px_70px_rgba(0,0,0,0.72)]"
         aria-label={`Session: ${projectName}`}
         style={provider ? getProviderAccentStyle(provider) : undefined}
         onMouseDownCapture={onFocus}
@@ -657,9 +645,9 @@ export function InstancePopupHub({
         <Dialog.Overlay className="fixed inset-0 z-40 bg-black/65 backdrop-blur-[1px]" />
         <Dialog.Content
           className="fixed z-50 top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2
-                     w-[90vw] max-w-[1120px] h-[84vh] rounded-none
+                     w-[90vw] max-w-[1120px] h-[84vh] rounded-2xl
                      flex flex-col overflow-hidden border border-[color-mix(in_srgb,var(--color-cockpit-accent)_40%,var(--color-border))]
-                     bg-[linear-gradient(180deg,oklch(0.155_0.028_252)_0%,oklch(0.145_0.03_255)_100%)]
+                     bg-background
                      shadow-[0_0_50px_color-mix(in_srgb,var(--color-cockpit-accent)_14%,transparent),0_26px_70px_rgba(0,0,0,0.72)]"
           aria-label={`Session: ${projectName}`}
           style={provider ? getProviderAccentStyle(provider) : undefined}

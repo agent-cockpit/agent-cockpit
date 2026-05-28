@@ -135,12 +135,10 @@ function ApprovalCard({
   const actionLabel = formatActionType(approval.actionType)
   const riskTheme = RISK_THEME[approval.riskLevel] ?? RISK_THEME.low
   const buttonBase =
-    'h-9 w-full border px-3 text-[10px] font-semibold [font-family:var(--font-mono-data)] uppercase tracking-[0.14em] disabled:opacity-45 disabled:cursor-not-allowed transition-colors'
+    'h-9 w-full rounded-md border px-3 text-[10px] font-semibold [font-family:var(--font-mono-data)] uppercase tracking-[0.14em] disabled:opacity-45 disabled:cursor-not-allowed transition-colors'
 
   return (
-    <div className="cockpit-frame-full mb-3 overflow-hidden border border-[color-mix(in_srgb,var(--color-cockpit-accent)_28%,var(--color-border))] bg-[linear-gradient(180deg,oklch(0.17_0.028_252)_0%,oklch(0.16_0.028_252)_100%)]">
-      <span className="cockpit-corner cockpit-corner-tl" aria-hidden />
-      <span className="cockpit-corner cockpit-corner-br" aria-hidden />
+    <div className="rounded-xl mb-3 overflow-hidden border border-[color-mix(in_srgb,var(--color-cockpit-accent)_28%,var(--color-border))] bg-[var(--color-panel-surface)]">
 
       <div className="grid grid-cols-1 md:grid-cols-[68px_minmax(0,1fr)_154px]">
         <div
@@ -170,7 +168,7 @@ function ApprovalCard({
             </span>
           </div>
 
-          <div className="border border-[color-mix(in_srgb,var(--color-cockpit-cyan)_20%,var(--color-border))] bg-[color-mix(in_srgb,var(--color-cockpit-cyan)_8%,transparent)] p-2">
+          <div className="rounded-lg border border-[color-mix(in_srgb,var(--color-cockpit-cyan)_20%,var(--color-border))] bg-[color-mix(in_srgb,var(--color-cockpit-cyan)_8%,transparent)] p-2">
             <span className="block [font-family:var(--font-mono-data)] text-[10px] uppercase tracking-[0.14em] text-[var(--color-cockpit-dim)]">
               Requested Command
             </span>
@@ -308,39 +306,39 @@ export function ApprovalInbox() {
   const isConnected = wsStatus === 'connected'
 
   return (
-    <div className="flex h-full flex-col overflow-y-auto bg-[linear-gradient(180deg,oklch(0.15_0.025_255)_0%,oklch(0.14_0.025_255)_100%)] p-4">
-      <div className="mb-4 border border-[color-mix(in_srgb,var(--color-cockpit-amber)_45%,var(--color-border))] bg-[linear-gradient(180deg,color-mix(in_srgb,var(--color-cockpit-amber)_16%,transparent)_0%,color-mix(in_srgb,var(--color-cockpit-amber)_9%,transparent)_100%)] px-3 py-2">
+    <div className="flex h-full flex-col overflow-y-auto bg-background p-4">
+      <div className="mb-4 rounded-xl border border-[color-mix(in_srgb,var(--color-cockpit-amber)_45%,var(--color-border))] bg-[linear-gradient(180deg,color-mix(in_srgb,var(--color-cockpit-amber)_16%,transparent)_0%,color-mix(in_srgb,var(--color-cockpit-amber)_9%,transparent)_100%)] px-3 py-2">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <div className="flex items-center gap-3">
             <h1 className="cockpit-label text-[var(--color-cockpit-amber)]">Approval Queue</h1>
-            <span className="inline-flex items-center border border-amber-300/55 bg-amber-500/20 px-1.5 py-0.5 [font-family:var(--font-mono-data)] text-[10px] font-semibold uppercase tracking-[0.12em] text-amber-200">
+            <span className="inline-flex items-center rounded-md border border-cockpit-amber/55 bg-cockpit-amber/20 px-1.5 py-0.5 [font-family:var(--font-mono-data)] text-[10px] font-semibold uppercase tracking-[0.12em] text-cockpit-amber">
               {String(visibleApprovals.length).padStart(2, '0')} Pending
             </span>
           </div>
           <div className="flex flex-wrap items-center gap-2 [font-family:var(--font-mono-data)] text-[10px] uppercase tracking-[0.12em] text-[var(--color-cockpit-dim)]">
             <span className="inline-flex items-center gap-1">
-              <span className="inline-flex h-4 min-w-4 items-center justify-center border border-[color-mix(in_srgb,var(--color-cockpit-green)_60%,transparent)] bg-[color-mix(in_srgb,var(--color-cockpit-green)_14%,transparent)] px-1 text-[var(--color-cockpit-green)]">
+              <span className="inline-flex h-4 min-w-4 items-center justify-center rounded-sm border border-[color-mix(in_srgb,var(--color-cockpit-green)_60%,transparent)] bg-[color-mix(in_srgb,var(--color-cockpit-green)_14%,transparent)] px-1 text-[var(--color-cockpit-green)]">
                 A
               </span>
               Allow
             </span>
             <span className="text-muted-foreground">·</span>
             <span className="inline-flex items-center gap-1">
-              <span className="inline-flex h-4 min-w-4 items-center justify-center border border-[color-mix(in_srgb,var(--color-cockpit-red)_60%,transparent)] bg-[color-mix(in_srgb,var(--color-cockpit-red)_14%,transparent)] px-1 text-[var(--color-cockpit-red)]">
+              <span className="inline-flex h-4 min-w-4 items-center justify-center rounded-sm border border-[color-mix(in_srgb,var(--color-cockpit-red)_60%,transparent)] bg-[color-mix(in_srgb,var(--color-cockpit-red)_14%,transparent)] px-1 text-[var(--color-cockpit-red)]">
                 D
               </span>
               Deny
             </span>
             <span className="text-muted-foreground">·</span>
             <span className="inline-flex items-center gap-1">
-              <span className="inline-flex h-4 min-w-4 items-center justify-center border border-[color-mix(in_srgb,var(--color-cockpit-cyan)_55%,transparent)] bg-[color-mix(in_srgb,var(--color-cockpit-cyan)_12%,transparent)] px-1 text-[var(--color-cockpit-cyan)]">
+              <span className="inline-flex h-4 min-w-4 items-center justify-center rounded-sm border border-[color-mix(in_srgb,var(--color-cockpit-cyan)_55%,transparent)] bg-[color-mix(in_srgb,var(--color-cockpit-cyan)_12%,transparent)] px-1 text-[var(--color-cockpit-cyan)]">
                 E
               </span>
               Edit
             </span>
             <span className="text-muted-foreground">·</span>
             <span className="inline-flex items-center gap-1 text-foreground">
-              <span className="inline-flex h-4 min-w-4 items-center justify-center border border-border/75 bg-background/50 px-1 text-muted-foreground">
+              <span className="inline-flex h-4 min-w-4 items-center justify-center rounded-sm border border-border/75 bg-background/50 px-1 text-muted-foreground">
                 ↓
               </span>
               Next
@@ -355,8 +353,7 @@ export function ApprovalInbox() {
       {!isConnected && (
         <div className="mb-3">
           <span
-            className="inline-flex border border-amber-400/45 bg-amber-500/20 px-2 py-1 [font-family:var(--font-mono-data)] text-xs text-amber-200"
-            style={{ textShadow: '0 0 6px rgba(251,191,36,0.4)' }}
+            className="inline-flex rounded-lg border border-cockpit-amber/45 bg-cockpit-amber/20 px-2 py-1 [font-family:var(--font-mono-data)] text-xs text-cockpit-amber"
           >
             Reconnecting... decisions are temporarily disabled.
           </span>
@@ -365,7 +362,7 @@ export function ApprovalInbox() {
 
       {/* Content */}
       {visibleApprovals.length === 0 ? (
-        <div className="flex flex-1 flex-col items-center justify-center gap-2 border border-dashed border-border/70 bg-background/30">
+        <div className="flex flex-1 flex-col items-center justify-center gap-2 rounded-xl border border-dashed border-border/70 bg-background/30">
           <p className="cockpit-label" style={{ color: 'var(--color-cockpit-dim)' }}>
             -- QUEUE EMPTY --
           </p>

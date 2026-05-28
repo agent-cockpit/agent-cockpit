@@ -59,11 +59,9 @@ export function SessionDetailPanel() {
   return (
     <div className="flex flex-col h-full" style={getProviderAccentStyle(session.provider)}>
       {/* Header */}
-      <div className="cockpit-frame-full flex items-center gap-3 px-4 py-3 border-b border-border shrink-0 bg-[var(--color-panel-surface)]">
-        <span className="cockpit-corner cockpit-corner-bl" aria-hidden />
-        <span className="cockpit-corner cockpit-corner-br" aria-hidden />
+      <div className="flex items-center gap-3 px-4 py-3 border-b border-border shrink-0 bg-[var(--color-panel-surface)]">
         <span
-          className={`px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wide ${PROVIDER_BADGE[session.provider] ?? 'badge-provider-claude'}`}
+          className={`rounded-md px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wide ${PROVIDER_BADGE[session.provider] ?? 'badge-provider-claude'}`}
         >
           {session.provider}
         </span>
@@ -76,8 +74,7 @@ export function SessionDetailPanel() {
         />
         {session.pendingApprovals > 0 && (
           <span
-            className="border border-amber-300/50 bg-amber-500/20 px-1.5 py-0.5 text-[10px] font-semibold text-amber-200 [font-family:var(--font-mono-data)]"
-            style={{ textShadow: '0 0 3px rgba(251,191,36,0.5)' }}
+            className="rounded-md border border-cockpit-amber/50 bg-cockpit-amber/20 px-1.5 py-0.5 text-[10px] font-semibold text-cockpit-amber [font-family:var(--font-mono-data)]"
           >
             {session.pendingApprovals} PENDING
           </span>

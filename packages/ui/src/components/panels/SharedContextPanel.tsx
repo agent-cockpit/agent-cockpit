@@ -168,7 +168,7 @@ export function SharedContextPanel() {
                 </button>
                 <button
                   onClick={() => void handleDelete(key)}
-                  className="text-[10px] px-1.5 py-0.5 rounded bg-white/10 hover:bg-red-500/40 text-white/50 hover:text-white transition-colors"
+                  className="text-[10px] px-1.5 py-0.5 rounded bg-white/10 hover:bg-cockpit-red/40 text-white/50 hover:text-cockpit-red transition-colors"
                 >
                   ✕
                 </button>

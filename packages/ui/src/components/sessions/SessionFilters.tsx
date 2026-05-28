@@ -17,14 +17,14 @@ export function SessionFilters() {
   }
 
   return (
-    <div className="flex items-center gap-3 p-2">
-      <label className="flex items-center gap-1 text-sm">
+    <div className="flex items-center gap-2 px-2 py-2">
+      <label className="flex items-center gap-1.5 [font-family:var(--font-sidebar-display)] text-[10px] font-medium text-muted-foreground uppercase tracking-wide">
         <span>Provider</span>
         <select
           aria-label="Provider"
           value={filters.provider ?? ''}
           onChange={handleProviderChange}
-          className="rounded border border-gray-300 px-2 py-1 text-sm"
+          className="rounded-md border border-border/60 bg-[var(--color-panel-surface)] px-2 py-1 text-xs text-foreground"
         >
           <option value="">all</option>
           <option value="claude">claude</option>
@@ -32,13 +32,13 @@ export function SessionFilters() {
         </select>
       </label>
 
-      <label className="flex items-center gap-1 text-sm">
+      <label className="flex items-center gap-1.5 [font-family:var(--font-sidebar-display)] text-[10px] font-medium text-muted-foreground uppercase tracking-wide">
         <span>Status</span>
         <select
           aria-label="Status"
           value={filters.status ?? ''}
           onChange={handleStatusChange}
-          className="rounded border border-gray-300 px-2 py-1 text-sm"
+          className="rounded-md border border-border/60 bg-[var(--color-panel-surface)] px-2 py-1 text-xs text-foreground"
         >
           <option value="">all</option>
           <option value="active">active</option>
@@ -52,7 +52,7 @@ export function SessionFilters() {
         placeholder="Search workspace..."
         value={filters.search}
         onChange={handleSearchChange}
-        className="rounded border border-gray-300 px-2 py-1 text-sm"
+        className="flex-1 rounded-md border border-border/60 bg-[var(--color-panel-surface)] px-2 py-1 text-xs text-foreground placeholder:text-muted-foreground/60"
       />
     </div>
   )

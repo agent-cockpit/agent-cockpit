@@ -68,16 +68,16 @@ function BalloonCard({ approval, extraCount, disabled, onDecision }: BalloonCard
 
   return (
     <div
-      className="relative bg-[var(--color-panel-surface)] border border-amber-400/60 px-3 py-2 min-w-[180px] max-w-[260px]"
-      style={{ boxShadow: '0 0 14px rgba(251,191,36,0.18), 0 2px 8px rgba(0,0,0,0.5)' }}
+      className="relative bg-[var(--color-panel-surface)] border border-cockpit-amber/60 px-3 py-2 min-w-[180px] max-w-[260px]"
+      style={{ boxShadow: '0 0 14px color-mix(in oklch, var(--color-cockpit-amber) 18%, transparent), 0 2px 8px rgba(0,0,0,0.5)' }}
     >
       {/* Action type + extra badge */}
       <div className="flex items-center gap-2 mb-1">
-        <span className="[font-family:var(--font-mono-data)] text-[9px] font-semibold uppercase tracking-wider text-amber-300 leading-none">
+        <span className="[font-family:var(--font-mono-data)] text-[9px] font-semibold uppercase tracking-wider text-cockpit-amber leading-none">
           {formatActionType(approval.actionType)}
         </span>
         {extraCount > 0 && (
-          <span className="text-[8px] [font-family:var(--font-mono-data)] bg-amber-500/20 text-amber-300 border border-amber-400/40 px-1 leading-tight">
+          <span className="text-[8px] [font-family:var(--font-mono-data)] bg-cockpit-amber/20 text-cockpit-amber border border-cockpit-amber/40 px-1 leading-tight">
             +{extraCount}
           </span>
         )}
@@ -121,8 +121,8 @@ function BalloonCard({ approval, extraCount, disabled, onDecision }: BalloonCard
         className="absolute left-1/2 -translate-x-1/2 -bottom-[6px] w-[10px] h-[10px] rotate-45"
         style={{
           background: 'var(--color-panel-surface)',
-          borderRight: '1px solid rgba(251,191,36,0.6)',
-          borderBottom: '1px solid rgba(251,191,36,0.6)',
+          borderRight: '1px solid color-mix(in oklch, var(--color-cockpit-amber) 60%, transparent)',
+          borderBottom: '1px solid color-mix(in oklch, var(--color-cockpit-amber) 60%, transparent)',
         }}
         aria-hidden
       />

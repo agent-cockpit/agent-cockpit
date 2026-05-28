@@ -138,7 +138,7 @@ export function SessionListPanel() {
         <button
           type="button"
           onClick={() => setLaunchOpen(true)}
-          className="w-full rounded bg-blue-600 px-3 py-1.5 text-sm text-white hover:bg-blue-700"
+          className="w-full rounded-xl border border-[var(--color-cockpit-accent)]/40 bg-[color-mix(in_srgb,var(--color-cockpit-accent)_8%,transparent)] px-3 py-2 text-sm font-medium text-[var(--color-cockpit-accent)] uppercase tracking-wide hover:bg-[color-mix(in_srgb,var(--color-cockpit-accent)_15%,transparent)] hover:border-[var(--color-cockpit-accent)]/60 transition-colors [font-family:var(--font-sidebar-display)]"
         >
           Launch Session
         </button>
@@ -146,7 +146,12 @@ export function SessionListPanel() {
 
       <div className="flex-1 overflow-y-auto px-2 space-y-0.5">
         {sessions.length === 0 ? (
-          <p className="px-2 py-4 text-center text-xs text-muted-foreground">No sessions</p>
+          <div className="flex flex-col items-center justify-center py-10 gap-2">
+            <p className="cockpit-label" style={{ color: 'var(--color-cockpit-dim)' }}>-- NO SESSIONS --</p>
+            <p className="[font-family:var(--font-mono-data)] text-[10px] text-muted-foreground text-center">
+              Launch a session to begin
+            </p>
+          </div>
         ) : (
           sessions.map((session) => (
             <SessionCard

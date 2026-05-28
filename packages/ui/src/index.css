@@ -1,40 +1,51 @@
 @import "tailwindcss";
 
 @theme {
-  --color-background: oklch(0.2 0.02 255);
-  --color-foreground: oklch(0.96 0.01 255);
-  --color-sidebar: oklch(0.24 0.03 250);
-  --color-border: oklch(0.4 0.02 252);
-  --color-muted: oklch(0.31 0.02 252);
-  --color-muted-foreground: oklch(0.8 0.02 250);
-  --color-accent: oklch(0.65 0.12 215);
-  --color-accent-foreground: oklch(0.98 0.01 255);
+  --color-background: oklch(0.085 0.012 268);
+  --color-foreground: oklch(0.94 0.009 258);
+  --color-sidebar: oklch(0.108 0.016 264);
+  --color-border: oklch(0.195 0.014 264);
+  --color-muted: oklch(0.148 0.014 262);
+  --color-muted-foreground: oklch(0.57 0.022 258);
+  --color-accent: oklch(0.67 0.17 278);
+  --color-accent-foreground: oklch(0.97 0.005 260);
 
-  /* Cockpit phosphor palette */
-  --color-cockpit-cyan:   oklch(0.75 0.18 195);
-  --color-cockpit-green:  oklch(0.68 0.20 155);
-  --color-cockpit-amber:  oklch(0.75 0.16 75);
-  --color-cockpit-red:    oklch(0.60 0.22 25);
-  --color-cockpit-dim:    oklch(0.50 0.04 220);
-  --color-panel-surface:  oklch(0.185 0.025 250);
-  --color-provider-claude:            #c15f3c;
-  --color-provider-codex:             #605de6;
-  /* Phase 29 - Sidebar/Menu design tokens */
-  --color-cockpit-blue-claude-bg:    color-mix(in srgb, var(--color-provider-claude) 20%, transparent);
+  /* Cockpit palette — modernized */
+  --color-cockpit-cyan:   oklch(0.67 0.17 278);
+  --color-cockpit-green:  oklch(0.72 0.165 148);
+  --color-cockpit-amber:  oklch(0.76 0.135 72);
+  --color-cockpit-red:    oklch(0.60 0.21 22);
+  --color-cockpit-dim:    oklch(0.39 0.035 268);
+  --color-panel-surface:  oklch(0.093 0.013 265);
+  --color-provider-claude:            #d4714e;
+  --color-provider-codex:             #7c6ff7;
+  --color-cockpit-blue-claude-bg:    color-mix(in srgb, var(--color-provider-claude) 14%, transparent);
   --color-cockpit-blue-claude-text:  var(--color-provider-claude);
-  --color-cockpit-purple-codex-bg:   color-mix(in srgb, var(--color-provider-codex) 20%, transparent);
+  --color-cockpit-purple-codex-bg:   color-mix(in srgb, var(--color-provider-codex) 14%, transparent);
   --color-cockpit-purple-codex-text: var(--color-provider-codex);
-  --color-approval-bg:               oklch(0.75 0.16 75 / 0.2);
-  --color-approval-border:           oklch(0.75 0.16 75 / 0.5);
-  --color-approval-text:             oklch(0.92 0.04 75);
-  --color-menu-overlay:              rgba(0, 0, 0, 0.45);
+  --color-approval-bg:               oklch(0.76 0.135 72 / 0.14);
+  --color-approval-border:           oklch(0.76 0.135 72 / 0.42);
+  --color-approval-text:             oklch(0.90 0.04 72);
+  --color-menu-overlay:              rgba(0, 0, 0, 0.55);
+}
+
+html {
+  scroll-behavior: smooth;
 }
 
 :root {
-  --font-sidebar-display: "Press Start 2P", "VT323", "Courier New", monospace;
-  --font-sidebar-body: "IBM Plex Sans", "Inter", "Segoe UI", sans-serif;
-  --font-mono-data: "IBM Plex Mono", "JetBrains Mono", "Courier New", monospace;
+  --font-sidebar-display: "Plus Jakarta Sans", "DM Sans", "Segoe UI", sans-serif;
+  --font-sidebar-body: "Plus Jakarta Sans", "DM Sans", "Segoe UI", sans-serif;
+  --font-mono-data: "JetBrains Mono", "IBM Plex Mono", "Courier New", monospace;
+  --font-start-display: "Press Start 2P", "VT323", "Courier New", monospace;
   --color-cockpit-accent: var(--color-cockpit-cyan);
+
+  /* Radius scale */
+  --radius-sm: 5px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --radius-xl: 16px;
+  --radius-2xl: 22px;
 
   /* Corner bracket sizing */
   --bracket-size: 10px;
@@ -80,8 +91,9 @@
 /* Instrument section label: "FUEL LEVEL" style */
 .cockpit-label {
   font-family: var(--font-sidebar-display);
-  font-size: 0.55rem;
-  letter-spacing: 0.12em;
+  font-size: 0.65rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
   text-transform: uppercase;
   color: var(--color-cockpit-accent);
   line-height: 1.4;
@@ -92,7 +104,6 @@
   font-family: var(--font-mono-data);
   font-size: 0.7rem;
   color: var(--color-cockpit-accent);
-  text-shadow: 0 0 2px var(--color-cockpit-accent);
 }
 
 /* Dim/inactive readout */
@@ -109,7 +120,7 @@
   border-radius: 9999px;
   animation: radar-pulse 1.8s ease-out infinite;
 }
-.status-ping-active { --ping-color: #34D399; background-color: #34D399; }
+.status-ping-active { --ping-color: var(--color-cockpit-green); background-color: var(--color-cockpit-green); }
 .status-ping-error  { --ping-color: var(--color-cockpit-red); background-color: var(--color-cockpit-red); }
 .status-ping-ended  { background-color: oklch(0.5 0.01 250); animation: none; }
 
@@ -119,67 +130,79 @@
   background: var(--color-cockpit-blue-claude-bg);
   color: var(--color-cockpit-blue-claude-text);
   border: 1px solid color-mix(in srgb, var(--color-provider-claude) 50%, transparent);
+  border-radius: var(--radius-sm);
 }
 .badge-provider-codex {
   background: var(--color-cockpit-purple-codex-bg);
   color: var(--color-cockpit-purple-codex-text);
   border: 1px solid color-mix(in srgb, var(--color-provider-codex) 50%, transparent);
+  border-radius: var(--radius-sm);
 }
 
 /* ─── Interactive elements ────────────────────────────────────────────────── */
 
 .cockpit-btn {
   font-family: var(--font-sidebar-display);
-  font-size: 0.5rem;
-  letter-spacing: 0.10em;
+  font-size: 0.72rem;
+  font-weight: 500;
+  letter-spacing: 0.04em;
   text-transform: uppercase;
   color: var(--color-cockpit-accent);
   background: transparent;
-  border: 1px solid color-mix(in srgb, var(--color-cockpit-accent) 60%, transparent);
-  padding: 0.35rem 0.7rem;
-  transition: background 150ms, box-shadow 150ms, border-color 150ms;
+  border: 1px solid color-mix(in srgb, var(--color-cockpit-accent) 38%, transparent);
+  border-radius: var(--radius-sm);
+  padding: 0.35rem 0.8rem;
+  transition: background 150ms, border-color 150ms, color 150ms, transform 120ms, box-shadow 150ms;
   cursor: pointer;
 }
 .cockpit-btn:hover {
-  background: color-mix(in srgb, var(--color-cockpit-accent) 12%, transparent);
-  border-color: var(--color-cockpit-accent);
-  box-shadow: 0 0 8px var(--color-cockpit-accent);
+  background: color-mix(in srgb, var(--color-cockpit-accent) 10%, transparent);
+  border-color: color-mix(in srgb, var(--color-cockpit-accent) 65%, transparent);
+}
+.cockpit-btn:active:not(:disabled) {
+  transform: scale(0.97);
+}
+.cockpit-btn:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--color-cockpit-accent) 60%, transparent);
+  outline-offset: 2px;
 }
 .cockpit-btn:disabled {
   opacity: 0.4;
   cursor: not-allowed;
 }
 
-/* Dark-blue variant used for in-world overlay controls (Menu / Interact). */
+/* Dark variant used for in-world overlay controls (Menu / Interact). */
 .office-overlay-btn {
-  background: oklch(0.34 0.09 245 / 0.92);
-  color: oklch(0.93 0.03 220);
-  border-color: oklch(0.70 0.14 210 / 0.72);
-  box-shadow: 0 0 0 1px oklch(0.65 0.12 210 / 0.45), 0 0 14px oklch(0.44 0.12 225 / 0.55);
+  background: oklch(0.18 0.055 272 / 0.92);
+  color: oklch(0.93 0.025 260);
+  border-color: oklch(0.50 0.14 278 / 0.65);
+  box-shadow: 0 0 0 1px oklch(0.45 0.12 278 / 0.4), 0 0 14px oklch(0.30 0.10 278 / 0.5);
 }
 .office-overlay-btn:hover {
-  background: oklch(0.38 0.10 240 / 0.95);
+  background: oklch(0.22 0.065 272 / 0.95);
 }
 
 /* ─── Tab strip ───────────────────────────────────────────────────────────── */
 
 .cockpit-tab {
-  font-family: var(--font-mono-data);
-  font-size: 0.68rem;
-  letter-spacing: 0.06em;
+  font-family: var(--font-sidebar-body);
+  font-size: 0.7rem;
+  font-weight: 500;
+  letter-spacing: 0.04em;
   text-transform: uppercase;
   color: var(--color-muted-foreground);
   border-bottom: 2px solid transparent;
   transition: color 120ms, border-color 120ms;
-  padding: 0.4rem 0.75rem;
+  padding: 0.4rem 0.85rem;
 }
 .cockpit-tab.active,
-.cockpit-tab[data-active="true"] {
+.cockpit-tab[data-active="true"],
+.cockpit-tab[data-state="active"] {
   color: var(--color-cockpit-accent);
   border-bottom-color: var(--color-cockpit-accent);
-  text-shadow: 0 0 2px var(--color-cockpit-accent);
+  text-shadow: 0 0 10px color-mix(in srgb, var(--color-cockpit-accent) 50%, transparent);
 }
-.cockpit-tab:hover:not(.active):not([data-active="true"]) {
+.cockpit-tab:hover:not(.active):not([data-active="true"]):not([data-state="active"]) {
   color: var(--color-foreground);
 }
 
@@ -216,6 +239,13 @@ select,
 input,
 textarea {
   color: var(--color-foreground);
+  border-radius: var(--radius-sm);
+}
+
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible {
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--color-cockpit-accent) 25%, transparent);
 }
 
 select option,
@@ -283,12 +313,12 @@ textarea::placeholder {
   background:
     linear-gradient(
       to bottom,
-      oklch(0.15 0.05 270) 0%,
-      oklch(0.22 0.06 255) 32%,
-      oklch(0.34 0.10 250) 58%,
-      oklch(0.55 0.14 60)  78%,
-      oklch(0.72 0.16 55)  90%,
-      oklch(0.58 0.12 40)  100%
+      oklch(0.07 0.025 280) 0%,
+      oklch(0.12 0.04 272) 25%,
+      oklch(0.22 0.07 265) 50%,
+      oklch(0.42 0.12 62)  74%,
+      oklch(0.64 0.15 52)  88%,
+      oklch(0.52 0.11 38)  100%
     );
 }
 
@@ -362,7 +392,7 @@ textarea::placeholder {
 
 .start-hill--far {
   height: 55%;
-  background: oklch(0.28 0.05 240);
+  background: oklch(0.22 0.06 268);
   clip-path: polygon(
     0% 100%, 0% 60%, 6% 55%, 12% 62%, 18% 50%, 26% 58%, 34% 42%, 42% 48%,
     50% 36%, 60% 44%, 68% 38%, 76% 46%, 84% 40%, 92% 52%, 100% 48%, 100% 100%
@@ -371,7 +401,7 @@ textarea::placeholder {
 
 .start-hill--mid {
   height: 72%;
-  background: oklch(0.22 0.05 235);
+  background: oklch(0.16 0.05 270);
   clip-path: polygon(
     0% 100%, 0% 70%, 8% 66%, 16% 74%, 24% 58%, 32% 66%, 40% 50%, 48% 58%,
     56% 44%, 64% 52%, 72% 46%, 80% 56%, 88% 50%, 96% 62%, 100% 56%, 100% 100%
@@ -380,7 +410,7 @@ textarea::placeholder {
 
 .start-hill--near {
   height: 90%;
-  background: oklch(0.16 0.04 232);
+  background: oklch(0.11 0.04 272);
   clip-path: polygon(
     0% 100%, 0% 78%, 10% 74%, 18% 82%, 28% 66%, 38% 74%, 48% 60%, 58% 68%,
     68% 56%, 76% 66%, 84% 60%, 92% 70%, 100% 66%, 100% 100%
@@ -394,13 +424,13 @@ textarea::placeholder {
   background:
     linear-gradient(
       to bottom,
-      oklch(0.18 0.04 220) 0%,
-      oklch(0.12 0.03 220) 100%
+      oklch(0.09 0.04 270) 0%,
+      oklch(0.06 0.025 272) 100%
     ),
     repeating-linear-gradient(
       90deg,
-      oklch(0.20 0.04 220) 0 16px,
-      oklch(0.17 0.04 220) 16px 17px
+      oklch(0.11 0.035 270) 0 16px,
+      oklch(0.09 0.03 270) 16px 17px
     );
   background-blend-mode: multiply;
   border-top: 2px solid color-mix(in srgb, var(--color-cockpit-cyan) 35%, transparent);
@@ -505,7 +535,7 @@ textarea::placeholder {
 }
 
 .start-title {
-  font-family: var(--font-sidebar-display);
+  font-family: var(--font-start-display);
   font-size: clamp(2.25rem, 8vw, 5.5rem);
   line-height: 1;
   letter-spacing: 0.06em;
@@ -558,7 +588,7 @@ textarea::placeholder {
   padding: 0.85rem 1rem;
   background: rgba(10, 14, 26, 0.55);
   border: 1px solid color-mix(in srgb, var(--color-cockpit-cyan) 25%, transparent);
-  font-family: var(--font-sidebar-display);
+  font-family: var(--font-start-display);
   font-size: clamp(0.7rem, 1.4vw, 0.95rem);
   letter-spacing: 0.12em;
   text-transform: uppercase;
@@ -666,5 +696,15 @@ textarea::placeholder {
 .start-settings-cog-icon {
   shape-rendering: crispEdges;
   filter: drop-shadow(0 0 4px color-mix(in srgb, currentColor 50%, transparent));
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .status-ping { animation: none; }
+  .start-mascot { animation: none; }
+  .start-stars { animation: none; }
+  .start-cloud { animation: none; }
+  .start-title { animation: none; opacity: 1; transform: none; filter: none; }
+  .start-menu-item[data-selected='true'] .start-menu-arrow { animation: none; }
+  .agent-sprite { filter: none; }
 }
 

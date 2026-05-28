@@ -24,27 +24,23 @@ export function MenuPopup({ open, onClose }: Props) {
         <Dialog.Overlay className="fixed inset-0 bg-black/45 z-40" />
         <Dialog.Content
           className="fixed z-50 top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2
-                     w-[92vw] max-w-md bg-background rounded-none
+                     w-[92vw] max-w-md bg-background rounded-2xl
                      flex flex-col overflow-hidden border border-border/80
-                     shadow-[0_0_40px_rgba(34,211,238,0.08),0_20px_60px_rgba(0,0,0,0.6)]"
+                     shadow-[0_20px_60px_rgba(0,0,0,0.6)]"
           aria-label="Audio Settings"
         >
-          <div className="cockpit-frame-full flex items-center gap-3 px-4 py-3 border-b border-border shrink-0 bg-[var(--color-panel-surface)]">
-            <span className="cockpit-corner cockpit-corner-tl" aria-hidden />
-            <span className="cockpit-corner cockpit-corner-tr" aria-hidden />
-            <span className="cockpit-corner cockpit-corner-bl" aria-hidden />
-            <span className="cockpit-corner cockpit-corner-br" aria-hidden />
+          <div className="flex items-center gap-3 px-4 py-3 border-b border-border shrink-0 bg-[var(--color-panel-surface)]">
             <Dialog.Title className="cockpit-label">AUDIO SETTINGS</Dialog.Title>
             <Dialog.Close
-              className="ml-auto cockpit-label hover:text-foreground transition-colors px-2 py-1"
+              className="ml-auto text-muted-foreground hover:text-foreground transition-colors px-2 py-1 text-lg leading-none"
               aria-label="Close audio settings"
             >
-              [X]
+              ×
             </Dialog.Close>
           </div>
 
           <div className="p-4">
-            <section className="cockpit-frame-full rounded-none border border-border/70 bg-[var(--color-panel-surface)] px-3 py-3">
+            <section className="rounded-xl border border-border/70 bg-[var(--color-panel-surface)] px-3 py-3">
               <p className="cockpit-label mb-3">AUDIO</p>
               <div className="mb-3 flex items-center justify-between gap-2">
                 <span className="data-readout-dim text-[11px]">MASTER AUDIO</span>
@@ -66,7 +62,8 @@ export function MenuPopup({ open, onClose }: Props) {
                   max={100}
                   value={Math.round(audioSettings.musicVolume * 100)}
                   onChange={(event) => audioSystem.setMusicVolume(Number(event.currentTarget.value) / 100)}
-                  className="mt-1 w-full accent-cyan-300"
+                  className="mt-1 w-full"
+                  style={{ accentColor: 'var(--color-cockpit-accent)' }}
                   aria-label="Music volume"
                 />
               </label>
@@ -79,7 +76,8 @@ export function MenuPopup({ open, onClose }: Props) {
                   max={100}
                   value={Math.round(audioSettings.sfxVolume * 100)}
                   onChange={(event) => audioSystem.setSfxVolume(Number(event.currentTarget.value) / 100)}
-                  className="mt-1 w-full accent-cyan-300"
+                  className="mt-1 w-full"
+                  style={{ accentColor: 'var(--color-cockpit-accent)' }}
                   aria-label="SFX volume"
                 />
               </label>

@@ -25,21 +25,17 @@ export function TerminateSessionDialog({
       aria-labelledby="terminate-dialog-title"
       aria-describedby="terminate-dialog-description"
     >
-      <div className="cockpit-frame-full w-full max-w-md rounded-none border border-red-500/55 bg-[var(--color-panel-surface)] shadow-[0_0_24px_rgba(239,68,68,0.28),0_14px_46px_rgba(0,0,0,0.7)]">
-        <span className="cockpit-corner cockpit-corner-tl" aria-hidden />
-        <span className="cockpit-corner cockpit-corner-tr" aria-hidden />
-        <span className="cockpit-corner cockpit-corner-bl" aria-hidden />
-        <span className="cockpit-corner cockpit-corner-br" aria-hidden />
+      <div className="w-full max-w-md rounded-2xl border border-cockpit-red/55 bg-[var(--color-panel-surface)] shadow-[0_14px_46px_rgba(0,0,0,0.7)] overflow-hidden">
 
-        <div className="flex items-center gap-2 border-b border-red-500/35 px-4 py-3">
+        <div className="flex items-center gap-2 border-b border-cockpit-red/35 px-4 py-3">
           <p
             id="terminate-dialog-title"
-            className="[font-family:var(--font-mono-data)] text-[11px] font-semibold uppercase tracking-[0.18em] text-red-300"
+            className="[font-family:var(--font-mono-data)] text-[11px] font-semibold uppercase tracking-[0.18em] text-cockpit-red"
           >
             Confirm Termination
           </p>
           <span
-            className={`ml-auto rounded px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wide ${provider === 'claude' ? 'badge-provider-claude' : 'badge-provider-codex'}`}
+            className={`ml-auto rounded-md px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wide ${provider === 'claude' ? 'badge-provider-claude' : 'badge-provider-codex'}`}
           >
             {provider}
           </span>
@@ -50,7 +46,7 @@ export function TerminateSessionDialog({
             id="terminate-dialog-description"
             className="[font-family:var(--font-mono-data)] text-xs text-foreground"
           >
-            Terminate session <span className="text-red-300">&quot;{sessionName}&quot;</span> now?
+            Terminate session <span className="text-cockpit-red">&quot;{sessionName}&quot;</span> now?
           </p>
           <p className="[font-family:var(--font-mono-data)] text-[11px] text-[var(--color-cockpit-dim)]">
             This stops the active runtime and closes this session immediately.
@@ -70,7 +66,7 @@ export function TerminateSessionDialog({
             type="button"
             onClick={onConfirm}
             disabled={isProcessing}
-            className="cockpit-btn min-w-32 border-red-500/70 text-red-300 hover:bg-red-500/15 disabled:cursor-not-allowed disabled:opacity-50"
+            className="cockpit-btn min-w-32 border-cockpit-red/70 text-cockpit-red hover:bg-cockpit-red/15 disabled:cursor-not-allowed disabled:opacity-50"
           >
             {isProcessing ? 'Terminating...' : 'Terminate Session'}
           </button>

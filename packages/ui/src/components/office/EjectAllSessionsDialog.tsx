@@ -23,16 +23,12 @@ export function EjectAllSessionsDialog({
       aria-labelledby="eject-dialog-title"
       aria-describedby="eject-dialog-description"
     >
-      <div className="cockpit-frame-full w-full max-w-md rounded-none border border-red-500/55 bg-[var(--color-panel-surface)] shadow-[0_0_24px_rgba(239,68,68,0.28),0_14px_46px_rgba(0,0,0,0.7)]">
-        <span className="cockpit-corner cockpit-corner-tl" aria-hidden />
-        <span className="cockpit-corner cockpit-corner-tr" aria-hidden />
-        <span className="cockpit-corner cockpit-corner-bl" aria-hidden />
-        <span className="cockpit-corner cockpit-corner-br" aria-hidden />
+      <div className="w-full max-w-md rounded-2xl border border-cockpit-red/55 bg-[var(--color-panel-surface)] shadow-[0_14px_46px_rgba(0,0,0,0.7)] overflow-hidden">
 
-        <div className="flex items-center gap-2 border-b border-red-500/35 px-4 py-3">
+        <div className="flex items-center gap-2 border-b border-cockpit-red/35 px-4 py-3">
           <p
             id="eject-dialog-title"
-            className="[font-family:var(--font-mono-data)] text-[11px] font-semibold uppercase tracking-[0.18em] text-red-300"
+            className="[font-family:var(--font-mono-data)] text-[11px] font-semibold uppercase tracking-[0.18em] text-cockpit-red"
           >
             Emergency Eject
           </p>
@@ -44,7 +40,7 @@ export function EjectAllSessionsDialog({
             className="[font-family:var(--font-mono-data)] text-xs text-foreground"
           >
             Terminate all{' '}
-            <span className="text-red-300">
+            <span className="text-cockpit-red">
               {sessionCount} active session{sessionCount !== 1 ? 's' : ''}
             </span>{' '}
             immediately?
@@ -67,7 +63,7 @@ export function EjectAllSessionsDialog({
             type="button"
             onClick={onConfirm}
             disabled={isProcessing || sessionCount === 0}
-            className="cockpit-btn min-w-32 border-red-500/70 text-red-300 hover:bg-red-500/15 disabled:cursor-not-allowed disabled:opacity-50"
+            className="cockpit-btn min-w-32 border-cockpit-red/70 text-cockpit-red hover:bg-cockpit-red/15 disabled:cursor-not-allowed disabled:opacity-50"
           >
             {isProcessing ? 'Ejecting...' : 'Eject All'}
           </button>
