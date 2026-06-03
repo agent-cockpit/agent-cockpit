@@ -9,6 +9,11 @@ import {
   pushToSharedList,
   popFromSharedList,
   getAllSessions,
+  getSessionWorkflow,
+  getWorkflowByName,
+  getAllWorkflows,
+  insertWorkflowMessage,
+  getWorkflowMessages,
 } from '../db/queries.js';
 import { eventBus } from '../eventBus.js';
 import { logger } from '../logger.js';
@@ -163,6 +168,28 @@ const TOOL_DEFINITIONS = [
       required: ['workspacePath', 'task'],
     },
   },
+  {
+    name: 'workflow_message_send',
+    description: 'Send a message from this workflow to another workflow by name. The message is visible in the cockpit UI and can be read by agents in the target workflow.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        targetWorkflowName: { type: 'string', description: 'Name of the target workflow.' },
+        content: { type: 'string', description: 'Message content.' },
+      },
+      required: ['targetWorkflowName', 'content'],
+    },
+  },
+  {
+    name: 'workflow_messages_read',
+    description: 'Read all messages sent to this workflow (most recent last). Returns an array of messages with sender workflow, content, and timestamp.',
+    inputSchema: { type: 'object', properties: {} },
+  },
+  {
+    name: 'workflow_list',
+    description: 'List all registered workflows by name and ID.',
+    inputSchema: { type: 'object', properties: {} },
+  },
 ];
 
 // ─── Tool handlers ────────────────────────────────────────────────────────────
@@ -175,17 +202,19 @@ async function dispatchTool(
 ): Promise<unknown> {
   switch (name) {
     case 'context_get': {
+      const workflowId = getSessionWorkflow(deps.db, callerSessionId) ?? undefined;
       if (args['key'] !== undefined) {
-        const entry = getSharedContextEntry(deps.db, String(args['key']));
+        const entry = getSharedContextEntry(deps.db, String(args['key']), workflowId);
         return entry ?? null;
       }
-      return getAllSharedContext(deps.db);
+      return getAllSharedContext(deps.db, workflowId);
     }
 
     case 'context_set': {
       const key = String(args['key']);
       const value = String(args['value']);
-      upsertSharedContext(deps.db, key, value, callerSessionId);
+      const workflowId = getSessionWorkflow(deps.db, callerSessionId) ?? undefined;
+      upsertSharedContext(deps.db, key, value, callerSessionId, workflowId);
       deps.broadcastEvent({
         schemaVersion: 1,
         sessionId: callerSessionId,
@@ -200,7 +229,8 @@ async function dispatchTool(
 
     case 'context_delete': {
       const key = String(args['key']);
-      deleteSharedContext(deps.db, key);
+      const workflowId = getSessionWorkflow(deps.db, callerSessionId) ?? undefined;
+      deleteSharedContext(deps.db, key, workflowId);
       deps.broadcastEvent({
         schemaVersion: 1,
         sessionId: callerSessionId,
@@ -216,7 +246,8 @@ async function dispatchTool(
     case 'context_push': {
       const key = String(args['key']);
       const value = String(args['value']);
-      const remaining = pushToSharedList(deps.db, key, value, callerSessionId);
+      const workflowId = getSessionWorkflow(deps.db, callerSessionId) ?? undefined;
+      const remaining = pushToSharedList(deps.db, key, value, callerSessionId, workflowId);
       deps.broadcastEvent({
         schemaVersion: 1,
         sessionId: callerSessionId,
@@ -231,7 +262,8 @@ async function dispatchTool(
 
     case 'context_pop': {
       const key = String(args['key']);
-      const { item, remaining } = popFromSharedList(deps.db, key, callerSessionId);
+      const workflowId = getSessionWorkflow(deps.db, callerSessionId) ?? undefined;
+      const { item, remaining } = popFromSharedList(deps.db, key, callerSessionId, workflowId);
       if (item !== null) {
         deps.broadcastEvent({
           schemaVersion: 1,
@@ -380,6 +412,47 @@ async function dispatchTool(
       await runtime.sendMessage(task);
 
       return { sessionId: childId, response: responseText, messageId };
+    }
+
+    case 'workflow_message_send': {
+      const targetName = String(args['targetWorkflowName']);
+      const content = String(args['content']);
+      const fromWorkflowId = getSessionWorkflow(deps.db, callerSessionId);
+      if (!fromWorkflowId) throw new Error('This session is not part of a workflow');
+      const target = getWorkflowByName(deps.db, targetName);
+      if (!target) throw new Error(`Workflow not found: ${targetName}`);
+      const messageId = crypto.randomUUID();
+      const createdAt = new Date().toISOString();
+      insertWorkflowMessage(deps.db, {
+        id: messageId,
+        fromWorkflowId,
+        toWorkflowId: target.id,
+        fromSessionId: callerSessionId,
+        content,
+        createdAt,
+      });
+      deps.broadcastEvent({
+        schemaVersion: 1,
+        sessionId: callerSessionId,
+        type: 'workflow_message',
+        fromWorkflowId,
+        toWorkflowId: target.id,
+        fromSessionId: callerSessionId,
+        content,
+        messageId,
+        timestamp: createdAt,
+      } as NormalizedEvent);
+      return { ok: true, messageId };
+    }
+
+    case 'workflow_messages_read': {
+      const workflowId = getSessionWorkflow(deps.db, callerSessionId);
+      if (!workflowId) throw new Error('This session is not part of a workflow');
+      return getWorkflowMessages(deps.db, workflowId);
+    }
+
+    case 'workflow_list': {
+      return getAllWorkflows(deps.db);
     }
 
     default:

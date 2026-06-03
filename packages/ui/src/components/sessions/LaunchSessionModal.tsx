@@ -5,6 +5,9 @@ import { DAEMON_URL } from '../../lib/daemonUrl.js'
 interface LaunchSessionModalProps {
   open: boolean
   onClose: () => void
+  initialWorkspacePath?: string
+  workflowId?: string
+  onLaunched?: (sessionId: string) => void
 }
 
 type SubmitState =
@@ -15,11 +18,11 @@ type SubmitState =
 interface BrowseEntry { name: string; fullPath: string }
 interface BrowseResult { path: string; parent: string | null; entries: BrowseEntry[] }
 
-export function LaunchSessionModal({ open, onClose }: LaunchSessionModalProps) {
+export function LaunchSessionModal({ open, onClose, initialWorkspacePath, workflowId, onLaunched }: LaunchSessionModalProps) {
   const [provider, setProvider] = useState<'claude' | 'codex'>('claude')
   const [permissionMode, setPermissionMode] = useState<'default' | 'dangerously_skip'>('default')
   const [model, setModel] = useState('claude-sonnet-4-6')
-  const [workspacePath, setWorkspacePath] = useState('')
+  const [workspacePath, setWorkspacePath] = useState(initialWorkspacePath ?? '')
   const [state, setState] = useState<SubmitState>({ type: 'idle' })
   const [browseOpen, setBrowseOpen] = useState(false)
   const [browse, setBrowse] = useState<BrowseResult | null>(null)
@@ -64,8 +67,8 @@ export function LaunchSessionModal({ open, onClose }: LaunchSessionModalProps) {
       const { cols, rows } = estimateTerminalSize()
       const launchPayload =
         provider === 'claude'
-          ? { provider, workspacePath, permissionMode, model, cols, rows }
-          : { provider, workspacePath }
+          ? { provider, workspacePath, permissionMode, model, cols, rows, ...(workflowId ? { workflowId } : {}) }
+          : { provider, workspacePath, ...(workflowId ? { workflowId } : {}) }
       const res = await fetch(`${DAEMON_URL}/api/sessions`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -90,6 +93,7 @@ export function LaunchSessionModal({ open, onClose }: LaunchSessionModalProps) {
         setState({ type: 'error', message: data.error ?? 'Request failed' })
         return
       }
+      onLaunched?.(data.sessionId)
       handleClose()
     } catch (err) {
       setState({ type: 'error', message: String(err) })
@@ -196,18 +200,10 @@ export function LaunchSessionModal({ open, onClose }: LaunchSessionModalProps) {
                     <div key={entry.fullPath} className="flex items-center group">
                       <button
                         type="button"
-                        onClick={() => browseInto(entry.fullPath)}
+                        onClick={() => selectPath(entry.fullPath)}
                         className="flex-1 px-3 py-1.5 text-left [font-family:var(--font-mono-data)] text-xs text-foreground hover:bg-[color-mix(in_srgb,var(--color-cockpit-accent)_10%,transparent)] truncate"
                       >
                         📁 {entry.name}
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => selectPath(entry.fullPath)}
-                        className="shrink-0 px-2 py-1.5 cockpit-label text-[9px] opacity-0 group-hover:opacity-100 hover:text-foreground transition-opacity"
-                        title="Select this folder"
-                      >
-                        SELECT
                       </button>
                     </div>
                   ))}

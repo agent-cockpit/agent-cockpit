@@ -1,4 +1,4 @@
-import { Outlet } from 'react-router'
+import { Outlet, useNavigate, useLocation } from 'react-router'
 import { useState } from 'react'
 import { MapSidebar } from './MapSidebar.js'
 import { HistoryPopup } from '../office/HistoryPopup.js'
@@ -12,10 +12,14 @@ export function OpsLayout() {
   const activeSessions = useActiveSessions()
   const wsStatus = useStore((s) => s.wsStatus)
   const sharedContextCount = useStore((s) => Object.keys(s.sharedContext).length)
+  const setViewMode = useStore((s) => s.setViewMode)
   const [historyOpen, setHistoryOpen] = useState(false)
   const [statsOpen, setStatsOpen] = useState(false)
   const [contextOpen, setContextOpen] = useState(false)
   const activeSessionCount = activeSessions.length
+  const navigate = useNavigate()
+  const location = useLocation()
+  const isTerminalView = location.pathname === '/manage/terminal'
 
   return (
     <div className="flex flex-col h-screen bg-background text-foreground">
@@ -61,11 +65,27 @@ export function OpsLayout() {
           >
             Context{sharedContextCount > 0 ? ` (${sharedContextCount})` : ''}
           </button>
+          <div className="flex items-center gap-1 border-l border-border/50 pl-3 shrink-0">
+            <button
+              className="cockpit-btn shrink-0"
+              style={!isTerminalView ? { color: 'var(--color-cockpit-green)', borderColor: 'var(--color-cockpit-green)' } : {}}
+              onClick={() => { setViewMode('office'); void navigate('/manage') }}
+            >
+              Office
+            </button>
+            <button
+              className="cockpit-btn shrink-0"
+              style={isTerminalView ? { color: 'var(--color-cockpit-green)', borderColor: 'var(--color-cockpit-green)' } : {}}
+              onClick={() => { setViewMode('terminal'); void navigate('/manage/terminal') }}
+            >
+              Terminal
+            </button>
+          </div>
         </div>
 
         {/* Sessions */}
         <div className="min-w-0 flex-1 [font-family:var(--font-sidebar-body)]">
-          <MapSidebar onFocusSession={scrollToSession} />
+          <MapSidebar onFocusSession={isTerminalView ? () => {} : scrollToSession} />
         </div>
       </header>
 

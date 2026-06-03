@@ -106,6 +106,30 @@ export function openDatabase(dbPath: string): Database.Database {
       session_id TEXT,
       updated_at TEXT NOT NULL
     );
+
+    CREATE TABLE IF NOT EXISTS workflows (
+      id         TEXT PRIMARY KEY,
+      name       TEXT NOT NULL,
+      created_at TEXT NOT NULL
+    );
+
+    CREATE TABLE IF NOT EXISTS session_workflows (
+      session_id  TEXT PRIMARY KEY,
+      workflow_id TEXT NOT NULL
+    );
+
+    CREATE TABLE IF NOT EXISTS workflow_messages (
+      id               TEXT PRIMARY KEY,
+      from_workflow_id TEXT NOT NULL,
+      to_workflow_id   TEXT NOT NULL,
+      from_session_id  TEXT NOT NULL,
+      content          TEXT NOT NULL,
+      created_at       TEXT NOT NULL
+    );
+    CREATE INDEX IF NOT EXISTS idx_workflow_messages_to
+      ON workflow_messages (to_workflow_id, created_at);
+    CREATE INDEX IF NOT EXISTS idx_workflow_messages_from
+      ON workflow_messages (from_workflow_id, created_at);
   `);
 
   // One-time backfill: index any rows that existed before Phase 8

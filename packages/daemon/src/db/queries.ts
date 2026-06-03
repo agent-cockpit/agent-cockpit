@@ -915,22 +915,44 @@ export interface SharedContextEntry {
   updatedAt: string;
 }
 
-export function getAllSharedContext(db: Database.Database): SharedContextEntry[] {
-  return db.prepare('SELECT key, value, session_id as sessionId, updated_at as updatedAt FROM shared_context ORDER BY updated_at DESC').all() as SharedContextEntry[];
+function wfKey(key: string, workflowId?: string): string {
+  return workflowId ? `wf:${workflowId}:${key}` : key;
 }
 
-export function getSharedContextEntry(db: Database.Database, key: string): SharedContextEntry | null {
-  return db.prepare('SELECT key, value, session_id as sessionId, updated_at as updatedAt FROM shared_context WHERE key = ?').get(key) as SharedContextEntry | null;
+function stripWfPrefix(storedKey: string, workflowId: string): string {
+  const prefix = `wf:${workflowId}:`;
+  return storedKey.startsWith(prefix) ? storedKey.slice(prefix.length) : storedKey;
 }
 
-export function upsertSharedContext(db: Database.Database, key: string, value: string, sessionId?: string): void {
+export function getAllSharedContext(db: Database.Database, workflowId?: string): SharedContextEntry[] {
+  if (workflowId !== undefined) {
+    const prefix = `wf:${workflowId}:`;
+    const rows = db.prepare(
+      "SELECT key, value, session_id as sessionId, updated_at as updatedAt FROM shared_context WHERE key LIKE ? ORDER BY updated_at DESC"
+    ).all(`${prefix}%`) as SharedContextEntry[];
+    return rows.map((r) => ({ ...r, key: stripWfPrefix(r.key, workflowId) }));
+  }
+  return db.prepare(
+    "SELECT key, value, session_id as sessionId, updated_at as updatedAt FROM shared_context WHERE key NOT LIKE 'wf:%' ORDER BY updated_at DESC"
+  ).all() as SharedContextEntry[];
+}
+
+export function getSharedContextEntry(db: Database.Database, key: string, workflowId?: string): SharedContextEntry | null {
+  const stored = wfKey(key, workflowId);
+  const row = db.prepare('SELECT key, value, session_id as sessionId, updated_at as updatedAt FROM shared_context WHERE key = ?').get(stored) as SharedContextEntry | null;
+  if (!row) return null;
+  return { ...row, key };
+}
+
+export function upsertSharedContext(db: Database.Database, key: string, value: string, sessionId?: string, workflowId?: string): void {
+  const stored = wfKey(key, workflowId);
   db.prepare(
     'INSERT INTO shared_context (key, value, session_id, updated_at) VALUES (?, ?, ?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value, session_id = excluded.session_id, updated_at = excluded.updated_at'
-  ).run(key, value, sessionId ?? null, new Date().toISOString());
+  ).run(stored, value, sessionId ?? null, new Date().toISOString());
 }
 
-export function deleteSharedContext(db: Database.Database, key: string): void {
-  db.prepare('DELETE FROM shared_context WHERE key = ?').run(key);
+export function deleteSharedContext(db: Database.Database, key: string, workflowId?: string): void {
+  db.prepare('DELETE FROM shared_context WHERE key = ?').run(wfKey(key, workflowId));
 }
 
 export function pushToSharedList(
@@ -938,12 +960,13 @@ export function pushToSharedList(
   key: string,
   value: string,
   sessionId?: string,
+  workflowId?: string,
 ): string[] {
   return db.transaction(() => {
-    const entry = getSharedContextEntry(db, key);
+    const entry = getSharedContextEntry(db, key, workflowId);
     const list: string[] = entry ? (JSON.parse(entry.value) as string[]) : [];
     list.push(value);
-    upsertSharedContext(db, key, JSON.stringify(list), sessionId);
+    upsertSharedContext(db, key, JSON.stringify(list), sessionId, workflowId);
     return list;
   })();
 }
@@ -952,16 +975,71 @@ export function popFromSharedList(
   db: Database.Database,
   key: string,
   sessionId?: string,
+  workflowId?: string,
 ): { item: string | null; remaining: string[] } {
   return db.transaction(() => {
-    const entry = getSharedContextEntry(db, key);
+    const entry = getSharedContextEntry(db, key, workflowId);
     if (!entry) return { item: null, remaining: [] };
     const list: string[] = JSON.parse(entry.value) as string[];
     if (list.length === 0) return { item: null, remaining: [] };
     const item = list.shift()!;
-    upsertSharedContext(db, key, JSON.stringify(list), sessionId);
+    upsertSharedContext(db, key, JSON.stringify(list), sessionId, workflowId);
     return { item, remaining: list };
   })();
+}
+
+// ─── Workflow registry ────────────────────────────────────────────────────────
+
+export function upsertWorkflow(db: Database.Database, id: string, name: string): void {
+  db.prepare(
+    'INSERT INTO workflows (id, name, created_at) VALUES (?, ?, ?) ON CONFLICT(id) DO UPDATE SET name = excluded.name'
+  ).run(id, name, new Date().toISOString());
+}
+
+export function getWorkflowByName(db: Database.Database, name: string): { id: string; name: string } | null {
+  return db.prepare('SELECT id, name FROM workflows WHERE name = ? LIMIT 1').get(name) as { id: string; name: string } | null;
+}
+
+export function getAllWorkflows(db: Database.Database): Array<{ id: string; name: string }> {
+  return db.prepare('SELECT id, name FROM workflows ORDER BY created_at ASC').all() as Array<{ id: string; name: string }>;
+}
+
+export function setSessionWorkflow(db: Database.Database, sessionId: string, workflowId: string): void {
+  db.prepare(
+    'INSERT INTO session_workflows (session_id, workflow_id) VALUES (?, ?) ON CONFLICT(session_id) DO UPDATE SET workflow_id = excluded.workflow_id'
+  ).run(sessionId, workflowId);
+}
+
+export function getSessionWorkflow(db: Database.Database, sessionId: string): string | null {
+  const row = db.prepare('SELECT workflow_id FROM session_workflows WHERE session_id = ?').get(sessionId) as { workflow_id: string } | undefined;
+  return row?.workflow_id ?? null;
+}
+
+// ─── Workflow messages ────────────────────────────────────────────────────────
+
+export interface WorkflowMessage {
+  id: string;
+  fromWorkflowId: string;
+  toWorkflowId: string;
+  fromSessionId: string;
+  content: string;
+  createdAt: string;
+}
+
+export function insertWorkflowMessage(db: Database.Database, msg: WorkflowMessage): void {
+  db.prepare(
+    'INSERT INTO workflow_messages (id, from_workflow_id, to_workflow_id, from_session_id, content, created_at) VALUES (?, ?, ?, ?, ?, ?)'
+  ).run(msg.id, msg.fromWorkflowId, msg.toWorkflowId, msg.fromSessionId, msg.content, msg.createdAt);
+}
+
+export function getWorkflowMessages(db: Database.Database, workflowId: string): WorkflowMessage[] {
+  return db.prepare(`
+    SELECT id, from_workflow_id AS fromWorkflowId, to_workflow_id AS toWorkflowId,
+           from_session_id AS fromSessionId, content, created_at AS createdAt
+    FROM workflow_messages
+    WHERE from_workflow_id = ? OR to_workflow_id = ?
+    ORDER BY created_at ASC
+  `).all(workflowId, workflowId) as WorkflowMessage[];
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

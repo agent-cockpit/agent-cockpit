@@ -173,6 +173,8 @@ interface UiSlice {
   popupWindowOrder: string[]
   filters: { provider: string | null; status: string | null; search: string }
   sessionDetailOpen: boolean
+  viewMode: 'office' | 'terminal'
+  setViewMode: (mode: 'office' | 'terminal') => void
   selectSession: (id: string) => void
   setSelectedPlayerCharacter: (character: CharacterType) => void
   setActivePanel: (panel: PanelId) => void
@@ -221,7 +223,21 @@ interface SharedContextSlice {
   setSharedContext: (entries: (SharedContextEntry & { key: string })[]) => void
 }
 
-export type AppStore = SessionsSlice & UiSlice & WsSlice & EventsSlice & HistorySlice & ApprovalsSlice & SharedContextSlice
+export interface WorkflowMessage {
+  id: string
+  fromWorkflowId: string
+  toWorkflowId: string
+  fromSessionId: string
+  content: string
+  createdAt: string
+}
+
+interface WorkflowMessagesSlice {
+  workflowMessages: Record<string, WorkflowMessage[]>
+  setWorkflowMessages: (workflowId: string, messages: WorkflowMessage[]) => void
+}
+
+export type AppStore = SessionsSlice & UiSlice & WsSlice & EventsSlice & HistorySlice & ApprovalsSlice & SharedContextSlice & WorkflowMessagesSlice
 
 const POPUP_DEFAULT_WIDTH = 980
 const POPUP_DEFAULT_HEIGHT = 640
@@ -267,9 +283,9 @@ function defaultPopupWindow(
 }
 
 function reduceStoreWithEvent(
-  state: Pick<AppStore, 'sessions' | 'events' | 'pendingApprovalsBySession' | 'characterBag' | 'subagentSessionIds' | 'activeSubagentParents' | 'sharedContext'>,
+  state: Pick<AppStore, 'sessions' | 'events' | 'pendingApprovalsBySession' | 'characterBag' | 'subagentSessionIds' | 'activeSubagentParents' | 'sharedContext' | 'workflowMessages'>,
   event: NormalizedEvent,
-): Pick<AppStore, 'sessions' | 'events' | 'pendingApprovalsBySession' | 'characterBag' | 'subagentSessionIds' | 'activeSubagentParents' | 'sharedContext'> {
+): Pick<AppStore, 'sessions' | 'events' | 'pendingApprovalsBySession' | 'characterBag' | 'subagentSessionIds' | 'activeSubagentParents' | 'sharedContext' | 'workflowMessages'> {
   let characterBag = state.characterBag
   let character: CharacterType | undefined
   if (event.type === 'session_start') {
@@ -327,6 +343,26 @@ function reduceStoreWithEvent(
     }
   }
 
+  let workflowMessages = state.workflowMessages
+  if (event.type === 'workflow_message') {
+    const msg: WorkflowMessage = {
+      id: event.messageId,
+      fromWorkflowId: event.fromWorkflowId,
+      toWorkflowId: event.toWorkflowId,
+      fromSessionId: event.fromSessionId,
+      content: event.content,
+      createdAt: event.timestamp,
+    }
+    workflowMessages = { ...workflowMessages }
+    // Add to both sides so both workflows see the message
+    for (const wfId of [event.fromWorkflowId, event.toWorkflowId]) {
+      const existing = workflowMessages[wfId] ?? []
+      if (!existing.some((m) => m.id === msg.id)) {
+        workflowMessages[wfId] = [...existing, msg]
+      }
+    }
+  }
+
   return {
     sessions: sessionsPatch.sessions,
     events: eventsPatch.events,
@@ -335,6 +371,7 @@ function reduceStoreWithEvent(
     subagentSessionIds,
     activeSubagentParents,
     sharedContext,
+    workflowMessages,
   }
 }
 
@@ -351,7 +388,7 @@ export const useStore = create<AppStore>()(
       set((state) => {
         if (events.length === 0) return {}
 
-        let nextState: Pick<AppStore, 'sessions' | 'events' | 'pendingApprovalsBySession' | 'characterBag' | 'subagentSessionIds' | 'activeSubagentParents' | 'sharedContext'> = {
+        let nextState: Pick<AppStore, 'sessions' | 'events' | 'pendingApprovalsBySession' | 'characterBag' | 'subagentSessionIds' | 'activeSubagentParents' | 'sharedContext' | 'workflowMessages'> = {
           sessions: state.sessions,
           events: state.events,
           pendingApprovalsBySession: state.pendingApprovalsBySession,
@@ -359,6 +396,7 @@ export const useStore = create<AppStore>()(
           subagentSessionIds: state.subagentSessionIds,
           activeSubagentParents: state.activeSubagentParents,
           sharedContext: state.sharedContext,
+          workflowMessages: state.workflowMessages,
         }
 
         for (const event of events) {
@@ -398,6 +436,8 @@ export const useStore = create<AppStore>()(
     popupWindowOrder: [],
     filters: { provider: null, status: 'active', search: '' },
     sessionDetailOpen: false,
+    viewMode: 'office',
+    setViewMode: (mode) => set({ viewMode: mode }),
     selectSession: (id) => set({ selectedSessionId: id }),
     setSelectedPlayerCharacter: (character) => {
       try {
@@ -642,5 +682,10 @@ export const useStore = create<AppStore>()(
           entries.map(({ key, ...rest }) => [key, rest])
         ),
       })),
+
+    // workflowMessagesSlice
+    workflowMessages: {},
+    setWorkflowMessages: (workflowId, messages) =>
+      set((s) => ({ workflowMessages: { ...s.workflowMessages, [workflowId]: messages } })),
   }))
 )

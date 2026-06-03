@@ -135,6 +135,17 @@ export const InterAgentMessageEvent = BaseEvent.extend({
   messageId: z.string().uuid(),
 });
 
+// ─── Inter-workflow messaging ─────────────────────────────────────────────────
+
+export const WorkflowMessageEvent = BaseEvent.extend({
+  type: z.literal('workflow_message'),
+  fromWorkflowId: z.string(),
+  toWorkflowId: z.string(),
+  fromSessionId: z.string().uuid(),
+  content: z.string(),
+  messageId: z.string().uuid(),
+});
+
 export const SessionTurnCompleteEvent = BaseEvent.extend({
   type: z.literal('session_turn_complete'),
 });
@@ -179,6 +190,7 @@ export const NormalizedEventSchema = z.discriminatedUnion('type', [
   SessionChatErrorEvent,
   SharedContextUpdateEvent,
   InterAgentMessageEvent,
+  WorkflowMessageEvent,
   SessionTurnCompleteEvent,
 ]);
 

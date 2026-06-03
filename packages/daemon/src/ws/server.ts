@@ -20,7 +20,7 @@ import { markSessionStarted } from '../adapters/claude/hookServer.js';
 import { CodexPtyLauncher, type CodexPtyRuntime } from '../adapters/codex/ptyLauncher.js';
 import { getApprovalsBySession } from '../approvals/approvalStore.js';
 import { approvalQueue } from '../approvals/approvalQueue.js';
-import { deleteSessionRecords, getAllSessions, getAllSharedContext, upsertSharedContext, deleteSharedContext, pushToSharedList, popFromSharedList, getEventsBySession, getSessionStats, getSessionSummary, getUsageStats, isSessionRecordDeleted, persistEvent, searchAll, type SessionSummary } from '../db/queries.js';
+import { deleteSessionRecords, getAllSessions, getAllSharedContext, upsertSharedContext, deleteSharedContext, pushToSharedList, popFromSharedList, getEventsBySession, getSessionStats, getSessionSummary, getUsageStats, isSessionRecordDeleted, persistEvent, searchAll, upsertWorkflow, setSessionWorkflow, getAllWorkflows, getWorkflowMessages, insertWorkflowMessage, type SessionSummary } from '../db/queries.js';
 import { handleMcpRequest, notifyTurnComplete } from '../mcp/server.js';
 import { eventBus } from '../eventBus.js';
 import { logger } from '../logger.js';
@@ -254,6 +254,7 @@ function handleLaunchSession(
           rows,
           parentSessionId,
           systemPrompt,
+          workflowId,
         } = JSON.parse(body) as {
           provider?: string;
           workspacePath?: string;
@@ -264,6 +265,7 @@ function handleLaunchSession(
           rows?: number;
           parentSessionId?: string;
           systemPrompt?: string;
+          workflowId?: string;
         };
         if (!provider || !workspacePath) {
           res.writeHead(400, { 'Content-Type': 'application/json' });
@@ -344,6 +346,7 @@ function handleLaunchSession(
             terminateSession: () => ptyRuntime.kill(),
           });
           markSessionStarted(sessionId);
+          if (workflowId) setSessionWorkflow(db, sessionId, workflowId);
           eventBus.emit('event', {
             schemaVersion: 1,
             sessionId,
@@ -394,6 +397,7 @@ function handleLaunchSession(
             sendMessage: (msg) => { codexPtyRuntime.write(msg + '\n'); return Promise.resolve(); },
             terminateSession: () => codexPtyRuntime.kill(),
           });
+          if (workflowId) setSessionWorkflow(db, sessionId, workflowId);
           eventBus.emit('event', {
             schemaVersion: 1,
             sessionId,
@@ -933,6 +937,38 @@ export function createWsServer(
       }
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ item }));
+      return;
+    }
+
+    // POST /api/workflows — register workflow in daemon
+    if (req.method === 'POST' && req.url === '/api/workflows') {
+      let body = '';
+      req.on('data', (c) => { body += c; });
+      req.on('end', () => {
+        try {
+          const { id, name } = JSON.parse(body) as { id: string; name: string };
+          if (!id || !name) { res.writeHead(400, { 'Content-Type': 'application/json' }); res.end(JSON.stringify({ error: 'id and name required' })); return; }
+          upsertWorkflow(db, id, name);
+          res.writeHead(200, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ ok: true }));
+        } catch { res.writeHead(400, { 'Content-Type': 'application/json' }); res.end(JSON.stringify({ error: 'invalid body' })); }
+      });
+      return;
+    }
+
+    // GET /api/workflows — list all workflows
+    if (req.method === 'GET' && req.url === '/api/workflows') {
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify(getAllWorkflows(db)));
+      return;
+    }
+
+    // GET /api/workflows/:id/messages
+    const wfMessagesMatch = req.method === 'GET' && req.url?.match(/^\/api\/workflows\/([^/]+)\/messages$/);
+    if (wfMessagesMatch) {
+      const workflowId = decodeURIComponent(wfMessagesMatch[1]!);
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify(getWorkflowMessages(db, workflowId)));
       return;
     }
 

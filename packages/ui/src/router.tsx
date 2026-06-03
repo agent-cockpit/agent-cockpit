@@ -19,6 +19,11 @@ export const router = createBrowserRouter([
         lazy: () =>
           import('./pages/OfficePage.js').then((m) => ({ Component: m.OfficePage })),
       },
+      {
+        path: 'terminal',
+        lazy: () =>
+          import('./pages/TerminalViewPage.js').then((m) => ({ Component: m.TerminalViewPage })),
+      },
     ],
   },
 ])

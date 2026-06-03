@@ -114,6 +114,20 @@ export function attachTerminalSession(sessionId: string, container: HTMLElement)
   session.term.focus()
 }
 
+export function attachTerminalSessionPassive(sessionId: string, container: HTMLElement): void {
+  const session = getTerminalSession(sessionId)
+
+  if (!session.opened) {
+    session.term.open(container)
+    session.opened = true
+  } else if (session.term.element && session.term.element.parentElement !== container) {
+    container.appendChild(session.term.element)
+  }
+
+  fitTerminal(sessionId, session)
+  // No focus — passive mounts must not steal keyboard focus from the active block.
+}
+
 export function scheduleTerminalResize(sessionId: string): void {
   const session = getTerminalSession(sessionId)
   if (!session.opened || !session.term.element) return
